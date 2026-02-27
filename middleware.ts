@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  // Create the base response
   let res = NextResponse.next();
 
-  // Supabase client that can refresh session cookies (if needed)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -24,13 +22,17 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // Only /app/* hits this middleware, so this is the protected gate
+  // IMPORTANT:
+  // This call refreshes the session cookie when needed.
+  // We do it for protected areas AND for our /ping test route.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If not logged in, bounce to /auth
-  if (!user) {
+  // Protect /app/* (your actual app)
+  const isAppRoute = req.nextUrl.pathname.startsWith("/app");
+
+  if (isAppRoute && !user) {
     const url = req.nextUrl.clone();
     url.pathname = "/auth";
     return NextResponse.redirect(url);
@@ -40,5 +42,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*"],
+  matcher: ["/app/:path*", "/ping", "/_debug/:path*"],
 };
