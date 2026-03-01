@@ -16,8 +16,21 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isEmailValid = email.trim() !== "" && email.includes("@");
+  const isPasswordValid = password.length >= 6;
+  const isFormValid = isEmailValid && isPasswordValid;
 
   async function handleAuth() {
+    if (!isEmailValid) {
+      setError("Enter a valid email");
+      return;
+    }
+
+    if (!isPasswordValid) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -36,6 +49,16 @@ export default function AuthPage() {
   }
 
   async function handleSignup() {
+    if (!isEmailValid) {
+      setError("Enter a valid email");
+      return;
+    }
+
+    if (!isPasswordValid) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -82,11 +105,11 @@ export default function AuthPage() {
 
       {error && <div style={{ color: "red", fontSize: 14 }}>{error}</div>}
 
-      <button onClick={handleAuth} disabled={loading}>
+      <button onClick={handleAuth} disabled={loading || !isFormValid}>
         {loading ? "Loading..." : "Login"}
       </button>
 
-      <button onClick={handleSignup} disabled={loading}>
+      <button onClick={handleSignup} disabled={loading || !isFormValid}>
         {loading ? "Loading..." : "Sign Up"}
       </button>
     </div>
