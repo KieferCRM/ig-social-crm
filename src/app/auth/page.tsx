@@ -1,32 +1,114 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { createServerClient } from "@supabase/ssr";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
 
-export default async function HomePage() {
-  const cookieStore = await cookies();
+export default function AuthPage() {
+  const router = useRouter();
 
-  const supabase = createServerClient(
+  const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {
-          // server components can't set cookies
-        },
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // If logged in, go to the app. If not, go to auth.
-  if (user) redirect("/app");
-  redirect("/auth");
+  async function handleAuth() {
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/app");
+  }
+
+  async function handleSignup() {
+  setLoading(true);
+  setError(null);
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) {
+    setError(error.message);
+    setLoading(false);
+    return;
+  }
+
+  if (data.session) {
+    router.push("/app");
+    return;
+  }
+
+  const { error: loginError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (loginError) {
+    setError(loginError.message);
+    setLoading(false);
+    return;
+  }
+
+  router.push("/app");
+}
+
+  return (
+    <div
+      style={{
+        maxWidth: 400,
+        margin: "100px auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
+      <h2>Login</h2>
+
+      <input
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        style={{ padding: 8 }}
+      />
+
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        style={{ padding: 8 }}
+      />
+
+      {error && (
+        <div style={{ color: "red", fontSize: 14 }}>
+          {error}
+        </div>
+      )}
+
+      <button onClick={handleAuth} disabled={loading}>
+        {loading ? "Loading..." : "Login"}
+      </button>
+
+      <button onClick={handleSignup} disabled={loading}>
+        {loading ? "Loading..." : "Sign Up"}
+      </button>
+    </div>
+  );
 }

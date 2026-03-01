@@ -9,6 +9,8 @@ export default function KanbanPage() {
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
+  const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const savedStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const supabaseRef = useRef<ReturnType<typeof supabaseBrowser> | null>(null);
   if (!supabaseRef.current) supabaseRef.current = supabaseBrowser();
@@ -22,10 +24,17 @@ export default function KanbanPage() {
   const lastSelectedIdRef = useRef<string | null>(null);
 
   async function loadLeads() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("leads")
       .select("*")
       .order("time_last_updated", { ascending: false });
+
+    if (error) {
+      setStatus("Could not load leads.");
+      setLeads([]);
+      setLoading(false);
+      return;
+    }
 
     setLeads(data || []);
     setLoading(false);
@@ -50,19 +59,26 @@ export default function KanbanPage() {
     }
 
     const leadId = currentLead.id;
+    const nextUpdatedAt = new Date().toISOString();
     const previousLeads = leads;
 
     setStatus("");
     setLeads((prev) =>
-      prev.map((l) => (l.id === leadId ? { ...l, stage: targetStage } : l))
+      prev.map((l) =>
+        l.id === leadId
+          ? { ...l, stage: targetStage, time_last_updated: nextUpdatedAt }
+          : l
+      )
     );
     setSelectedLead((prev: any) =>
-      prev?.id === leadId ? { ...prev, stage: targetStage } : prev
+      prev?.id === leadId
+        ? { ...prev, stage: targetStage, time_last_updated: nextUpdatedAt }
+        : prev
     );
 
     const { error } = await supabase
       .from("leads")
-      .update({ stage: targetStage })
+      .update({ stage: targetStage, time_last_updated: nextUpdatedAt })
       .eq("id", leadId);
 
     draggedLeadIdRef.current = null;
@@ -102,6 +118,7 @@ export default function KanbanPage() {
 
     autosaveTimerRef.current = setTimeout(async () => {
       setSaving(true);
+      setAutosaveState("saving");
 
       const { error } = await supabase
         .from("leads")
@@ -115,8 +132,8 @@ export default function KanbanPage() {
         .eq("id", snapshot.id);
 
       if (error) {
-        console.error("Autosave failed:", error);
         setSaving(false);
+        setAutosaveState("error");
         return;
       }
 
@@ -137,12 +154,21 @@ export default function KanbanPage() {
       );
 
       setSaving(false);
+      setAutosaveState("saved");
+      if (savedStateTimerRef.current) clearTimeout(savedStateTimerRef.current);
+      savedStateTimerRef.current = setTimeout(() => {
+        setAutosaveState("idle");
+      }, 1500);
     }, 650);
 
     return () => {
       if (autosaveTimerRef.current) {
         clearTimeout(autosaveTimerRef.current);
         autosaveTimerRef.current = null;
+      }
+      if (savedStateTimerRef.current) {
+        clearTimeout(savedStateTimerRef.current);
+        savedStateTimerRef.current = null;
       }
     };
   }, [selectedLead, supabase]);
@@ -152,7 +178,57 @@ export default function KanbanPage() {
     leads: leads.filter((lead) => lead.stage === stage),
   }));
 
-  if (loading) return <div style={{ padding: 24 }}>Loading...</div>;
+  if (loading) {
+    return (
+      <main style={{ padding: 24, fontFamily: "system-ui" }}>
+        <div
+          style={{
+            border: "1px solid #e5e5e5",
+            borderRadius: 12,
+            background: "#fafafa",
+            padding: 16,
+            color: "#555",
+          }}
+        >
+          Loading pipeline...
+        </div>
+      </main>
+    );
+  }
+
+  if (leads.length === 0) {
+    return (
+      <main style={{ padding: 24, fontFamily: "system-ui", maxWidth: 840 }}>
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}
+        >
+          <div>
+            <h1 style={{ margin: 0 }}>Pipeline</h1>
+            <div style={{ marginTop: 6, fontSize: 13, color: "#666" }}>
+              Click a lead to edit. Changes autosave.
+            </div>
+          </div>
+          <a href="/app" style={{ textDecoration: "none", fontWeight: 600 }}>
+            ← Dashboard
+          </a>
+        </div>
+        <div
+          style={{
+            border: "1px solid #e5e5e5",
+            borderRadius: 12,
+            background: "#fafafa",
+            padding: 18,
+            color: "#444",
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>No leads yet</div>
+          <div style={{ fontSize: 14, color: "#666" }}>
+            When leads are added, they will appear here and can be moved through stages.
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={{ padding: 24, fontFamily: "system-ui" }}>
@@ -295,13 +371,15 @@ export default function KanbanPage() {
                 <div style={{ fontSize: 12, color: "#666" }}>Intent</div>
                 <input
                   value={selectedLead.intent || ""}
+                  readOnly={saving}
+                  aria-disabled={saving}
                   onChange={(e) =>
                     setSelectedLead((prev: any) => ({
                       ...prev,
                       intent: e.target.value,
                     }))
                   }
-                  style={{ width: "100%", padding: 8 }}
+                  style={{ width: "100%", padding: 8, background: saving ? "#f7f7f7" : "#fff" }}
                 />
               </div>
 
@@ -309,13 +387,15 @@ export default function KanbanPage() {
                 <div style={{ fontSize: 12, color: "#666" }}>Timeline</div>
                 <input
                   value={selectedLead.timeline || ""}
+                  readOnly={saving}
+                  aria-disabled={saving}
                   onChange={(e) =>
                     setSelectedLead((prev: any) => ({
                       ...prev,
                       timeline: e.target.value,
                     }))
                   }
-                  style={{ width: "100%", padding: 8 }}
+                  style={{ width: "100%", padding: 8, background: saving ? "#f7f7f7" : "#fff" }}
                 />
               </div>
 
@@ -323,13 +403,15 @@ export default function KanbanPage() {
                 <div style={{ fontSize: 12, color: "#666" }}>Source</div>
                 <input
                   value={selectedLead.source || ""}
+                  readOnly={saving}
+                  aria-disabled={saving}
                   onChange={(e) =>
                     setSelectedLead((prev: any) => ({
                       ...prev,
                       source: e.target.value,
                     }))
                   }
-                  style={{ width: "100%", padding: 8 }}
+                  style={{ width: "100%", padding: 8, background: saving ? "#f7f7f7" : "#fff" }}
                 />
               </div>
 
@@ -337,6 +419,7 @@ export default function KanbanPage() {
                 <div style={{ fontSize: 12, color: "#666" }}>Stage</div>
                 <select
                   value={selectedLead.stage || "New"}
+                  disabled={saving}
                   onChange={(e) =>
                     setSelectedLead((prev: any) => ({
                       ...prev,
@@ -357,6 +440,8 @@ export default function KanbanPage() {
                 <div style={{ fontSize: 12, color: "#666" }}>Notes</div>
                 <textarea
                   value={selectedLead.notes || ""}
+                  readOnly={saving}
+                  aria-disabled={saving}
                   onChange={(e) =>
                     setSelectedLead((prev: any) => ({
                       ...prev,
@@ -364,13 +449,33 @@ export default function KanbanPage() {
                     }))
                   }
                   rows={5}
-                  style={{ width: "100%", padding: 8 }}
+                  style={{ width: "100%", padding: 8, background: saving ? "#f7f7f7" : "#fff" }}
                 />
               </div>
 
-              <button disabled style={{ opacity: 0.7 }}>
-                {saving ? "Saving..." : "Autosave enabled"}
-              </button>
+              <div
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e5e5",
+                  background: "#fafafa",
+                  fontSize: 13,
+                  color:
+                    autosaveState === "error"
+                      ? "#b00020"
+                      : autosaveState === "saved"
+                      ? "#186a3b"
+                      : "#555",
+                }}
+              >
+                {autosaveState === "saving"
+                  ? "Saving..."
+                  : autosaveState === "saved"
+                  ? "Saved"
+                  : autosaveState === "error"
+                  ? "Error"
+                  : "Autosave enabled"}
+              </div>
             </div>
           )}
         </div>

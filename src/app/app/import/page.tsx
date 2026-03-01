@@ -1,237 +1,76 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { supabaseBrowser } from "@/lib/supabase/browser";
 
-const STAGES = ["New", "Contacted", "Warm", "Hot", "Closed"] as const;
-const TEMPS = ["Cold", "Warm", "Hot"] as const;
-
-type Stage = (typeof STAGES)[number];
-type Temp = (typeof TEMPS)[number];
-
-type ImportRow = {
-  ig_username: string;
-  intent?: string;
-  timeline?: string;
-  lead_temp?: Temp | string;
-  source?: string;
-  notes?: string;
-  stage?: Stage | string;
-  timestamp?: string;
+type ImportError = {
+  row: number;
+  message: string;
 };
 
-function normIg(handle: string): string {
-  return handle.trim().replace(/^@+/, "").toLowerCase();
-}
-
-function cleanStr(v: any): string | undefined {
-  if (v === undefined || v === null) return undefined;
-  const s = String(v).trim();
-  return s.length ? s : undefined;
-}
-
-function pickHeader(h: string) {
-  return h.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-// Very small CSV parser (handles commas + quotes).
-function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
-  const lines: string[] = [];
-  let cur = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-
-    if (ch === '"') {
-      // double quote escape
-      const next = text[i + 1];
-      if (inQuotes && next === '"') {
-        cur += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (ch === "\n" && !inQuotes) {
-      lines.push(cur.replace(/\r$/, ""));
-      cur = "";
-      continue;
-    }
-
-    cur += ch;
-  }
-  if (cur.length) lines.push(cur.replace(/\r$/, ""));
-
-  const splitLine = (line: string) => {
-    const out: string[] = [];
-    let cell = "";
-    let q = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-
-      if (ch === '"') {
-        const next = line[i + 1];
-        if (q && next === '"') {
-          cell += '"';
-          i++;
-        } else {
-          q = !q;
-        }
-        continue;
-      }
-
-      if (ch === "," && !q) {
-        out.push(cell);
-        cell = "";
-        continue;
-      }
-
-      cell += ch;
-    }
-    out.push(cell);
-    return out.map((s) => s.trim());
-  };
-
-  const rawHeaders = splitLine(lines[0] ?? "");
-  const headers = rawHeaders.map(pickHeader);
-
-  const rows: Record<string, string>[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitLine(lines[i]);
-    if (cols.every((c) => c.trim() === "")) continue;
-
-    const obj: Record<string, string> = {};
-    for (let c = 0; c < headers.length; c++) {
-      obj[headers[c]] = cols[c] ?? "";
-    }
-    rows.push(obj);
-  }
-
-  return { headers, rows };
-}
+type ImportResponse = {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: ImportError[];
+};
 
 export default function ImportPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
   const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<string>("");
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<"idle" | "importing" | "success" | "error">("idle");
+  const [message, setMessage] = useState("Pick a CSV and click Import.");
+  const [result, setResult] = useState<ImportResponse | null>(null);
 
-  async function handleUpload() {
+  async function handleImport() {
     if (!file) {
-      setStatus("Pick a CSV file first.");
+      setStatus("error");
+      setMessage("Choose a CSV file first.");
       return;
     }
 
-    setBusy(true);
-    setStatus("Reading file...");
+    setStatus("importing");
+    setMessage("Importing...");
+    setResult(null);
 
     try {
-      // 1) Confirm logged-in user (this is the agent_id we must write)
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
-      const user = userData.user;
-      if (!user) throw new Error("Not logged in. Go to /auth and log in first.");
+      const formData = new FormData();
+      formData.append("file", file);
 
-      const agent_id = user.id;
+      const response = await fetch("/api/import-leads", {
+        method: "POST",
+        body: formData,
+      });
 
-      // 2) Read + parse CSV
-      const text = await file.text();
-      const parsed = parseCsv(text);
+      const data = (await response.json()) as
+        | ImportResponse
+        | { error?: string; errors?: ImportError[] };
 
-      // Expected headers from your Sheets export
-      // Timestamp, IG Username, Intent, Timeline, Lead Temp, Source, Notes, Stage
-      const toRow = (r: Record<string, string>): ImportRow | null => {
-        const igRaw =
-          r["ig username"] ?? r["ig_username"] ?? r["instagram"] ?? r["ig handle"] ?? "";
-
-        const ig = cleanStr(igRaw);
-        if (!ig) return null;
-
-        const stageRaw = cleanStr(r["stage"]);
-        const stage = stageRaw && STAGES.includes(stageRaw as any) ? (stageRaw as Stage) : "New";
-
-        const tempRaw = cleanStr(r["lead temp"] ?? r["lead_temp"]);
-        const lead_temp =
-          tempRaw && TEMPS.includes(tempRaw as any) ? (tempRaw as Temp) : tempRaw; // allow unknowns without breaking
-
-        const timestamp = cleanStr(r["timestamp"]);
-
-        return {
-          ig_username: normIg(ig),
-          intent: cleanStr(r["intent"]),
-          timeline: cleanStr(r["timeline"]),
-          lead_temp,
-          source: cleanStr(r["source"]),
-          notes: cleanStr(r["notes"]),
-          stage,
-          timestamp,
-        };
-      };
-
-      const cleaned: ImportRow[] = parsed.rows
-        .map(toRow)
-        .filter((x): x is ImportRow => Boolean(x));
-
-      if (cleaned.length === 0) {
-        setStatus("No rows found with an IG Username column.");
-        setBusy(false);
+      if (!response.ok) {
+        const errors = Array.isArray(data?.errors) ? data.errors : [];
+        setResult({ inserted: 0, updated: 0, skipped: 0, errors });
+        setStatus("error");
+        setMessage((data as { error?: string })?.error || "Import failed.");
         return;
       }
 
-      setStatus(`Parsed ${cleaned.length} rows. Uploading...`);
-
-      // 3) Build upsert payload with agent_id
-      // Important: we must include agent_id so RLS insert policy passes.
-      const payload = cleaned.map((r) => ({
-        agent_id,
-        ig_username: r.ig_username,
-        intent: r.intent ?? null,
-        timeline: r.timeline ?? null,
-        lead_temp: r.lead_temp ?? null,
-        source: r.source ?? null,
-        notes: r.notes ?? null,
-        stage: (r.stage ?? "New") as string,
-        // Only include timestamp if present; otherwise let DB default handle it (if you have one).
-        ...(r.timestamp ? { timestamp: r.timestamp } : {}),
-      }));
-
-      // 4) Upsert in chunks so we don’t blow request limits
-      const chunkSize = 500;
-      let upserted = 0;
-
-      for (let i = 0; i < payload.length; i += chunkSize) {
-        const chunk = payload.slice(i, i + chunkSize);
-
-        const { error } = await supabase
-          .from("leads")
-          .upsert(chunk, { onConflict: "agent_id,ig_username" });
-
-        if (error) throw error;
-        upserted += chunk.length;
-        setStatus(`Uploaded ${upserted}/${payload.length}...`);
-      }
-
-      setStatus(`✅ Done. Upserted ${payload.length} lead(s).`);
-    } catch (e: any) {
-      setStatus(`❌ Import failed: ${e?.message ?? String(e)}`);
-    } finally {
-      setBusy(false);
+      setResult(data as ImportResponse);
+      setStatus("success");
+      setMessage("Import complete.");
+    } catch {
+      setStatus("error");
+      setMessage("Import failed. Please try again.");
     }
   }
 
+  const errorRows = result?.errors?.slice(0, 10) ?? [];
+
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui", maxWidth: 720 }}>
+    <main style={{ padding: 24, fontFamily: "system-ui", maxWidth: 760 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ margin: 0 }}>Import Leads</h1>
           <p style={{ marginTop: 8, color: "#555" }}>
-            Upload a CSV exported from your Google Sheet. We’ll upsert by{" "}
-            <code>(agent_id, ig_username)</code> so there are no duplicates.
+            Upload CSV and upsert by <code>(agent_id, ig_username)</code>.
           </p>
         </div>
         <div style={{ display: "flex", gap: 12 }}>
@@ -248,33 +87,79 @@ export default function ImportPage() {
         <input
           type="file"
           accept=".csv,text/csv"
+          disabled={status === "importing"}
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
         />
 
         <div style={{ marginTop: 12 }}>
           <button
-            onClick={handleUpload}
-            disabled={busy || !file}
+            onClick={handleImport}
+            disabled={status === "importing" || !file}
             style={{
               padding: "10px 14px",
               borderRadius: 10,
               border: "1px solid #ddd",
-              background: busy || !file ? "#f5f5f5" : "#fff",
-              cursor: busy || !file ? "not-allowed" : "pointer",
+              background: status === "importing" || !file ? "#f5f5f5" : "#fff",
+              cursor: status === "importing" || !file ? "not-allowed" : "pointer",
               fontWeight: 600,
             }}
           >
-            {busy ? "Uploading..." : "Upload"}
+            {status === "importing" ? "Importing..." : "Import"}
           </button>
         </div>
 
-        <div style={{ marginTop: 12, color: status.startsWith("❌") ? "#b00020" : "#333" }}>
-          {status || "Pick a CSV and click Upload."}
+        <div
+          style={{
+            marginTop: 12,
+            color: status === "error" ? "#b00020" : "#333",
+          }}
+        >
+          {message}
         </div>
 
+        {result ? (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 12,
+              border: "1px solid #e5e5e5",
+              borderRadius: 10,
+              background: "#fafafa",
+              fontSize: 14,
+              display: "grid",
+              gap: 6,
+            }}
+          >
+            <div>Inserted: {result.inserted}</div>
+            <div>Updated: {result.updated}</div>
+            <div>Skipped: {result.skipped}</div>
+            <div>Errors: {result.errors.length}</div>
+          </div>
+        ) : null}
+
+        {errorRows.length > 0 ? (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 12,
+              border: "1px solid #f0caca",
+              borderRadius: 10,
+              background: "#fff5f5",
+              color: "#8a1f1f",
+              fontSize: 14,
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>First {errorRows.length} error(s)</div>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {errorRows.map((err, idx) => (
+                <li key={`${err.row}-${idx}`}>Row {err.row}: {err.message}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         <div style={{ marginTop: 12, fontSize: 13, color: "#666" }}>
-          Expected columns (case-insensitive): <b>IG Username</b>, Intent, Timeline, Lead Temp, Source,
-          Notes, Stage, Timestamp.
+          Accepted columns: <b>ig_username</b>, intent, timeline, lead_temp, source, notes, stage.
         </div>
       </div>
     </main>
