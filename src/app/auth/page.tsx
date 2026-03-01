@@ -36,38 +36,22 @@ export default function AuthPage() {
   }
 
   async function handleSignup() {
-  setLoading(true);
-  setError(null);
+    setLoading(true);
+    setError(null);
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-  if (error) {
-    setError(error.message);
-    setLoading(false);
-    return;
-  }
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
 
-  if (data.session) {
     router.push("/app");
-    return;
   }
-
-  const { error: loginError } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (loginError) {
-    setError(loginError.message);
-    setLoading(false);
-    return;
-  }
-
-  router.push("/app");
-}
 
   return (
     <div
@@ -96,11 +80,7 @@ export default function AuthPage() {
         style={{ padding: 8 }}
       />
 
-      {error && (
-        <div style={{ color: "red", fontSize: 14 }}>
-          {error}
-        </div>
-      )}
+      {error && <div style={{ color: "red", fontSize: 14 }}>{error}</div>}
 
       <button onClick={handleAuth} disabled={loading}>
         {loading ? "Loading..." : "Login"}
