@@ -6,7 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint src scripts middleware.ts next.config.mjs postcss.config.mjs eslint.config.mjs --cache --cache-location .eslintcache",
+    "typecheck": "rm -rf .next/types .next/dev/types && ./scripts/sanitize_types.sh && tsc --noEmit",
+    "preflight:env": "node scripts/preflight_env.mjs --mode=core",
+    "preflight:env:core": "node scripts/preflight_env.mjs --mode=core",
+    "preflight:env:meta": "node scripts/preflight_env.mjs --mode=meta",
+    "preflight:env:solo-prod": "node scripts/preflight_env.mjs --mode=solo-prod",
+    "smoke:solo": "node scripts/smoke_solo.mjs",
+    "smoke:ingest": "./scripts/smoke_ingest.sh",
+    "security:rls:penetration": "node scripts/rls_penetration.mjs",
+    "release:check": "npm run preflight:env:solo-prod && npm run typecheck && npm run lint && npm run build",
+    "release:check:local": "npm run preflight:env:core && npm run typecheck && npm run lint && npm run build",
+    "release:check:with-smoke": "npm run release:check:local && npm run smoke:solo"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
