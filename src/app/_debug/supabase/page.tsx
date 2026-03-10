@@ -8,7 +8,7 @@ export default function SupabaseDebugPage() {
 
   useEffect(() => {
     const testConnection = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      const { error } = await supabase.auth.getSession();
 
       if (error) {
         setMessage("❌ Error: " + error.message);

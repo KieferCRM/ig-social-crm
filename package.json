@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src scripts middleware.ts next.config.mjs postcss.config.mjs eslint.config.mjs --cache --cache-location .eslintcache",

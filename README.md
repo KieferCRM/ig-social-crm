@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IG Social CRM
 
-## Getting Started
+Ingestion-first CRM for real estate agents using Instagram/Facebook DMs as the lead source.
 
-First, run the development server:
+## Core Stack
+- Next.js App Router
+- Supabase Auth + Postgres
+- Supabase SSR clients for middleware/server routes
 
+## Local Development
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Workspace Mode
+- Solo-agent mode only in this release.
+- Team workspace routes/modules have been removed from runtime.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
+Minimum required:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Production release (`solo-prod`) also requires:
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SITE_URL` (must be `https://...`)
+- `INTAKE_AGENT_ID` (UUID)
+- `MANYCHAT_WEBHOOK_SECRET`
+- `MANYCHAT_AGENT_ID` (UUID)
+- `INGEST_WEBHOOK_SECRET` (fallback shared secret for generic ingest webhooks)
+- `INGEST_PROCESSOR_SECRET` (auth secret for `/api/ingest/process`)
+- `RATE_LIMIT_REDIS_REST_URL` (Upstash/Redis REST `https://...`)
+- `RATE_LIMIT_REDIS_REST_TOKEN`
 
-## Learn More
+Rate limiter backend behavior:
+- If Redis REST env vars are set, API/webhook rate limits are enforced in Redis (multi-instance safe).
+- If not set, the app falls back to in-memory buckets (dev-only behavior; not production-safe).
 
-To learn more about Next.js, take a look at the following resources:
+Meta flows also require:
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `META_APP_ID`
+- `META_APP_SECRET`
+- `META_WEBHOOK_VERIFY_TOKEN`
+- `META_TOKEN_ENCRYPTION_KEY`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Public intake form (`/intake`) requires:
+- `INTAKE_AGENT_ID` (destination user UUID for new submissions)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+ManyChat webhook integration requires:
+- `MANYCHAT_WEBHOOK_SECRET` (shared secret sent in `x-manychat-secret`)
+- `MANYCHAT_AGENT_ID` (destination user UUID for ingested ManyChat events)
 
-## Deploy on Vercel
+Generic ingest webhook (`/api/ingest/[source]`) requires:
+- `x-agent-id` (UUID)
+- `x-ingest-timestamp` (unix seconds)
+- `x-ingest-signature` (`sha256=<hex>` over `${timestamp}.${rawBody}`)
+- Agent-specific `agents.webhook_secret` (or fallback `INGEST_WEBHOOK_SECRET`)
+- `agents` row keyed by `id = auth.users.id`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`agents` rows are auto-bootstrapped on authenticated API access. You can also seed manually with:
+- `docs/sql/v4_step23_p0_ops_bootstrap_and_checks.sql`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ingestion retry worker endpoint (`/api/ingest/process`) requires:
+- `x-ingest-processor-secret` header matching `INGEST_PROCESSOR_SECRET`
+
+Health endpoint for uptime/ops checks:
+- `GET /api/health`
+- Returns DB health plus ingestion queue counters (`received`, `failed`, `dlq`, `received_older_than_5m`)
+
+## Release Gate
+Run before deploy:
+```bash
+npm run release:check
+```
+
+Includes:
+1. Env preflight (`solo-prod`)
+2. Typecheck
+3. Lint
+4. Production build
+
+Local release gate (without production-only env requirements):
+```bash
+npm run release:check:local
+```
+
+Full gate including smoke tests:
+```bash
+npm run release:check:with-smoke
+```
+
+### Smoke Suite Prerequisites
+`npm run smoke:solo` requires:
+- Built app (`next build`) so smoke can auto-start `next start`
+- `SMOKE_TEST_EMAIL`
+- `SMOKE_TEST_PASSWORD`
+- Core Supabase env vars
+- `INTAKE_AGENT_ID` (UUID destination for `/api/intake`)
+- `SMOKE_BASE_URL` must be localhost (defaults to `http://127.0.0.1:4010`)
+
+Smoke suite validates:
+1. Auth guard redirect on `/app` for unauthenticated sessions
+2. Authenticated API access
+3. CSV import dedupe/upsert behavior
+4. Reminder create and complete flow
+5. Questionnaire intake insert + update behavior (`/api/intake`)
+
+### Generic Ingest Smoke
+After `next start` is running locally:
+```bash
+AGENT_ID=<your-auth-user-uuid> \
+INGEST_WEBHOOK_SECRET=<your-webhook-secret> \
+INGEST_PROCESSOR_SECRET=<your-processor-secret> \
+./scripts/smoke_ingest.sh
+```

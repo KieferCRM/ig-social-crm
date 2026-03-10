@@ -4,135 +4,112 @@ import { type ReactNode, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { useEffect, useState } from "react";
-
-type WorkspaceContext = {
-  workspace_mode: "solo" | "team" | null;
-  full_access: boolean;
-};
+import { PRODUCT_NAME } from "@/lib/features";
+import MerlynMascot from "@/components/branding/merlyn-mascot";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const [workspace, setWorkspace] = useState<WorkspaceContext>({
-    workspace_mode: null,
-    full_access: false,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadWorkspace() {
-      try {
-        const response = await fetch("/api/workspace/context");
-        if (!response.ok) return;
-        const data = (await response.json()) as WorkspaceContext;
-        if (!cancelled) setWorkspace(data);
-      } catch {
-        // no-op
-      }
-    }
-
-    void loadWorkspace();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/auth");
   }
 
-  const isSelectPage = pathname === "/app/select-workspace";
-  const showSoloNav =
-    workspace.full_access || workspace.workspace_mode === "solo" || workspace.workspace_mode === "team";
-  const showTeamNav = workspace.full_access || workspace.workspace_mode === "team";
+  const navItems = [
+    { href: "/app", label: "Dashboard", active: pathname === "/app" },
+    { href: "/app/list", label: "Leads", active: pathname.startsWith("/app/list") },
+    { href: "/app/kanban", label: "Pipeline", active: pathname.startsWith("/app/kanban") },
+    {
+      href: "/app/intake",
+      label: "Lead Intake",
+      active:
+        pathname.startsWith("/app/intake") ||
+        pathname.startsWith("/app/ingestion") ||
+        pathname.startsWith("/app/import") ||
+        pathname.startsWith("/app/settings/questionnaire"),
+    },
+    {
+      href: "/app/settings",
+      label: "Settings",
+      active: pathname.startsWith("/app/settings") && !pathname.startsWith("/app/settings/questionnaire"),
+    },
+  ];
+
+  const pageMeta = useMemo(() => {
+    if (pathname.startsWith("/app/list")) {
+      return {
+        title: "Leads Workspace",
+        subtitle: "Search, segment, and act on your lead portfolio quickly.",
+      };
+    }
+    if (pathname.startsWith("/app/kanban")) {
+      return {
+        title: "Pipeline Board",
+        subtitle: "Move deals forward with focused stage-by-stage management.",
+      };
+    }
+    if (pathname.startsWith("/app/intake") || pathname.startsWith("/app/ingestion") || pathname.startsWith("/app/import") || pathname.startsWith("/app/settings/questionnaire")) {
+      return {
+        title: "Lead Intake System",
+        subtitle: "Capture, import, map, and monitor how leads enter Merlyn.",
+      };
+    }
+    if (pathname.startsWith("/app/settings")) {
+      return {
+        title: "Settings",
+        subtitle: "Manage workspace preferences, deployment details, and legal links.",
+      };
+    }
+    return {
+      title: "Lead Command Center",
+      subtitle: "Your daily control panel for response speed, follow-ups, and conversions.",
+    };
+  }, [pathname]);
 
   return (
-    <div className="crm-shell">
-      <div className="crm-container" style={{ padding: 24 }}>
-        <div
-          className="crm-card"
-          style={{
-            padding: "10px 12px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            marginBottom: 16,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5 }}>IG SOCIAL CRM</span>
-            <span className="crm-chip crm-chip-ok">
-              {workspace.full_access
-                ? "FULL ACCESS"
-                : workspace.workspace_mode === "team"
-                  ? "TEAM MODE"
-                  : workspace.workspace_mode === "solo"
-                    ? "SOLO MODE"
-                    : "MODE PENDING"}
-            </span>
-            {workspace.full_access ? <span className="crm-chip">SOLO + TEAM</span> : null}
+    <div className="crm-shell crm-shell-v2">
+      <aside className="crm-sidebar">
+        <div className="crm-sidebar-brand">
+          <MerlynMascot decorative />
+          <div>
+            <div className="crm-sidebar-brand-name">{PRODUCT_NAME.toUpperCase()}</div>
+            <div className="crm-sidebar-brand-tag">Lead Intelligence for Agents</div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="crm-btn crm-btn-secondary"
-            style={{ padding: "7px 12px", fontSize: 13 }}
-          >
+        </div>
+
+        <nav className="crm-sidebar-nav">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`crm-sidebar-nav-link${item.active ? " crm-sidebar-nav-link-active" : ""}`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="crm-sidebar-footer">
+          <span className="crm-chip crm-chip-ok crm-sidebar-mode-chip">SOLO MODE</span>
+          <button onClick={handleLogout} className="crm-btn crm-btn-secondary crm-sidebar-logout">
             Logout
           </button>
         </div>
+      </aside>
 
-        {!isSelectPage ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-start",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 16,
-              flexWrap: "wrap",
-            }}
-          >
-            {showSoloNav ? (
-              <>
-                <Link href="/app" className="crm-btn crm-btn-secondary" style={{ fontWeight: 600 }}>
-                  Dashboard
-                </Link>
-                <Link href="/app/settings/channels" className="crm-btn crm-btn-secondary" style={{ fontWeight: 600 }}>
-                  Settings
-                </Link>
-                <Link href="/app/settings/automation" className="crm-btn crm-btn-secondary" style={{ fontWeight: 600 }}>
-                  Automation
-                </Link>
-                <Link href="/app/reminders" className="crm-btn crm-btn-secondary" style={{ fontWeight: 600 }}>
-                  Reminders
-                </Link>
-                <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ fontWeight: 600 }}>
-                  Kanban
-                </Link>
-                <Link href="/app/list" className="crm-btn crm-btn-secondary" style={{ fontWeight: 600 }}>
-                  List
-                </Link>
-                <Link href="/app/import" className="crm-btn crm-btn-secondary" style={{ fontWeight: 600 }}>
-                  Import/Export
-                </Link>
-              </>
-            ) : null}
-            {showTeamNav ? (
-              <Link href="/app/team" className="crm-btn crm-btn-secondary" style={{ fontWeight: 600 }}>
-                Team Hub
-              </Link>
-            ) : null}
+      <div className="crm-workspace">
+        <header className="crm-topbar">
+          <div>
+            <div className="crm-topbar-kicker">MERLYN CRM</div>
+            <h1 className="crm-topbar-title">{pageMeta.title}</h1>
+            <p className="crm-topbar-subtitle">{pageMeta.subtitle}</p>
           </div>
-        ) : null}
+        </header>
 
-        {children}
+        <div className="crm-workspace-content">{children}</div>
       </div>
     </div>
   );

@@ -1,0 +1,6 @@
+ig_username,first_name,last_name,email,phone,tags,external_id,intent,timeline,lead_temp,source,notes,stage,budget_range,location_area,contact_preference,next_step
+@oakstreetbuyer,Maya,Lopez,maya.lopez@example.com,312-555-0101,"off_market,cash_buyer",FUB-1001,buy,0-30 days,Hot,Instagram DM,"Prefers duplexes near downtown",New,"400k-550k","West Loop",text,"Send 3 off-market options"
+,Ethan,Cole,ethan.cole@example.com,773-555-0199,"seller,landlord",FUB-1002,sell,30-60 days,Warm,Referral,"Wants quiet sale, no listing yet",Contacted,"700k-900k","Lincoln Park",call,"Book seller consult"
+rivernorthinvestor,Avery,Nguyen,avery.nguyen@example.com,847-555-0144,"investor,1031",FUB-1003,buy,60-90 days,Warm,Website Form,"1031 deadline in 4 months",Qualified,"900k-1.2m","River North",email,"Share cap-rate snapshots"
+,Jordan,Price,jordan.price@example.com,630-555-0188,"fsbo,seller",FUB-1004,sell,0-30 days,Hot,Phone Call,"Needs quick close before relocation",New,"500k-650k","Wicker Park",phone,"Call with timeline + options"
+southloopbuyer,Riley,Patel,riley.patel@example.com,224-555-0170,"buyer,preapproved",FUB-1005,buy,30-60 days,Hot,Facebook Lead,"Already pre-approved and touring weekly",Contacted,"600k-800k","South Loop",text,"Schedule 4-showing block"

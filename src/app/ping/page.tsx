@@ -2,8 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { normalizeConsent } from "@/lib/consent";
 
 export default async function PingPage() {
+  if (process.env.NODE_ENV === "production") {
+    return <div>Not Found</div>;
+  }
+
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
@@ -26,12 +31,21 @@ export default async function PingPage() {
   }
 
   // Insert a test lead owned by current user
+  const consent = normalizeConsent({
+    source: "manual_test",
+    consent_source: "manual_test",
+  });
   const { error: insertError } = await supabase.from("leads").insert({
-    ig_username: "test_user_" + Date.now(),
+    ig_username: "test_user_" + user.id.slice(0, 8),
     intent: "buy",
     timeline: "soon",
     lead_temp: "warm",
     source: "manual_test",
+    consent_to_email: consent.consent_to_email,
+    consent_to_sms: consent.consent_to_sms,
+    consent_source: consent.consent_source,
+    consent_timestamp: consent.consent_timestamp,
+    consent_text_snapshot: consent.consent_text_snapshot,
     notes: "RLS test insert",
     stage: "New",
     agent_id: user.id
