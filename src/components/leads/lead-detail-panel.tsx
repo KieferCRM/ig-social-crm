@@ -240,7 +240,8 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   }, [leadId, open, seededLead]);
 
   useEffect(() => {
-    if (!open || !leadId) return;
+    const selectedLeadId = leadId;
+    if (!open || !selectedLeadId) return;
     let cancelled = false;
 
     async function loadLeadDetail() {
@@ -249,7 +250,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
       const timeout = window.setTimeout(() => controller.abort(), 8000);
 
       try {
-        const response = await fetch(`/api/leads/simple/${encodeURIComponent(leadId)}`, {
+        const response = await fetch(`/api/leads/simple/${encodeURIComponent(selectedLeadId)}`, {
           signal: controller.signal,
           cache: "no-store",
         });
