@@ -192,7 +192,7 @@ export default function MergeTool({ leads }: { leads: LeadOption[] }) {
         </div>
       ) : null}
 
-      {readyToConfirm ? (
+      {readyToConfirm && sourceLead && targetLead ? (
         <>
           <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(2, minmax(240px, 1fr))", gap: 10 }}>
             <LeadPreviewCard title="Duplicate Preview" lead={sourceLead} />
