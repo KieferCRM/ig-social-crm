@@ -231,7 +231,7 @@ export default function KanbanClient() {
     return true;
   }
 
-  async function handleDrop(targetStage: Stage, event: DragEvent<HTMLDivElement>) {
+  async function handleDrop(targetStage: Stage, event: DragEvent<HTMLElement>) {
     event.preventDefault();
     const idFromTransfer = event.dataTransfer.getData("text/plain");
     const leadId = idFromTransfer || draggedLeadIdRef.current;
@@ -407,9 +407,6 @@ export default function KanbanClient() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <strong>Lead Details</strong>
               <div style={{ display: "flex", gap: 8 }}>
-                <Link href={`/app/leads/${encodeURIComponent(selectedLead.id)}`} className="crm-btn crm-btn-secondary" style={{ padding: "6px 8px", fontSize: 12 }}>
-                  Open Full Profile
-                </Link>
                 <button type="button" className="crm-btn crm-btn-secondary" style={{ padding: "6px 8px", fontSize: 12 }} onClick={() => setIsDetailOpen(false)}>
                   Close
                 </button>

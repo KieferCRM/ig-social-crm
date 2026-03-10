@@ -188,7 +188,7 @@ export async function POST(request: Request) {
           resolvedInput[fieldKey] as string | null | undefined
         );
         if (!existingValue) {
-          resolvedInput[fieldKey] = answer;
+          (resolvedInput as Record<string, unknown>)[fieldKey] = answer;
         }
         continue;
       }

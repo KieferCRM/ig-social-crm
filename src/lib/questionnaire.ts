@@ -51,9 +51,9 @@ const MAX_QUESTIONS = 30;
 
 export const PREBUILT_QUESTIONNAIRE_CONFIG: QuestionnaireConfig = {
   version: 1,
-  title: "Get Matched With The Right Home Options",
+  title: "Lead Intake Form",
   description:
-    "Answer a few quick questions so our team can prioritize your lead and follow up with the best next step.",
+    "Answer a few quick questions so our team can follow up with the best next step.",
   submit_label: "Submit Intake",
   success_message:
     "Thanks, we received your details and will reach out with next steps shortly.",
@@ -187,6 +187,18 @@ function safeText(value: unknown, maxLength: number): string {
   return value.trim().slice(0, maxLength);
 }
 
+function sanitizeLegacyTitle(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return "";
+  if (
+    normalized === "get matched with off-market opportunities" ||
+    normalized.includes("off-market")
+  ) {
+    return "Lead Intake Form";
+  }
+  return value;
+}
+
 function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
@@ -272,9 +284,11 @@ export function normalizeQuestionnaireConfig(input: unknown): QuestionnaireConfi
           normalizeQuestion(question, index, ids)
         ).filter((question): question is QuestionnaireQuestion => question !== null);
 
+  const normalizedTitle = sanitizeLegacyTitle(safeText(raw.title, 120));
+
   return {
     version: 1,
-    title: safeText(raw.title, 120) || DEFAULT_QUESTIONNAIRE_CONFIG.title,
+    title: normalizedTitle || DEFAULT_QUESTIONNAIRE_CONFIG.title,
     description: safeText(raw.description, 300) || DEFAULT_QUESTIONNAIRE_CONFIG.description,
     submit_label: safeText(raw.submit_label, 40) || DEFAULT_QUESTIONNAIRE_CONFIG.submit_label,
     success_message:

@@ -118,6 +118,7 @@ export default function QuestionnaireSettingsPage() {
   const [message, setMessage] = useState("");
   const [draggedQuestionId, setDraggedQuestionId] = useState<string | null>(null);
   const [dropTargetQuestionId, setDropTargetQuestionId] = useState<string | null>(null);
+  const [intakeUrl, setIntakeUrl] = useState("/intake");
 
   useEffect(() => {
     async function load() {
@@ -139,10 +140,10 @@ export default function QuestionnaireSettingsPage() {
 
     void load();
   }, []);
-
-  const intakeUrl = useMemo(() => {
-    if (typeof window === "undefined") return "/intake";
-    return `${window.location.origin}/intake`;
+  
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIntakeUrl(`${window.location.origin}/intake`);
   }, []);
 
   const requiredCount = useMemo(
@@ -280,9 +281,6 @@ export default function QuestionnaireSettingsPage() {
           </button>
           <Link href="/app/intake" className="crm-btn crm-btn-secondary">
             Lead Intake Hub
-          </Link>
-          <Link href="/intake" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
-            Open Intake Form
           </Link>
           <button className="crm-btn crm-btn-primary" onClick={() => void saveConfig()} disabled={saving}>
             {saving ? "Saving..." : "Save Funnel"}

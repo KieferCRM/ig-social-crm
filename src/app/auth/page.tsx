@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import MerlynMascot from "@/components/branding/merlyn-mascot";
 import { PRODUCT_NAME } from "@/lib/features";
 
 export default function AuthPage() {
@@ -79,7 +80,7 @@ export default function AuthPage() {
       return;
     }
 
-    setMessage("Sign-up complete. Check your email confirmation link, then sign in.");
+    setMessage("Access request created. Check your email to confirm, then sign in.");
     setLoading(false);
   }
 
@@ -96,12 +97,18 @@ export default function AuthPage() {
           padding: 22,
         }}
       >
-        <div className="crm-chip" style={{ width: "fit-content" }}>
-          {PRODUCT_NAME} Access
+        <div className="crm-auth-brand">
+          <MerlynMascot className="crm-auth-mark" variant="icon" decorative />
+          <div>
+            <div className="crm-chip" style={{ width: "fit-content" }}>
+              {PRODUCT_NAME} Access
+            </div>
+            <div className="crm-auth-kicker">Secure workspace login</div>
+          </div>
         </div>
         <h2 style={{ margin: 0 }}>Welcome Back</h2>
         <p style={{ marginTop: 0, color: "var(--ink-muted)" }}>
-          Log in to your {PRODUCT_NAME} workspace and continue lead execution.
+          Enter your workspace to review lead signals and next best actions.
         </p>
 
         <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -112,7 +119,7 @@ export default function AuthPage() {
         {message && <div style={{ color: "var(--ok)", fontSize: 14 }}>{message}</div>}
 
         <button onClick={handleAuth} disabled={loading || !isFormValid} className="crm-btn crm-btn-primary">
-          {loading ? "Loading..." : "Log In"}
+          {loading ? "Opening Workspace..." : "Enter Workspace"}
         </button>
 
         <button
@@ -120,7 +127,7 @@ export default function AuthPage() {
           disabled={loading || !isFormValid}
           className="crm-btn crm-btn-secondary"
         >
-          {loading ? "Loading..." : "Sign Up"}
+          {loading ? "Preparing Access..." : "Create Access"}
         </button>
       </div>
     </main>

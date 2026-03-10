@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -10,6 +10,7 @@ import MerlynMascot from "@/components/branding/merlyn-mascot";
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [socialsOpen, setSocialsOpen] = useState(false);
 
   const supabase = useMemo(() => supabaseBrowser(), []);
 
@@ -31,11 +32,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         pathname.startsWith("/app/import") ||
         pathname.startsWith("/app/settings/questionnaire"),
     },
-    {
-      href: "/app/settings",
-      label: "Settings",
-      active: pathname.startsWith("/app/settings") && !pathname.startsWith("/app/settings/questionnaire"),
-    },
+  ];
+  const settingsItem = {
+    href: "/app/settings",
+    label: "Settings",
+    active: pathname.startsWith("/app/settings") && !pathname.startsWith("/app/settings/questionnaire"),
+  };
+  const socialLinks = [
+    { label: "Instagram", href: "https://www.instagram.com/" },
+    { label: "Facebook", href: "https://www.facebook.com/" },
+    { label: "Messenger", href: "https://www.messenger.com/" },
+    { label: "TikTok", href: "https://www.tiktok.com/" },
+    { label: "Email (Gmail)", href: "https://mail.google.com/" },
   ];
 
   const pageMeta = useMemo(() => {
@@ -90,6 +98,39 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               {item.label}
             </Link>
           ))}
+
+          <Link
+            href={settingsItem.href}
+            className={`crm-sidebar-nav-link${settingsItem.active ? " crm-sidebar-nav-link-active" : ""}`}
+          >
+            {settingsItem.label}
+          </Link>
+
+          <button
+            type="button"
+            className={`crm-sidebar-nav-link crm-sidebar-nav-toggle${socialsOpen ? " crm-sidebar-nav-link-active" : ""}`}
+            onClick={() => setSocialsOpen((previous) => !previous)}
+            aria-expanded={socialsOpen}
+          >
+            <span>Socials</span>
+            <span className={`crm-sidebar-nav-chevron${socialsOpen ? " crm-sidebar-nav-chevron-open" : ""}`}>▾</span>
+          </button>
+
+          {socialsOpen ? (
+            <div className="crm-sidebar-subnav">
+              {socialLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="crm-sidebar-subnav-link"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          ) : null}
         </nav>
 
         <div className="crm-sidebar-footer">
@@ -103,9 +144,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <div className="crm-workspace">
         <header className="crm-topbar">
           <div>
-            <div className="crm-topbar-kicker">MERLYN CRM</div>
+            <div className="crm-topbar-kicker">MERLYN INTELLIGENCE</div>
             <h1 className="crm-topbar-title">{pageMeta.title}</h1>
             <p className="crm-topbar-subtitle">{pageMeta.subtitle}</p>
+          </div>
+          <div className="crm-topbar-signal">
+            <span className="crm-topbar-sigil" aria-hidden />
+            <div>
+              <div className="crm-topbar-signal-title">Merlyn Guidance</div>
+              <div className="crm-topbar-signal-subtitle">Signals tuned for today&apos;s pipeline.</div>
+            </div>
           </div>
         </header>
 

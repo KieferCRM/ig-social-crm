@@ -37,6 +37,7 @@ export default function LeadIntakeHubPage() {
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireConfig | null>(null);
   const [recentImportCount, setRecentImportCount] = useState(0);
   const [copyMessage, setCopyMessage] = useState("");
+  const [intakeUrl, setIntakeUrl] = useState("/intake");
 
   useEffect(() => {
     async function load() {
@@ -84,10 +85,10 @@ export default function LeadIntakeHubPage() {
 
     void load();
   }, []);
-
-  const intakeUrl = useMemo(() => {
-    if (typeof window === "undefined") return "/intake";
-    return `${window.location.origin}/intake`;
+  
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIntakeUrl(`${window.location.origin}/intake`);
   }, []);
 
   const questionCount = questionnaire?.questions.length || 0;
@@ -172,22 +173,22 @@ export default function LeadIntakeHubPage() {
           <div className="crm-card-muted" style={{ padding: 12 }}>
             <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Step 1</div>
             <div style={{ marginTop: 4, fontWeight: 700 }}>Build Funnel</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)"}>Choose your intake questions and required fields.</div>
+            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>Choose your intake questions and required fields.</div>
           </div>
           <div className="crm-card-muted" style={{ padding: 12 }}>
             <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Step 2</div>
             <div style={{ marginTop: 4, fontWeight: 700 }}>Capture Leads</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)"}>Leads submit your form or get imported from CSV.</div>
+            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>Leads submit your form or get imported from CSV.</div>
           </div>
           <div className="crm-card-muted" style={{ padding: 12 }}>
             <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Step 3</div>
             <div style={{ marginTop: 4, fontWeight: 700 }}>Map Into CRM</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)"}>Answers and import data fill your CRM fields automatically.</div>
+            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>Answers and import data fill your CRM fields automatically.</div>
           </div>
           <div className="crm-card-muted" style={{ padding: 12 }}>
             <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Step 4</div>
             <div style={{ marginTop: 4, fontWeight: 700 }}>Work The Pipeline</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)"}>Follow up quickly from your dashboard, leads list, and pipeline.</div>
+            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>Follow up quickly from your dashboard, leads list, and pipeline.</div>
           </div>
         </div>
       </section>

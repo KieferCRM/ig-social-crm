@@ -6,6 +6,15 @@ import ManualLeadForm from "./manual-lead-form";
 import LeadListTable, { type LeadListRow } from "./lead-list-table";
 export const dynamic = "force-dynamic";
 
+function firstParam(
+  source: Record<string, string | string[] | undefined>,
+  key: string
+): string | undefined {
+  const value = source[key];
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
 export default async function ListViewPage({
   searchParams: _searchParams,
 }: {
@@ -20,7 +29,12 @@ export default async function ListViewPage({
     redirect("/auth");
   }
 
-  await _searchParams;
+  const params: Record<string, string | string[] | undefined> = (await _searchParams) || {};
+  const requestedStage = firstParam(params, "stage");
+  const requestedTemp = firstParam(params, "temp");
+  const requestedSource = firstParam(params, "source");
+  const requestedSearch = firstParam(params, "q");
+  const followUpDueMode = firstParam(params, "follow_up") === "due";
 
   let query = supabase
     .from("leads")
@@ -39,6 +53,22 @@ export default async function ListViewPage({
         ? lead.source_detail
         : null,
   }));
+
+  let dueFollowUpLeadIds: string[] = [];
+  if (followUpDueMode) {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    const { data: reminders } = await supabase
+      .from("reminders")
+      .select("lead_id")
+      .eq("agent_id", user.id)
+      .eq("status", "pending")
+      .lte("due_at", endOfToday.toISOString());
+
+    dueFollowUpLeadIds = Array.from(
+      new Set((reminders || []).map((item) => item.lead_id).filter((leadId): leadId is string => Boolean(leadId)))
+    );
+  }
 
   return (
     <main className="crm-page" style={{ maxWidth: 1120 }}>
@@ -66,10 +96,27 @@ export default async function ListViewPage({
         leads={rows.map((lead) => ({
           id: String(lead.id),
           ig_username: lead.ig_username || null,
+          full_name: lead.full_name || null,
+          first_name: lead.first_name || null,
+          last_name: lead.last_name || null,
+          canonical_email: lead.canonical_email || null,
+          canonical_phone: lead.canonical_phone || null,
+          stage: lead.stage || null,
+          lead_temp: lead.lead_temp || null,
         }))}
       />
       <ManualLeadForm />
-      <LeadListTable leads={rows} />
+      <LeadListTable
+        leads={rows}
+        initialFilters={{
+          search: requestedSearch || "",
+          stage: requestedStage || "all",
+          temp: requestedTemp || "all",
+          source: requestedSource || "all",
+        }}
+        followUpDueMode={followUpDueMode}
+        followUpLeadIds={dueFollowUpLeadIds}
+      />
     </main>
   );
 }

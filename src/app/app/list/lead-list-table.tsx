@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import LeadDetailPanel from "@/components/leads/lead-detail-panel";
 
 type SourceDetail = Record<string, unknown> | null;
 
@@ -30,6 +30,8 @@ type ViewFilters = {
   source: string;
   contact: "all" | "with_contact" | "missing_contact";
 };
+
+type InitialLeadListFilters = Partial<ViewFilters>;
 
 type SavedView = {
   id: string;
@@ -112,8 +114,29 @@ const SMART_LISTS: Array<{ key: string; label: string; filters: ViewFilters }> =
   { key: "missing_contact", label: "Missing Contact", filters: { ...DEFAULT_FILTERS, contact: "missing_contact" } },
 ];
 
-export default function LeadListTable({ leads }: { leads: LeadListRow[] }) {
-  const [filters, setFilters] = useState<ViewFilters>(DEFAULT_FILTERS);
+type LeadListTableProps = {
+  leads: LeadListRow[];
+  initialFilters?: InitialLeadListFilters;
+  followUpDueMode?: boolean;
+  followUpLeadIds?: string[];
+};
+
+function mergedFilters(initialFilters?: InitialLeadListFilters): ViewFilters {
+  return {
+    ...DEFAULT_FILTERS,
+    ...(initialFilters || {}),
+    contact: initialFilters?.contact || "all",
+  };
+}
+
+export default function LeadListTable({
+  leads,
+  initialFilters,
+  followUpDueMode = false,
+  followUpLeadIds = [],
+}: LeadListTableProps) {
+  const [filters, setFilters] = useState<ViewFilters>(() => mergedFilters(initialFilters));
+  const [activeLead, setActiveLead] = useState<LeadListRow | null>(null);
   const [savedViews, setSavedViews] = useState<SavedView[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -128,6 +151,16 @@ export default function LeadListTable({ leads }: { leads: LeadListRow[] }) {
   const [saveName, setSaveName] = useState("");
   const [activeSmartList, setActiveSmartList] = useState("all");
   const [viewMessage, setViewMessage] = useState("");
+  const [followUpOnly, setFollowUpOnly] = useState(followUpDueMode);
+
+  useEffect(() => {
+    setFilters(mergedFilters(initialFilters));
+    setFollowUpOnly(followUpDueMode);
+    setActiveSmartList("");
+    setViewMessage("");
+  }, [initialFilters, followUpDueMode]);
+
+  const dueLeadSet = useMemo(() => new Set(followUpLeadIds), [followUpLeadIds]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedViews));
@@ -156,15 +189,19 @@ export default function LeadListTable({ leads }: { leads: LeadListRow[] }) {
         if (filters.source !== "all" && (lead.source || "unknown") !== filters.source) return false;
         if (filters.contact === "with_contact" && !emailOf(lead) && !phoneOf(lead)) return false;
         if (filters.contact === "missing_contact" && (emailOf(lead) || phoneOf(lead))) return false;
+        if (followUpOnly && !dueLeadSet.has(lead.id)) return false;
         return true;
       })
       .sort((a, b) => (b.time_last_updated || "").localeCompare(a.time_last_updated || ""));
-  }, [filters, leads]);
+  }, [filters, leads, followUpOnly, dueLeadSet]);
 
   function applyFilters(next: ViewFilters, smartListKey?: string) {
     setFilters(next);
     setActiveSmartList(smartListKey || "");
     setViewMessage("");
+    if (smartListKey) {
+      setFollowUpOnly(false);
+    }
   }
 
   function saveCurrentView() {
@@ -207,6 +244,22 @@ export default function LeadListTable({ leads }: { leads: LeadListRow[] }) {
             {preset.label}
           </button>
         ))}
+        {followUpDueMode ? (
+          <button
+            className="crm-btn crm-btn-secondary"
+            style={{
+              padding: "6px 9px",
+              fontSize: 12,
+              border: followUpOnly ? "1px solid var(--accent)" : "1px solid var(--line)",
+            }}
+            onClick={() => {
+              setFollowUpOnly((previous) => !previous);
+              setActiveSmartList("");
+            }}
+          >
+            Follow-ups Due
+          </button>
+        ) : null}
       </div>
 
       <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 8 }}>
@@ -328,15 +381,26 @@ export default function LeadListTable({ leads }: { leads: LeadListRow[] }) {
                   {lead.time_last_updated ? new Date(lead.time_last_updated).toLocaleString() : "-"}
                 </td>
                 <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>
-                  <Link href={`/app/leads/${encodeURIComponent(lead.id)}`} className="crm-btn crm-btn-secondary" style={{ padding: "6px 9px", fontSize: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveLead(lead)}
+                    className="crm-btn crm-btn-secondary"
+                    style={{ padding: "6px 9px", fontSize: 12 }}
+                  >
                     Open
-                  </Link>
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <LeadDetailPanel
+        leadId={activeLead?.id || null}
+        initialLead={activeLead}
+        open={Boolean(activeLead?.id)}
+        onClose={() => setActiveLead(null)}
+      />
     </section>
   );
 }

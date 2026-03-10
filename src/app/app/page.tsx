@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import DashboardPanel from "./dashboard-panel";
@@ -20,22 +19,6 @@ type LeadRow = {
   timeline: string | null;
   last_message_preview: string | null;
   time_last_updated: string | null;
-};
-
-type SignalEventRow = {
-  id: string;
-  lead_id: string | null;
-  event_type: string;
-  source: string;
-  channel: string;
-  occurred_at: string;
-  message_text: string | null;
-  intent_label: string | null;
-  location_interest: string | null;
-  timeline_hint: string | null;
-  price_min: number | null;
-  price_max: number | null;
-  confidence: number | null;
 };
 
 type RecommendationRow = {
@@ -74,20 +57,6 @@ export default async function AppHome({
     )
     .or(ownerOnly);
 
-  let signalEvents: SignalEventRow[] = [];
-  const { data: signalData, error: signalError } = await supabase
-    .from("lead_signal_events")
-    .select(
-      "id, lead_id, event_type, source, channel, occurred_at, message_text, intent_label, location_interest, timeline_hint, price_min, price_max, confidence"
-    )
-    .or(ownerOnly)
-    .order("occurred_at", { ascending: false })
-    .limit(40);
-
-  if (!signalError) {
-    signalEvents = (signalData || []) as SignalEventRow[];
-  }
-
   let recommendations: RecommendationRow[] = [];
   const { data: recommendationData, error: recommendationError } = await supabase
     .from("lead_recommendations")
@@ -107,6 +76,9 @@ export default async function AppHome({
   const newCount = leadRows.filter((l) => l.stage === "New").length;
   const closed = leadRows.filter((l) => l.stage === "Closed").length;
   const conversion = total > 0 ? Math.round((closed / total) * 1000) / 10 : 0;
+  const sortedLeadRows = leadRows
+    .slice()
+    .sort((a, b) => (b.time_last_updated || "").localeCompare(a.time_last_updated || ""));
   await _searchParams;
 
   return (
@@ -117,21 +89,6 @@ export default async function AppHome({
         </div>
       ) : null}
 
-      <section className="crm-dashboard-hero-v2">
-        <div>
-          <div className="crm-dashboard-hero-kicker">Today&apos;s Ops</div>
-          <h2 className="crm-dashboard-hero-title">Lead Command Center</h2>
-          <p className="crm-dashboard-hero-subtitle">
-            Prioritize urgent follow-ups, move pipeline stages, and keep momentum with high-signal actions.
-          </p>
-        </div>
-        <div className="crm-dashboard-hero-actions">
-          <Link href="/app/list" className="crm-btn crm-btn-primary">Open Leads</Link>
-          <Link href="/intake" target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">Open Intake Form</Link>
-          <Link href="/app/kanban" className="crm-btn crm-btn-secondary">Open Pipeline</Link>
-        </div>
-      </section>
-
       <section className="crm-dashboard-grid">
         <div>
           <DashboardPanel
@@ -140,14 +97,13 @@ export default async function AppHome({
             newCount={newCount}
             closed={closed}
             conversion={conversion}
-            allLeads={leadRows.sort((a, b) => (b.time_last_updated || "").localeCompare(a.time_last_updated || ""))}
-            timelineEvents={signalEvents}
+            allLeads={sortedLeadRows}
             recommendations={recommendations}
           />
         </div>
 
         <aside className="crm-dashboard-rail">
-          <DashboardRightRail />
+          <DashboardRightRail leads={sortedLeadRows} />
         </aside>
       </section>
     </main>
