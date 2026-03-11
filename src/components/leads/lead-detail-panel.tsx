@@ -244,13 +244,13 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     if (!open || !selectedLeadId) return;
     let cancelled = false;
 
-    async function loadLeadDetail() {
+    async function loadLeadDetail(currentLeadId: string) {
       setLoading(true);
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 8000);
 
       try {
-        const response = await fetch(`/api/leads/simple/${encodeURIComponent(selectedLeadId)}`, {
+        const response = await fetch(`/api/leads/simple/${encodeURIComponent(currentLeadId)}`, {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -277,7 +277,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
       }
     }
 
-    void loadLeadDetail();
+    void loadLeadDetail(selectedLeadId);
     return () => {
       cancelled = true;
     };
