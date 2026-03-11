@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ReminderPreview = {
   id: string;
@@ -183,6 +183,19 @@ function leadTempChipClass(leadTemp: string | null): string {
   return "crm-chip";
 }
 
+function toPhoneActionValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.replace(/[^\d+]/g, "").trim();
+  return normalized || null;
+}
+
+function instagramProfileUrl(handle: string | null | undefined): string | null {
+  if (!handle) return null;
+  const username = handle.replace(/^@+/, "").trim();
+  if (!username) return null;
+  return `https://www.instagram.com/${encodeURIComponent(username)}/`;
+}
+
 function MiniField({ label, value }: { label: string; value: string }) {
   return (
     <div className="crm-card-muted" style={{ padding: 10 }}>
@@ -197,6 +210,8 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const [error, setError] = useState("");
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [reminders, setReminders] = useState<ReminderPreview[]>([]);
+  const notesSectionRef = useRef<HTMLElement | null>(null);
+  const followUpSectionRef = useRef<HTMLElement | null>(null);
 
   const seededLead = useMemo<LeadDetail | null>(() => {
     if (!initialLead) return null;
@@ -304,6 +319,14 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const stageLabel = displayLead ? prettyLabel(displayLead.stage) : "";
   const tempLabel = displayLead ? prettyLabel(displayLead.lead_temp) : "";
   const sourceLabel = displayLead ? sourceDisplayLabel(displayLead.source) : "";
+  const handleValue = displayLead ? cleanHandle(displayLead.ig_username) : null;
+  const emailValue = firstNonEmpty(displayLead?.canonical_email || null);
+  const phoneValue = firstNonEmpty(displayLead?.canonical_phone || null);
+  const phoneActionValue = toPhoneActionValue(phoneValue);
+  const callHref = phoneActionValue ? `tel:${phoneActionValue}` : null;
+  const smsHref = phoneActionValue ? `sms:${phoneActionValue}` : null;
+  const emailHref = emailValue ? `mailto:${encodeURIComponent(emailValue)}` : null;
+  const instagramHref = instagramProfileUrl(handleValue);
 
   const contactRows = useMemo(() => {
     if (!displayLead) return [] as Array<{ label: string; value: string }>;
@@ -328,14 +351,52 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const pendingReminders = reminders.filter((item) => item.status === "pending");
   const nextReminder = pendingReminders[0] || null;
 
-  if (!open) return null;
+  const recommendedAction = useMemo(() => {
+    if (!displayLead) return "Open the lead timeline and set the next follow-up.";
+    const stage = (displayLead.stage || "").trim().toLowerCase();
+    const temp = (displayLead.lead_temp || "").trim().toLowerCase();
+    if (stage === "new") return "Initial outreach now. First response speed is key.";
+    if (temp === "hot") return "Contact today and secure a firm next step.";
+    if (pendingReminders.length > 0) return "Clear pending reminders before end of day.";
+    if (stage === "contacted") return "Confirm motivation, timeline, and buying/selling plan.";
+    return "Queue a follow-up touchpoint to keep momentum.";
+  }, [displayLead, pendingReminders.length]);
 
-  const twoColumnFieldGrid = {
-    marginTop: 8,
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-    gap: 8,
-  } as const;
+  const merlynGuidance = useMemo(() => {
+    if (!displayLead) return [] as string[];
+    const items: string[] = [];
+    const stage = (displayLead.stage || "").trim().toLowerCase();
+    const temp = (displayLead.lead_temp || "").trim().toLowerCase();
+    const updatedMs = displayLead.time_last_updated ? new Date(displayLead.time_last_updated).getTime() : NaN;
+    const staleDays = Number.isFinite(updatedMs)
+      ? Math.floor((Date.now() - updatedMs) / (24 * 3600_000))
+      : null;
+
+    if (stage === "new") {
+      items.push("New leads convert best with rapid response. Make first contact as soon as possible.");
+    }
+    if (temp === "hot" && staleDays !== null && staleDays >= 1) {
+      items.push("Hot lead has gone quiet. Prioritize a same-day call or SMS re-engagement.");
+    }
+    if (pendingReminders.length > 0) {
+      items.push(
+        `${pendingReminders.length} follow-up reminder(s) are pending. Closing these quickly improves conversion consistency.`
+      );
+    }
+    if (!firstNonEmpty(displayLead.next_step)) {
+      items.push("Set a clear next step to keep this relationship moving forward.");
+    }
+    if (!firstNonEmpty(displayLead.notes)) {
+      items.push("Capture context in notes after every touchpoint so future follow-ups stay personal.");
+    }
+    if (items.length === 0) {
+      items.push("Lead profile is in good shape. Keep response time and follow-up cadence consistent.");
+    }
+
+    return items.slice(0, 4);
+  }, [displayLead, pendingReminders.length]);
+
+  if (!open) return null;
 
   return (
     <div
@@ -355,7 +416,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
       <aside
         className="crm-card"
         style={{
-          width: "min(680px, 100%)",
+          width: "min(980px, 100%)",
           height: "calc(100dvh - 16px)",
           borderRadius: "14px 0 0 14px",
           borderLeft: "1px solid var(--line)",
@@ -368,41 +429,87 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Lead Details</div>
-            <div style={{ marginTop: 4, fontSize: 22, fontWeight: 800 }}>{headerIdentity?.primary.label || "Lead"}</div>
-            {headerIdentity?.secondary ? (
-              <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>{headerIdentity.secondary}</div>
-            ) : null}
-            <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {stageLabel ? <span className="crm-chip">{stageLabel}</span> : null}
-              {tempLabel ? <span className={leadTempChipClass(displayLead?.lead_temp || null)}>{tempLabel}</span> : null}
-              {sourceLabel ? <span className="crm-chip">{sourceLabel}</span> : null}
+        <section className="crm-card-muted" style={{ padding: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Lead Command Workspace</div>
+              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 800 }}>{headerIdentity?.primary.label || "Lead"}</div>
+              {headerIdentity?.secondary ? (
+                <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>{headerIdentity.secondary}</div>
+              ) : null}
+              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {stageLabel ? <span className="crm-chip">{stageLabel}</span> : null}
+                {tempLabel ? <span className={leadTempChipClass(displayLead?.lead_temp || null)}>{tempLabel}</span> : null}
+                {sourceLabel ? <span className="crm-chip crm-chip-info">{sourceLabel}</span> : null}
+              </div>
             </div>
-            {loading && displayLead ? (
-              <div style={{ marginTop: 8, fontSize: 12, color: "var(--ink-muted)" }}>Refreshing details...</div>
-            ) : null}
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "6px 10px", fontSize: 12 }}>
+                Open in Pipeline
+              </Link>
+              <button type="button" onClick={onClose} className="crm-btn crm-btn-secondary" style={{ padding: "6px 10px", fontSize: 12 }}>
+                Close
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "6px 10px", fontSize: 12 }}>
-              Open in Pipeline
-            </Link>
-            <button type="button" onClick={onClose} className="crm-btn crm-btn-secondary" style={{ padding: "6px 10px", fontSize: 12 }}>
-              Close
+          <div
+            style={{
+              marginTop: 10,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 8,
+            }}
+          >
+            <MiniField label="Instagram handle" value={handleValue || "Not provided"} />
+            <MiniField label="Phone" value={phoneValue || "Not provided"} />
+            <MiniField label="Email" value={emailValue || "Not provided"} />
+          </div>
+
+          <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+            {callHref ? (
+              <a className="crm-btn crm-btn-secondary" href={callHref}>Call</a>
+            ) : (
+              <button type="button" className="crm-btn crm-btn-secondary" disabled>Call</button>
+            )}
+            {smsHref ? (
+              <a className="crm-btn crm-btn-secondary" href={smsHref}>Text</a>
+            ) : (
+              <button type="button" className="crm-btn crm-btn-secondary" disabled>Text</button>
+            )}
+            {emailHref ? (
+              <a className="crm-btn crm-btn-secondary" href={emailHref}>Email</a>
+            ) : (
+              <button type="button" className="crm-btn crm-btn-secondary" disabled>Email</button>
+            )}
+            {instagramHref ? (
+              <a className="crm-btn crm-btn-secondary" href={instagramHref} target="_blank" rel="noopener noreferrer">Instagram</a>
+            ) : (
+              <button type="button" className="crm-btn crm-btn-secondary" disabled>Instagram</button>
+            )}
+            <button
+              type="button"
+              className="crm-btn crm-btn-secondary"
+              onClick={() => notesSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              Add Note
+            </button>
+            <button
+              type="button"
+              className="crm-btn crm-btn-secondary"
+              onClick={() => followUpSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              Schedule Follow-Up
             </button>
           </div>
-        </div>
 
-        <div
-          style={{
-            overflowY: "auto",
-            display: "grid",
-            gap: 12,
-            paddingBottom: "calc(12px + env(safe-area-inset-bottom))",
-          }}
-        >
+          {loading && displayLead ? (
+            <div style={{ marginTop: 8, fontSize: 12, color: "var(--ink-muted)" }}>Refreshing details...</div>
+          ) : null}
+        </section>
+
+        <div style={{ overflowY: "auto", paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}>
           {!displayLead && loading ? (
             <div className="crm-card-muted" style={{ padding: 10, fontSize: 13, color: "var(--ink-muted)" }}>
               Loading lead details...
@@ -416,61 +523,118 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
           ) : null}
 
           {displayLead ? (
-            <>
-              <section className="crm-card-muted" style={{ padding: 12 }}>
-                <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Contact</div>
-                {contactRows.length === 0 ? (
-                  <div style={{ marginTop: 8, fontSize: 13, color: "var(--ink-muted)" }}>
-                    No direct contact details yet.
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gap: 12,
+                alignItems: "start",
+              }}
+            >
+              <div style={{ display: "grid", gap: 12 }}>
+                <section className="crm-card-muted" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Contact Info</div>
+                  {contactRows.length === 0 ? (
+                    <div style={{ marginTop: 8, fontSize: 13, color: "var(--ink-muted)" }}>
+                      No direct contact details yet.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                        gap: 8,
+                      }}
+                    >
+                      {contactRows.map((row) => (
+                        <MiniField key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="crm-card-muted" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Lead Summary</div>
+                  {leadSummary.length === 0 ? (
+                    <div style={{ marginTop: 8, fontSize: 13, color: "var(--ink-muted)" }}>
+                      Summary details are still being collected.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                        gap: 8,
+                      }}
+                    >
+                      {leadSummary.map((row) => (
+                        <MiniField key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section ref={notesSectionRef} className="crm-card-muted" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Notes</div>
+                  <div style={{ marginTop: 8, fontSize: 13, whiteSpace: "pre-wrap" }}>
+                    {notesText || "No notes yet."}
                   </div>
-                ) : (
-                  <div style={twoColumnFieldGrid}>
-                    {contactRows.map((row) => (
-                      <MiniField key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
+                </section>
+              </div>
+
+              <div style={{ display: "grid", gap: 12 }}>
+                <section ref={followUpSectionRef} className="crm-card-muted" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Follow-Ups</div>
+                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                    <MiniField label="Recommended next action" value={recommendedAction} />
+                    <MiniField
+                      label="Next step"
+                      value={firstNonEmpty(displayLead.next_step) || "Set a specific next action for this lead."}
+                    />
+                    <MiniField
+                      label="Contact preference"
+                      value={firstNonEmpty(displayLead.contact_preference) || "Not set yet"}
+                    />
+                  </div>
+                </section>
+
+                <section className="crm-card-muted" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Reminders</div>
+                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                    <MiniField label="Pending reminders" value={String(pendingReminders.length)} />
+                    <MiniField
+                      label="Next reminder"
+                      value={
+                        nextReminder
+                          ? `${formatDateTime(nextReminder.due_at)}${nextReminder.note ? ` • ${nextReminder.note}` : ""}`
+                          : "No reminders scheduled."
+                      }
+                    />
+                  </div>
+                </section>
+
+                <section className="crm-card-muted" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Recent Activity</div>
+                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                    <MiniField label="Last message" value={lastActivityText || "No recent activity yet."} />
+                    <MiniField label="Profile updated" value={lastUpdatedText || "No timestamp available"} />
+                  </div>
+                </section>
+
+                <section className="crm-card-muted" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Merlyn Guidance</div>
+                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                    {merlynGuidance.map((item, index) => (
+                      <div key={`${index}-${item.slice(0, 20)}`} className="crm-card" style={{ padding: 10, fontSize: 13 }}>
+                        {item}
+                      </div>
                     ))}
                   </div>
-                )}
-              </section>
-
-              <section className="crm-card-muted" style={{ padding: 12 }}>
-                <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Lead Summary</div>
-                {leadSummary.length === 0 ? (
-                  <div style={{ marginTop: 8, fontSize: 13, color: "var(--ink-muted)" }}>
-                    Summary details are still being collected.
-                  </div>
-                ) : (
-                  <div style={twoColumnFieldGrid}>
-                    {leadSummary.map((row) => (
-                      <MiniField key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section className="crm-card-muted" style={{ padding: 12 }}>
-                <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Notes</div>
-                <div style={{ marginTop: 8, fontSize: 13, whiteSpace: "pre-wrap" }}>
-                  {notesText || "No notes yet."}
-                </div>
-              </section>
-
-              <section className="crm-card-muted" style={{ padding: 12 }}>
-                <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Follow-Up</div>
-                <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                  <MiniField label="Reminders pending" value={String(pendingReminders.length)} />
-                  <MiniField
-                    label="Next reminder"
-                    value={
-                      nextReminder
-                        ? `${formatDateTime(nextReminder.due_at)}${nextReminder.note ? ` • ${nextReminder.note}` : ""}`
-                        : "No reminders scheduled."
-                    }
-                  />
-                  <MiniField label="Recent activity" value={lastActivityText || "No recent activity yet."} />
-                  {lastUpdatedText ? <MiniField label="Updated" value={lastUpdatedText} /> : null}
-                </div>
-              </section>
-            </>
+                </section>
+              </div>
+            </div>
           ) : null}
         </div>
       </aside>
