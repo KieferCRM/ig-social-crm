@@ -132,7 +132,8 @@ async function loadLeadRows(): Promise<{ rows: LeadRow[]; error: string | null }
       .eq("agent_id", user.id);
 
     if (!error) {
-      return { rows: ((data || []) as LeadRow[]), error: null };
+      const rows: LeadRow[] = Array.isArray(data) ? (data as LeadRow[]) : [];
+      return { rows, error: null };
     }
     finalError = error.message;
   }
