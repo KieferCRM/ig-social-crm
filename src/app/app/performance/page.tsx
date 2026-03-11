@@ -108,6 +108,12 @@ function sourceLabel(raw: string | null): string {
   return prettyLabel(raw, "Unknown");
 }
 
+function isLeadRow(value: unknown): value is LeadRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.id === "string";
+}
+
 async function loadLeadRows(): Promise<{ rows: LeadRow[]; error: string | null }> {
   const supabase = await supabaseServer();
   const {
@@ -132,7 +138,8 @@ async function loadLeadRows(): Promise<{ rows: LeadRow[]; error: string | null }
       .eq("agent_id", user.id);
 
     if (!error) {
-      const rows: LeadRow[] = Array.isArray(data) ? (data as LeadRow[]) : [];
+      const rawRows: unknown[] = Array.isArray(data) ? (data as unknown[]) : [];
+      const rows: LeadRow[] = rawRows.filter(isLeadRow);
       return { rows, error: null };
     }
     finalError = error.message;
