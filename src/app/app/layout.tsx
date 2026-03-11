@@ -23,6 +23,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     { href: "/app", label: "Dashboard", active: pathname === "/app" },
     { href: "/app/list", label: "Leads", active: pathname.startsWith("/app/list") },
     { href: "/app/kanban", label: "Pipeline", active: pathname.startsWith("/app/kanban") },
+    { href: "/app/performance", label: "Performance", active: pathname.startsWith("/app/performance") },
     {
       href: "/app/intake",
       label: "Lead Intake",
@@ -57,6 +58,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       return {
         title: "Pipeline Board",
         subtitle: "Move deals forward with focused stage-by-stage management.",
+      };
+    }
+    if (pathname.startsWith("/app/performance")) {
+      return {
+        title: "Performance Intelligence",
+        subtitle: "Track conversion strength, source performance, and coaching signals for smarter growth.",
       };
     }
     if (pathname.startsWith("/app/intake") || pathname.startsWith("/app/ingestion") || pathname.startsWith("/app/import") || pathname.startsWith("/app/settings/questionnaire")) {

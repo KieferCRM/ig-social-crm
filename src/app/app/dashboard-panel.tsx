@@ -490,8 +490,8 @@ export default function DashboardPanel({
           label="Close Rate"
           value={`${conversion}%`}
           tone={conversion > 0 ? "ok" : "default"}
-          href="/app/list?stage=Closed"
-          ctaLabel="View closed leads"
+          href="/app/performance"
+          ctaLabel="Open performance insights"
         />
       </div>
 
