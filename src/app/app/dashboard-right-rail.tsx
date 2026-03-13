@@ -5,20 +5,6 @@ import EmptyState from "@/components/ui/empty-state";
 import StatusBadge from "@/components/ui/status-badge";
 import { formatCurrency, parsePositiveDecimal } from "@/lib/deal-metrics";
 import { dealStageLabel, normalizeDealStage, type DealStage } from "@/lib/deals";
-import AskMerlynCard from "./ask-merlyn-card";
-
-type LeadForAsk = {
-  id: string;
-  ig_username: string | null;
-  full_name: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  canonical_email: string | null;
-  canonical_phone: string | null;
-  stage: string | null;
-  lead_temp: string | null;
-  time_last_updated: string | null;
-};
 
 type PriorityDeal = {
   id: string;
@@ -53,13 +39,11 @@ function formatDealPrice(value: number | string | null): string {
 }
 
 export default function DashboardRightRail({
-  leads,
   activeDeals,
   underContract,
   closingThisMonth,
   priorityDeals,
 }: {
-  leads: LeadForAsk[];
   activeDeals: number;
   underContract: number;
   closingThisMonth: number;
@@ -67,16 +51,14 @@ export default function DashboardRightRail({
 }) {
   return (
     <div className="crm-utility-rail">
-      <AskMerlynCard leads={leads} />
-
       <section className="crm-card crm-utility-card crm-dashboard-secondary-card">
         <div className="crm-section-head">
           <div>
-            <h2 className="crm-section-title">Deals Snapshot</h2>
-            <p className="crm-section-subtitle" style={{ marginTop: 4 }}>Track active transactions at a glance.</p>
+            <h2 className="crm-section-title">Deals snapshot</h2>
+            <p className="crm-section-subtitle" style={{ marginTop: 4 }}>Keep active transactions visible without leaving today&apos;s queue.</p>
           </div>
           <Link href="/app/deals" className="crm-btn crm-btn-secondary" style={{ padding: "6px 10px", fontSize: 12 }}>
-            View All Deals
+            Open deals
           </Link>
         </div>
 
@@ -90,8 +72,8 @@ export default function DashboardRightRail({
           {priorityDeals.length === 0 ? (
             <EmptyState
               title="No active deals yet"
-              body="Convert a lead into a deal to start tracking your transaction pipeline."
-              action={<Link href="/app/deals" className="crm-btn crm-btn-secondary">Open Deals Board</Link>}
+              body="When a lead turns serious, convert it to a deal so close dates and next steps stay visible."
+              action={<Link href="/app/list" className="crm-btn crm-btn-secondary">Open leads</Link>}
             />
           ) : (
             priorityDeals.map((deal) => {
@@ -122,13 +104,15 @@ export default function DashboardRightRail({
 
       <section className="crm-card crm-utility-card">
         <div className="crm-section-head">
-          <h2 className="crm-section-title">Quick Actions</h2>
+          <h2 className="crm-section-title">Keep the workspace moving</h2>
         </div>
+        <p className="crm-section-subtitle" style={{ marginTop: 0 }}>
+          Start where progress is most likely: today&apos;s leads, the pipeline, or your intake link.
+        </p>
         <div className="crm-stack-8">
-          <Link href="/app/list" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Open Leads</Link>
-          <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Open Pipeline</Link>
-          <Link href="/app/intake" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Open Lead Intake</Link>
-          <Link href="/app/onboarding" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Setup Guide</Link>
+          <Link href="/app/list?follow_up=due" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Review due follow-ups</Link>
+          <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Open pipeline</Link>
+          <Link href="/app/intake" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Share intake link</Link>
         </div>
       </section>
     </div>
