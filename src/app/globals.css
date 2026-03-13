@@ -697,15 +697,15 @@ td {
 .merlyn-marketing__container {
   position: relative;
   z-index: 1;
-  width: min(1160px, calc(100% - 40px));
+  width: min(1200px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 26px 0 80px;
+  padding: 18px 0 72px;
 }
 
 .merlyn-marketing__container--home {
   display: grid;
-  gap: clamp(28px, 5vw, 64px);
-  padding: 24px 0 44px;
+  gap: clamp(22px, 3vw, 40px);
+  padding: 14px 0 40px;
 }
 
 /* =========================================================
@@ -2552,15 +2552,15 @@ input:focus, textarea:focus, select:focus {
 .merlyn-nav__actions {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .merlyn-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 46px;
-  padding: 0 18px;
+  min-height: 44px;
+  padding: 0 17px;
   border-radius: 14px;
   text-decoration: none;
   font-size: 0.96rem;
@@ -2613,16 +2613,18 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-hero--home {
-  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 500px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
-  gap: clamp(28px, 5vw, 68px);
-  padding: clamp(18px, 3vw, 26px) 0 clamp(10px, 1vw, 18px);
+  gap: clamp(32px, 4vw, 56px);
+  min-height: clamp(480px, 60vh, 640px);
+  padding: 4px 0 0;
 }
 
 .merlyn-hero__intro {
   display: grid;
-  gap: 18px;
-  max-width: 620px;
+  gap: 16px;
+  max-width: 520px;
+  align-content: center;
 }
 
 .merlyn-hero__eyebrow,
@@ -2648,17 +2650,17 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-hero__intro h1 {
-  max-width: 11ch;
-  font-size: clamp(3rem, 6vw, 5.35rem);
-  line-height: 0.92;
+  max-width: 520px;
+  font-size: clamp(3.45rem, 6vw, 5rem);
+  line-height: 0.94;
 }
 
 .merlyn-hero__body {
   margin: 0;
-  max-width: 60ch;
+  max-width: 520px;
   color: var(--merlyn-text-secondary);
-  font-size: clamp(1rem, 1.55vw, 1.12rem);
-  line-height: 1.7;
+  font-size: clamp(1rem, 1.2vw, 1.08rem);
+  line-height: 1.65;
 }
 
 .merlyn-hero__actions,
@@ -2678,9 +2680,11 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-hero-frame {
-  padding: 22px;
+  width: min(100%, 540px);
+  justify-self: end;
+  padding: 20px;
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .merlyn-preview-header {
@@ -2692,9 +2696,9 @@ input:focus, textarea:focus, select:focus {
 
 .merlyn-preview-header h2 {
   margin: 6px 0 0;
-  max-width: 14ch;
-  font-size: 1.45rem;
-  line-height: 1.08;
+  max-width: 13ch;
+  font-size: 1.28rem;
+  line-height: 1.12;
   letter-spacing: -0.04em;
 }
 
@@ -2719,7 +2723,7 @@ input:focus, textarea:focus, select:focus {
 
 .merlyn-preview-visual {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .merlyn-preview-spotlight,
@@ -2731,9 +2735,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-preview-spotlight {
-  padding: 18px;
+  padding: 16px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   background:
     linear-gradient(135deg, rgba(34, 197, 94, 0.1), var(--merlyn-panel-strong)),
     linear-gradient(180deg, var(--merlyn-panel-strong), var(--merlyn-panel-soft));
@@ -2789,10 +2793,10 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-preview-row {
-  padding: 14px 16px;
+  padding: 13px 15px;
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
 }
 
 .merlyn-preview-row__label {
@@ -2961,7 +2965,7 @@ input:focus, textarea:focus, select:focus {
 
 @media (max-width: 1080px) {
   .merlyn-marketing__container--home {
-    width: min(100% - 32px, 1160px);
+    width: min(calc(100% - 32px), 1200px);
   }
 
   .merlyn-hero--home,
@@ -2979,12 +2983,24 @@ input:focus, textarea:focus, select:focus {
   .merlyn-final-cta__actions {
     justify-content: flex-start;
   }
+
+  .merlyn-hero--home {
+    min-height: auto;
+    gap: 26px;
+  }
+
+  .merlyn-hero__intro,
+  .merlyn-hero-frame {
+    max-width: none;
+    width: 100%;
+    justify-self: stretch;
+  }
 }
 
 @media (max-width: 760px) {
   .merlyn-marketing__container--home {
-    gap: 24px;
-    padding-top: 18px;
+    gap: 22px;
+    padding-top: 14px;
     padding-bottom: 28px;
   }
 
@@ -3006,13 +3022,15 @@ input:focus, textarea:focus, select:focus {
   }
 
   .merlyn-hero--home {
-    gap: 24px;
-    padding-top: 4px;
+    gap: 20px;
+    min-height: auto;
+    padding-top: 0;
   }
 
   .merlyn-hero__intro h1 {
-    max-width: 11ch;
-    font-size: clamp(2.6rem, 12vw, 4rem);
+    max-width: 520px;
+    font-size: clamp(2.85rem, 11vw, 4rem);
+    line-height: 0.96;
   }
 
   .merlyn-hero-frame,
@@ -3039,7 +3057,7 @@ input:focus, textarea:focus, select:focus {
 
 @media (max-width: 520px) {
   .merlyn-marketing__container {
-    width: min(100% - 24px, 1160px);
+    width: min(calc(100% - 24px), 1200px);
   }
 
   .merlyn-nav__actions,

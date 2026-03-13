@@ -38,21 +38,6 @@ const workflowItems = [
   { label: "Next follow-up", source: "Today", detail: "Call Jordan Mitchell about Saturday showing." },
 ];
 
-const previewColumns = [
-  {
-    title: "Capture",
-    items: ["Website form", "Instagram bio link", "Open house QR"],
-  },
-  {
-    title: "Pipeline",
-    items: ["New", "Qualified", "Active deal"],
-  },
-  {
-    title: "Today",
-    items: ["Call buyer about showing", "Review seller intake", "Update inspection timeline"],
-  },
-];
-
 export default function HomePage() {
   const primaryHref = "/auth?mode=sign_up";
   const secondaryHref = "/demo";
@@ -130,19 +115,6 @@ export default function HomePage() {
                       <strong>{item.source}</strong>
                       <p>{item.detail}</p>
                     </div>
-                  </article>
-                ))}
-              </section>
-
-              <section className="merlyn-preview-columns">
-                {previewColumns.map((column) => (
-                  <article key={column.title} className="merlyn-preview-column">
-                    <div className="merlyn-preview-column__title">{column.title}</div>
-                    <ul>
-                      {column.items.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
                   </article>
                 ))}
               </section>
