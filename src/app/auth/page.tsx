@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import MerlynMascot from "@/components/branding/merlyn-mascot";
 import { FEATURE_SIGNUP_ENABLED, PRODUCT_NAME } from "@/lib/features";
@@ -35,7 +35,6 @@ function toFriendlyError(message: string): string {
 
 export default function AuthPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = useMemo(() => supabaseBrowser(), []);
 
   const [mode, setMode] = useState<AuthMode>("sign_in");
@@ -64,7 +63,10 @@ export default function AuthPage() {
   }, [supabase]);
 
   useEffect(() => {
-    const requestedMode = searchParams.get("mode");
+    const requestedMode =
+      typeof window === "undefined"
+        ? null
+        : new URLSearchParams(window.location.search).get("mode");
     if (requestedMode === "sign_up" || requestedMode === "signup") {
       setMode("sign_up");
       setError(null);
@@ -77,7 +79,7 @@ export default function AuthPage() {
       setError(null);
       setMessage(null);
     }
-  }, [searchParams]);
+  }, []);
 
   function switchMode(nextMode: Exclude<AuthMode, "recovery">) {
     setMode(nextMode);
