@@ -223,13 +223,13 @@ export default function LeadListTable({
   }
 
   return (
-    <section className="crm-card" style={{ marginTop: 16, padding: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <div style={{ fontWeight: 700 }}>Leads</div>
+    <section className="crm-card crm-section-card crm-stack-10">
+      <div className="crm-section-head">
+        <h2 className="crm-section-title">Lead Records</h2>
         <span className="crm-chip">{filteredLeads.length} result(s)</span>
       </div>
 
-      <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div className="crm-inline-actions">
         {SMART_LISTS.map((preset) => (
           <button
             key={preset.key}
@@ -257,12 +257,12 @@ export default function LeadListTable({
               setActiveSmartList("");
             }}
           >
-            Follow-ups Due
+            Reminders Due
           </button>
         ) : null}
       </div>
 
-      <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 8 }}>
+      <div className="crm-filter-grid">
         <input
           placeholder="Search name, handle, email, phone, tags..."
           value={filters.search}
@@ -304,7 +304,7 @@ export default function LeadListTable({
         </select>
       </div>
 
-      <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="crm-inline-actions">
         <input
           placeholder="Save current filters as view..."
           value={saveName}
@@ -317,7 +317,7 @@ export default function LeadListTable({
       </div>
 
       {savedViews.length > 0 ? (
-        <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+        <div className="crm-stack-8">
           {savedViews.map((view) => (
             <div key={view.id} className="crm-card-muted" style={{ padding: 8, display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
               <div style={{ fontSize: 13, fontWeight: 600 }}>{view.name}</div>
@@ -343,17 +343,17 @@ export default function LeadListTable({
       ) : null}
 
       {viewMessage ? (
-        <div style={{ marginTop: 8 }} className={`crm-chip ${viewMessage.includes("removed") || viewMessage.includes("created") ? "crm-chip-ok" : "crm-chip-danger"}`}>
+        <div className={`crm-chip ${viewMessage.includes("removed") || viewMessage.includes("created") ? "crm-chip-ok" : "crm-chip-danger"}`}>
           {viewMessage}
         </div>
       ) : null}
 
-      <div className="crm-card" style={{ marginTop: 12, overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
+      <div className="crm-table-wrap">
+        <table className="crm-data-table">
           <thead>
             <tr>
               {["Name", "Handle", "Email", "Phone", "Tags", "Stage", "Temp", "Source", "Last Message", "Updated", "View"].map((label) => (
-                <th key={label} style={{ textAlign: "left", padding: 10, fontSize: 12, color: "var(--ink-muted)", borderBottom: "1px solid var(--line)" }}>
+                <th key={label}>
                   {label}
                 </th>
               ))}
@@ -362,25 +362,25 @@ export default function LeadListTable({
           <tbody>
             {filteredLeads.map((lead) => (
               <tr key={lead.id}>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)", fontWeight: 600 }}>{displayName(lead)}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>
+                <td style={{ fontWeight: 600 }}>{displayName(lead)}</td>
+                <td>
                   {lead.ig_username && !isSyntheticHandle(lead.ig_username) ? `@${lead.ig_username}` : "-"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>{emailOf(lead) || "-"}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>{phoneOf(lead) || "-"}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)", maxWidth: 180, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <td>{emailOf(lead) || "-"}</td>
+                <td>{phoneOf(lead) || "-"}</td>
+                <td className="crm-truncate-cell" style={{ maxWidth: 180 }}>
                   {tagsOf(lead) || "-"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>{lead.stage || "New"}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>{lead.lead_temp || "Warm"}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>{lead.source || "-"}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)", maxWidth: 280, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <td>{lead.stage || "New"}</td>
+                <td>{lead.lead_temp || "Warm"}</td>
+                <td>{lead.source || "-"}</td>
+                <td className="crm-truncate-cell">
                   {lead.last_message_preview || "-"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>
+                <td>
                   {lead.time_last_updated ? new Date(lead.time_last_updated).toLocaleString() : "-"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid var(--line)" }}>
+                <td>
                   <button
                     type="button"
                     onClick={() => setActiveLead(lead)}

@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import StatusBadge from "@/components/ui/status-badge";
 
 type LeadForAsk = {
   id: string;
@@ -24,13 +26,14 @@ type Reminder = {
 };
 
 type GuidancePriority = "Urgent" | "High" | "Normal";
+type ContactMethod = "Call" | "SMS" | "Email";
 
 type GuidanceItem = {
   leadId: string;
   leadName: string;
   reason: string;
   priority: GuidancePriority;
-  action: "Call" | "Text" | "Email" | "Follow Up";
+  action: ContactMethod;
 };
 
 function normalize(value: string | null | undefined, fallback: string): string {
@@ -106,6 +109,18 @@ function firstNameForMessage(lead: LeadForAsk): string {
   return leadDisplayName(lead).split(" ")[0] || "there";
 }
 
+function priorityRank(priority: GuidancePriority): number {
+  if (priority === "Urgent") return 3;
+  if (priority === "High") return 2;
+  return 1;
+}
+
+function priorityTone(priority: GuidancePriority): "danger" | "warn" | "info" {
+  if (priority === "Urgent") return "danger";
+  if (priority === "High") return "warn";
+  return "info";
+}
+
 function buildGuidance(leads: LeadForAsk[], reminders: Reminder[]): GuidanceItem[] {
   const now = Date.now();
   const reminderByLead = new Map<string, { overdue: number; dueSoon: number }>();
@@ -130,9 +145,9 @@ function buildGuidance(leads: LeadForAsk[], reminders: Reminder[]): GuidanceItem
       guidance.push({
         leadId: lead.id,
         leadName: name,
-        reason: `${reminder.overdue} follow-up reminder(s) are overdue.`,
+        reason: `${reminder.overdue} follow-up reminder(s) are overdue and need attention.`,
         priority: "Urgent",
-        action: "Follow Up",
+        action: "Call",
       });
       continue;
     }
@@ -143,10 +158,10 @@ function buildGuidance(leads: LeadForAsk[], reminders: Reminder[]): GuidanceItem
         leadName: name,
         reason:
           staleDays <= 1
-            ? "New lead submitted recently. Fast response improves conversion."
+            ? "New lead submitted recently. Fast response keeps momentum."
             : "New lead has not been contacted yet.",
         priority: staleDays > 1 ? "Urgent" : "High",
-        action: staleDays > 1 ? "Call" : "Text",
+        action: "Call",
       });
       continue;
     }
@@ -168,7 +183,7 @@ function buildGuidance(leads: LeadForAsk[], reminders: Reminder[]): GuidanceItem
         leadName: name,
         reason: `Warm lead has not been touched for ${Math.round(staleDays)} day(s).`,
         priority: "High",
-        action: "Follow Up",
+        action: "SMS",
       });
       continue;
     }
@@ -179,13 +194,25 @@ function buildGuidance(leads: LeadForAsk[], reminders: Reminder[]): GuidanceItem
         leadName: name,
         reason: `${reminder.dueSoon} follow-up due within 24 hours.`,
         priority: "High",
-        action: "Follow Up",
+        action: "SMS",
       });
       continue;
     }
+
+    if (staleDays >= 4) {
+      guidance.push({
+        leadId: lead.id,
+        leadName: name,
+        reason: `No recent activity for ${Math.round(staleDays)} day(s).`,
+        priority: "Normal",
+        action: "Email",
+      });
+    }
   }
 
-  return guidance.slice(0, 5);
+  return guidance
+    .sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority))
+    .slice(0, 5);
 }
 
 function buildWeeklyFollowUpDraft(leads: LeadForAsk[], guidance: GuidanceItem[]): string {
@@ -264,6 +291,13 @@ function answerAskMerlyn(question: string, leads: LeadForAsk[], reminders: Remin
   return `Top priority: ${top.action} ${top.leadName} (${top.priority}). ${top.reason}`;
 }
 
+function toTelHref(phone: string | null): string | null {
+  if (!phone) return null;
+  const clean = phone.replace(/[^\d+]/g, "").trim();
+  if (!clean) return null;
+  return `tel:${clean}`;
+}
+
 export default function AskMerlynCard({ leads }: { leads: LeadForAsk[] }) {
   const [askQuestion, setAskQuestion] = useState("");
   const [askResponse, setAskResponse] = useState("Ask Merlyn what to prioritize today.");
@@ -285,6 +319,7 @@ export default function AskMerlynCard({ leads }: { leads: LeadForAsk[] }) {
   }, []);
 
   const guidance = useMemo(() => buildGuidance(leads, reminders), [leads, reminders]);
+  const leadById = useMemo(() => new Map(leads.map((lead) => [lead.id, lead])), [leads]);
 
   function runAskMerlyn(rawQuestion: string) {
     const question = rawQuestion.trim();
@@ -297,59 +332,101 @@ export default function AskMerlynCard({ leads }: { leads: LeadForAsk[] }) {
   }
 
   return (
-    <section className="crm-card crm-utility-card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <strong>Ask Merlyn</strong>
-        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Advisory only</span>
+    <section className="crm-card crm-utility-card crm-dashboard-secondary-card">
+      <div className="crm-section-head">
+        <h2 className="crm-section-title">Merlyn Assistant</h2>
+        <p className="crm-section-subtitle">Pipeline Intelligence</p>
       </div>
 
-      <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {[
-          "What should I do next?",
-          "Which leads are hottest?",
-          "Write a follow-up for this week",
-        ].map((prompt) => (
-          <button
-            key={prompt}
-            type="button"
-            className="crm-btn crm-btn-secondary"
-            style={{ padding: "6px 10px", fontSize: 12 }}
-            onClick={() => runAskMerlyn(prompt)}
+      <div className="crm-stack-8" style={{ marginTop: 8 }}>
+        <div className="crm-stack-8">
+          <div style={{ fontSize: 11, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--ink-faint)", fontWeight: 700 }}>
+            Suggested Actions
+          </div>
+          {guidance.length === 0 ? (
+            <div className="crm-card-muted" style={{ padding: 8, fontSize: 12, color: "var(--ink-muted)" }}>
+              No urgent actions right now.
+            </div>
+          ) : (
+            guidance.slice(0, 3).map((item) => {
+              const lead = leadById.get(item.leadId);
+              const callHref = toTelHref(lead?.canonical_phone || null);
+              return (
+                <article key={`${item.leadId}-${item.reason}`} className="crm-card-muted" style={{ padding: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{item.leadName}</div>
+                    <StatusBadge label={item.priority} tone={priorityTone(item.priority)} />
+                  </div>
+                  <div style={{ marginTop: 2, fontSize: 12, color: "var(--ink-muted)" }}>{item.reason}</div>
+                  <div className="crm-card-actions" style={{ marginTop: 6 }}>
+                    {callHref ? (
+                      <a href={callHref} className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
+                        Call
+                      </a>
+                    ) : (
+                      <Link href={`/app/leads/${item.leadId}`} className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
+                        Call
+                      </Link>
+                    )}
+                    <Link href={`/app/leads/${item.leadId}`} className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
+                      Open Lead
+                    </Link>
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+
+        <div className="crm-stack-8" style={{ marginTop: 4 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--ink-faint)", fontWeight: 700 }}>
+            Ask Merlyn
+          </div>
+          <div className="crm-inline-actions">
+            {[
+              "What should I do next?",
+              "Which leads are hottest?",
+              "Write a follow-up for this week",
+            ].map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="crm-btn crm-btn-secondary"
+                style={{ padding: "5px 8px", fontSize: 11 }}
+                onClick={() => runAskMerlyn(prompt)}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              runAskMerlyn(askQuestion);
+            }}
+            className="crm-inline-actions"
           >
-            {prompt}
-          </button>
-        ))}
-      </div>
+            <input
+              type="text"
+              value={askQuestion}
+              onChange={(event) => setAskQuestion(event.target.value)}
+              placeholder="Ask Merlyn about your leads"
+              style={{
+                flex: 1,
+                minWidth: 220,
+                padding: "8px 10px",
+              }}
+            />
+            <button type="submit" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>
+              Ask
+            </button>
+          </form>
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          runAskMerlyn(askQuestion);
-        }}
-        style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}
-      >
-        <input
-          type="text"
-          value={askQuestion}
-          onChange={(event) => setAskQuestion(event.target.value)}
-          placeholder="Ask Merlyn about your leads"
-          style={{
-            flex: 1,
-            minWidth: 220,
-            padding: "9px 10px",
-            borderRadius: 10,
-            border: "1px solid var(--line)",
-            background: "var(--panel-2)",
-            color: "var(--ink)",
-          }}
-        />
-        <button type="submit" className="crm-btn crm-btn-primary" style={{ padding: "8px 14px" }}>
-          Ask
-        </button>
-      </form>
-
-      <div className="crm-card-muted" style={{ marginTop: 10, padding: 10 }}>
-        <div style={{ fontSize: 13, color: "var(--ink-muted)", whiteSpace: "pre-wrap" }}>{askResponse}</div>
+          <div className="crm-card-muted" style={{ padding: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--ink-muted)", whiteSpace: "pre-wrap" }}>{askResponse}</div>
+          </div>
+        </div>
       </div>
     </section>
   );
