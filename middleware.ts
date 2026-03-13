@@ -7,9 +7,24 @@ export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const isDebugRoute = pathname.startsWith("/_debug");
   const isPingRoute = pathname === "/ping";
+  const isAppRoute = pathname.startsWith("/app");
+  const isAuthRoute = pathname === "/auth";
+  const isHomeRoute = pathname === "/";
+  const isLegacySelectWorkspaceRoute = pathname === "/app/select-workspace";
 
   if (process.env.NODE_ENV === "production" && (isDebugRoute || isPingRoute)) {
     return new NextResponse("Not Found", { status: 404 });
+  }
+
+  // Avoid a network auth roundtrip on public routes when no Supabase auth cookie is present.
+  const hasSupabaseAuthCookie = req.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("-auth-token"));
+  const shouldCheckSession =
+    isAppRoute || ((isHomeRoute || isLegacySelectWorkspaceRoute) && hasSupabaseAuthCookie);
+
+  if (!shouldCheckSession) {
+    return res;
   }
 
   const supabase = createServerClient(
@@ -35,12 +50,7 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Route access rules
-  const isAppRoute = pathname.startsWith("/app");
-  const isAuthRoute = pathname === "/auth";
-  const isHomeRoute = pathname === "/";
-  const isLegacySelectWorkspaceRoute = pathname === "/app/select-workspace";
-
-  if (user && (isAuthRoute || isHomeRoute || isLegacySelectWorkspaceRoute)) {
+  if (user && (isHomeRoute || isLegacySelectWorkspaceRoute)) {
     const url = req.nextUrl.clone();
     url.pathname = "/app";
     return NextResponse.redirect(url);
