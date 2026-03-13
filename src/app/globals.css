@@ -629,44 +629,44 @@ td {
 
 /* Merlyn landing brand system */
 .merlyn-marketing {
-  --merlyn-bg-900: #071120;
-  --merlyn-bg-800: #0c1830;
-  --merlyn-bg-700: #0a162d;
-  --merlyn-panel: #101d39;
-  --merlyn-panel-2: #16264a;
-  --merlyn-panel-soft: rgba(16, 29, 57, 0.82);
-  --merlyn-panel-strong: rgba(22, 38, 74, 0.9);
-  --merlyn-panel-glass: rgba(12, 24, 48, 0.66);
-  --merlyn-panel-deep: rgba(12, 24, 48, 0.94);
-  --merlyn-surface-top: rgba(22, 38, 74, 0.72);
-  --merlyn-surface-bottom: rgba(16, 29, 57, 0.96);
-  --merlyn-border: rgba(140, 170, 255, 0.18);
-  --merlyn-border-strong: rgba(140, 170, 255, 0.28);
-  --merlyn-text-primary: #f5f7ff;
-  --merlyn-text-secondary: #a7b3d1;
-  --merlyn-text-muted: #8392b2;
-  --merlyn-accent: #7c8cff;
-  --merlyn-accent-hover: #93a0ff;
-  --merlyn-accent-bright: #9aa7ff;
-  --merlyn-accent-soft: rgba(124, 140, 255, 0.14);
-  --merlyn-glow: rgba(124, 140, 255, 0.28);
+  --merlyn-bg-900: #0b0f14;
+  --merlyn-bg-800: #0e131a;
+  --merlyn-bg-700: #121821;
+  --merlyn-panel: #121821;
+  --merlyn-panel-2: #18212b;
+  --merlyn-panel-soft: rgba(24, 33, 43, 0.84);
+  --merlyn-panel-strong: rgba(18, 24, 33, 0.96);
+  --merlyn-panel-glass: rgba(20, 29, 39, 0.78);
+  --merlyn-panel-deep: rgba(17, 24, 33, 0.94);
+  --merlyn-surface-top: rgba(24, 33, 43, 0.92);
+  --merlyn-surface-bottom: rgba(18, 24, 33, 0.98);
+  --merlyn-border: rgba(110, 124, 137, 0.34);
+  --merlyn-border-strong: rgba(125, 154, 180, 0.44);
+  --merlyn-text-primary: #f3f7fa;
+  --merlyn-text-secondary: #9fb0c0;
+  --merlyn-text-muted: #6e7c89;
+  --merlyn-accent: #22c55e;
+  --merlyn-accent-hover: #16a34a;
+  --merlyn-accent-bright: #4ade80;
+  --merlyn-accent-soft: rgba(34, 197, 94, 0.12);
+  --merlyn-glow: rgba(34, 197, 94, 0.24);
   --merlyn-overlay: rgba(255, 255, 255, 0.03);
   --merlyn-overlay-strong: rgba(255, 255, 255, 0.04);
   --merlyn-button-shadow:
-    0 16px 28px rgba(8, 14, 34, 0.34),
-    0 0 0 1px rgba(147, 160, 255, 0.14) inset,
-    0 0 28px rgba(124, 140, 255, 0.18);
+    0 16px 28px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(34, 197, 94, 0.12) inset,
+    0 0 28px rgba(34, 197, 94, 0.14);
   --merlyn-button-shadow-hover:
-    0 18px 32px rgba(8, 14, 34, 0.4),
-    0 0 0 1px rgba(147, 160, 255, 0.18) inset,
-    0 0 32px rgba(124, 140, 255, 0.22);
-  --merlyn-shadow: 0 32px 60px rgba(2, 7, 18, 0.5);
+    0 18px 32px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(34, 197, 94, 0.16) inset,
+    0 0 32px rgba(34, 197, 94, 0.18);
+  --merlyn-shadow: 0 32px 60px rgba(0, 0, 0, 0.42);
   position: relative;
   min-height: 100%;
   color: var(--merlyn-text-primary);
   background:
-    radial-gradient(circle at 12% 0%, rgba(124, 140, 255, 0.18), transparent 30%),
-    radial-gradient(circle at 88% 12%, rgba(124, 140, 255, 0.11), transparent 24%),
+    radial-gradient(circle at 12% 0%, rgba(34, 197, 94, 0.08), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(68, 84, 102, 0.24), transparent 24%),
     linear-gradient(180deg, var(--merlyn-bg-900) 0%, var(--merlyn-bg-800) 52%, var(--merlyn-bg-700) 100%);
   overflow: hidden;
 }
@@ -682,8 +682,8 @@ td {
   inset: 0;
   background:
     radial-gradient(circle at 55% 22%, rgba(255, 255, 255, 0.03), transparent 22%),
-    linear-gradient(140deg, rgba(124, 140, 255, 0.06), transparent 24%),
-    linear-gradient(320deg, rgba(124, 140, 255, 0.03), transparent 30%),
+    linear-gradient(140deg, rgba(34, 197, 94, 0.05), transparent 24%),
+    linear-gradient(320deg, rgba(34, 197, 94, 0.025), transparent 30%),
     repeating-linear-gradient(
       115deg,
       rgba(255, 255, 255, 0.018) 0px,
@@ -2575,12 +2575,13 @@ input:focus, textarea:focus, select:focus {
 
 .merlyn-button-primary {
   color: var(--merlyn-text-primary);
-  background: linear-gradient(180deg, var(--merlyn-accent-hover) 0%, var(--merlyn-accent) 100%);
+  border-color: rgba(34, 197, 94, 0.52);
+  background: linear-gradient(180deg, var(--merlyn-accent) 0%, var(--merlyn-accent-hover) 100%);
   box-shadow: var(--merlyn-button-shadow);
 }
 
 .merlyn-button-primary:hover {
-  background: linear-gradient(180deg, var(--merlyn-accent-bright) 0%, var(--merlyn-accent-hover) 100%);
+  background: linear-gradient(180deg, var(--merlyn-accent-bright) 0%, var(--merlyn-accent) 100%);
   box-shadow: var(--merlyn-button-shadow-hover);
 }
 
@@ -2601,7 +2602,7 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid var(--merlyn-border);
   background:
     linear-gradient(180deg, var(--merlyn-surface-top), var(--merlyn-surface-bottom)),
-    linear-gradient(135deg, rgba(124, 140, 255, 0.08), transparent 42%);
+    linear-gradient(135deg, rgba(34, 197, 94, 0.05), transparent 42%);
   box-shadow:
     var(--merlyn-shadow),
     inset 0 1px 0 var(--merlyn-overlay-strong);
@@ -2734,7 +2735,7 @@ input:focus, textarea:focus, select:focus {
   display: grid;
   gap: 10px;
   background:
-    linear-gradient(135deg, rgba(124, 140, 255, 0.18), var(--merlyn-panel-strong)),
+    linear-gradient(135deg, rgba(34, 197, 94, 0.1), var(--merlyn-panel-strong)),
     linear-gradient(180deg, var(--merlyn-panel-strong), var(--merlyn-panel-soft));
   box-shadow: inset 0 1px 0 var(--merlyn-overlay-strong);
 }
@@ -2858,7 +2859,7 @@ input:focus, textarea:focus, select:focus {
   width: 5px;
   height: 5px;
   border-radius: 999px;
-  background: var(--merlyn-accent-hover);
+  background: var(--merlyn-accent);
 }
 
 .merlyn-section {
