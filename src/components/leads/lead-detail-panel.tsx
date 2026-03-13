@@ -334,41 +334,6 @@ function primaryHandleFromLead(lead: LeadDetail): string | null {
   return `@${cleaned}`;
 }
 
-function originSourceDetail(lead: LeadDetail): string | null {
-  const source = asRecord(lead.source_detail);
-  const custom = asRecord(lead.custom_fields);
-  return (
-    firstStringFromRecord(source, [
-      "origin_detail",
-      "origin",
-      "source_detail",
-      "source_page",
-      "source_form",
-      "source_campaign",
-      "referral_source",
-      "referrer",
-      "landing_page",
-      "website",
-      "form_url",
-      "source_url",
-    ]) ||
-    firstStringFromRecord(custom, [
-      "origin_detail",
-      "origin",
-      "source_detail",
-      "source_page",
-      "source_form",
-      "source_campaign",
-      "referral_source",
-      "referrer",
-      "landing_page",
-      "website",
-      "form_url",
-      "source_url",
-    ])
-  );
-}
-
 function sourceUrlFromLead(lead: LeadDetail): string | null {
   const source = asRecord(lead.source_detail);
   const custom = asRecord(lead.custom_fields);
@@ -496,28 +461,6 @@ function fieldValue(value: unknown): string | null {
   return null;
 }
 
-function recordRows(
-  record: Record<string, unknown> | null,
-  hiddenKeys: string[] = []
-): Array<{ key: string; label: string; value: string }> {
-  if (!record) return [];
-  const hidden = new Set(hiddenKeys);
-  const rows: Array<{ key: string; label: string; value: string }> = [];
-
-  for (const [key, rawValue] of Object.entries(record)) {
-    if (hidden.has(key)) continue;
-    const value = fieldValue(rawValue);
-    if (!value) continue;
-    rows.push({
-      key,
-      label: fieldLabel(key),
-      value,
-    });
-  }
-
-  return rows.slice(0, 24);
-}
-
 function MiniField({ label, value }: { label: string; value: string }) {
   return (
     <div className="crm-card-muted" style={{ padding: 10 }}>
@@ -569,7 +512,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const [receptionistAlerts, setReceptionistAlerts] = useState<ReceptionistAlert[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadError, setThreadError] = useState("");
-  const [threadChannel, setThreadChannel] = useState<LeadThreadResponse["channel"] | null>(null);
   const [smsDraft, setSmsDraft] = useState("");
   const [smsSending, setSmsSending] = useState(false);
   const [commNotice, setCommNotice] = useState("");
@@ -632,7 +574,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     setReminders([]);
     setInteractions([]);
     setReceptionistAlerts([]);
-    setThreadChannel(null);
     setError("");
     setThreadError("");
     setCommNotice("");
@@ -703,7 +644,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
           setThreadError("");
           setInteractions(sortedInteractions(data.thread.interactions || []));
           setReceptionistAlerts(data.thread.alerts || []);
-          setThreadChannel(data.channel || null);
           const urgencyLevel = data.thread.lead?.urgency_level ?? null;
           const urgencyScore =
             typeof data.thread.lead?.urgency_score === "number"
@@ -757,23 +697,13 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const emailValue = firstNonEmpty(displayLead?.canonical_email || null);
   const phoneValue = firstNonEmpty(displayLead?.canonical_phone || null);
   const nameValue = displayLead ? leadContactName(displayLead) : "Not provided";
-  const platformValue = sourceLabel || "Not specified";
-  const sourceDetailValue = displayLead ? originSourceDetail(displayLead) : null;
   const phoneActionValue = toPhoneActionValue(phoneValue);
   const emailHref = emailValue ? `mailto:${encodeURIComponent(emailValue)}` : null;
   const externalAction = displayLead ? externalActionForLead(displayLead, handleValue) : null;
 
-  const communicationsEnabled = threadChannel
-    ? Boolean(threadChannel.receptionist_enabled && threadChannel.communications_enabled)
-    : true;
-  const businessPhone = firstNonEmpty(threadChannel?.business_phone_number || null);
   const communicationBlocker = !phoneActionValue
     ? "No phone number is stored for this lead."
-    : !communicationsEnabled
-      ? "Receptionist communications are currently disabled in settings."
-      : !businessPhone
-        ? "Add a business phone number in Receptionist Settings."
-        : null;
+    : null;
   const canRunCommunications = !communicationBlocker;
   const urgencyLabel = prettyLabel(displayLead?.urgency_level);
   const urgencyScore =
@@ -782,18 +712,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
       : null;
 
   const leadSummary = useMemo(() => (displayLead ? summaryRows(displayLead) : []), [displayLead]);
-  const sourceDetailRows = useMemo(
-    () =>
-      recordRows(asRecord(displayLead?.source_detail || null), [
-        "intake_identity",
-        "manual_identity",
-      ]),
-    [displayLead?.source_detail]
-  );
-  const customFieldRows = useMemo(
-    () => recordRows(asRecord(displayLead?.custom_fields || null)),
-    [displayLead?.custom_fields]
-  );
   const notesText = firstNonEmpty(displayLead?.notes || null);
   const lastUpdatedText = formatDateTime(displayLead?.time_last_updated);
   const lastActivityText = firstNonEmpty(displayLead?.last_message_preview || null);
@@ -1076,7 +994,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                 <section className="crm-card-muted" style={{ padding: 12 }}>
                   <div className="crm-section-head">
                     <h2 className="crm-section-title">Contact Info</h2>
-                    {platformValue !== "Not specified" ? <span className="crm-chip crm-chip-info">{platformValue}</span> : null}
+                    {sourceLabel ? <span className="crm-chip crm-chip-info">{sourceLabel}</span> : null}
                   </div>
 
                   <div
@@ -1090,19 +1008,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                     <MiniField label="Name" value={nameValue} />
                     <MiniField label="Phone" value={phoneValue || "Not provided"} />
                     <MiniField label="Email" value={emailValue || "Not provided"} />
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 8,
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-                      gap: 8,
-                    }}
-                  >
-                    <MiniField label="Primary handle" value={handleValue || "Not available"} />
-                    <MiniField label="Platform" value={platformValue} />
-                    <MiniField label="Origin / Source detail" value={sourceDetailValue || "Not available"} />
                   </div>
 
                   <div
@@ -1135,15 +1040,11 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                     )}
                   </div>
 
-                  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <span className="crm-chip">Calls live in Merlyn Concierge</span>
-                    {businessPhone ? <span className="crm-chip">Business #: {businessPhone}</span> : null}
-                    {!communicationsEnabled ? <span className="crm-chip crm-chip-warn">Receptionist communications disabled</span> : null}
-                    {communicationBlocker ? <span className="crm-chip crm-chip-warn">{communicationBlocker}</span> : null}
-                    <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary" style={{ padding: "4px 8px", fontSize: 12 }}>
-                      Receptionist Settings
-                    </Link>
-                  </div>
+                  {communicationBlocker ? (
+                    <div style={{ marginTop: 8, fontSize: 12, color: "var(--ink-muted)" }}>
+                      {communicationBlocker}
+                    </div>
+                  ) : null}
                 </section>
 
                 <section ref={communicationSectionRef} className="crm-card-muted" style={{ padding: 12 }}>
@@ -1434,42 +1335,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                     ))}
                   </div>
                 </section>
-
-                <details className="crm-card-muted" style={{ padding: 12 }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 14 }}>Structured Source Data</summary>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    {sourceDetailRows.length > 0 ? (
-                      sourceDetailRows.map((row) => (
-                        <div key={row.key} className="crm-card" style={{ padding: 10 }}>
-                          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{row.label}</div>
-                          <div style={{ marginTop: 4, fontSize: 13 }}>{row.value}</div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="crm-card" style={{ padding: 10, fontSize: 13, color: "var(--ink-muted)" }}>
-                        No structured source data yet.
-                      </div>
-                    )}
-                  </div>
-                </details>
-
-                <details className="crm-card-muted" style={{ padding: 12 }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 14 }}>Custom Fields</summary>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    {customFieldRows.length > 0 ? (
-                      customFieldRows.map((row) => (
-                        <div key={row.key} className="crm-card" style={{ padding: 10 }}>
-                          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{row.label}</div>
-                          <div style={{ marginTop: 4, fontSize: 13 }}>{row.value}</div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="crm-card" style={{ padding: 10, fontSize: 13, color: "var(--ink-muted)" }}>
-                        No custom field data yet.
-                      </div>
-                    )}
-                  </div>
-                </details>
               </div>
             </div>
           ) : null}
