@@ -8,7 +8,13 @@ type CreateLeadResponse = {
   error?: string;
 };
 
-export default function ManualLeadForm() {
+export default function ManualLeadForm({
+  onSaved,
+  onCancel,
+}: {
+  onSaved?: () => void;
+  onCancel?: () => void;
+}) {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -70,6 +76,7 @@ export default function ManualLeadForm() {
       setIntent("");
       setTimeline("");
       router.refresh();
+      onSaved?.();
     } catch {
       setMessage("Could not save lead.");
     } finally {
@@ -78,13 +85,15 @@ export default function ManualLeadForm() {
   }
 
   return (
-    <section className="crm-card" style={{ marginTop: 14, padding: 12 }}>
-      <div style={{ fontWeight: 700 }}>Add Lead Manually</div>
-      <div style={{ marginTop: 6, fontSize: 13, color: "var(--ink-muted)" }}>
+    <section className="crm-card crm-section-card crm-stack-10">
+      <div className="crm-section-head">
+        <h2 className="crm-section-title">Add Lead Manually</h2>
+      </div>
+      <div className="crm-section-subtitle">
         Add a lead from referrals, calls, web forms, or direct outreach.
       </div>
 
-      <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1.1fr 1fr 1fr 1fr 1fr 1fr", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
         <input placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
         <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -98,7 +107,7 @@ export default function ManualLeadForm() {
         </select>
       </div>
 
-      <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
         <input placeholder="Intent" value={intent} onChange={(e) => setIntent(e.target.value)} />
         <input placeholder="Timeline" value={timeline} onChange={(e) => setTimeline(e.target.value)} />
         <input placeholder="Source" value={source} onChange={(e) => setSource(e.target.value)} />
@@ -107,9 +116,17 @@ export default function ManualLeadForm() {
           <option value="Warm">Warm</option>
           <option value="Hot">Hot</option>
         </select>
+      </div>
+
+      <div className="crm-inline-actions">
         <button onClick={() => void saveLead()} disabled={saving} className="crm-btn crm-btn-primary">
           {saving ? "Saving..." : "Add Lead"}
         </button>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className="crm-btn crm-btn-secondary">
+            Close
+          </button>
+        ) : null}
       </div>
 
       {message ? (

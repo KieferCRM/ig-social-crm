@@ -1116,6 +1116,92 @@ h1, h2, h3, h4 {
   overflow: auto;
 }
 
+.crm-lead-table-card {
+  gap: 12px;
+}
+
+.crm-lead-control-bar {
+  display: grid;
+  grid-template-columns: minmax(240px, 2.2fr) repeat(4, minmax(140px, 1fr)) auto;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(18, 24, 33, 0.72);
+}
+
+.crm-lead-control-bar__search {
+  min-width: 0;
+}
+
+.crm-lead-control-bar__save {
+  min-width: 110px;
+}
+
+.crm-lead-saved-views {
+  display: grid;
+  gap: 8px;
+}
+
+.crm-lead-saved-view {
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crm-lead-table-scroll {
+  max-height: min(68vh, 820px);
+  border: 1px solid rgba(50, 67, 86, 0.7);
+  border-radius: 14px;
+}
+
+.crm-lead-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(12, 18, 26, 0.96);
+  backdrop-filter: blur(6px);
+}
+
+.crm-workspace-tool-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(4, 10, 22, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.crm-workspace-tool-drawer {
+  width: min(560px, calc(100vw - 20px));
+  height: 100dvh;
+  border-left: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, rgba(18, 24, 33, 0.98), rgba(15, 20, 29, 0.98));
+  box-shadow: -22px 0 60px rgba(0, 0, 0, 0.42);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.crm-workspace-tool-drawer__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.crm-workspace-tool-drawer__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 16px;
+}
+
 .crm-data-table {
   width: 100%;
   border-collapse: collapse;
@@ -2502,6 +2588,18 @@ input:focus, textarea:focus, select:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .crm-lead-control-bar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .crm-lead-control-bar__search {
+    grid-column: 1 / -1;
+  }
+
+  .crm-lead-control-bar__save {
+    grid-column: span 3;
+  }
+
   .crm-demo-board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2541,6 +2639,15 @@ input:focus, textarea:focus, select:focus {
     grid-template-columns: 1fr;
   }
 
+  .crm-lead-control-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-lead-control-bar__save {
+    grid-column: auto;
+    width: 100%;
+  }
+
   .crm-demo-board {
     grid-template-columns: 1fr;
   }
@@ -2551,6 +2658,11 @@ input:focus, textarea:focus, select:focus {
 
   .crm-page-actions .crm-btn {
     flex: 1 1 160px;
+  }
+
+  .crm-workspace-tool-drawer {
+    width: 100%;
+    padding: 14px;
   }
 
   .crm-detail-overlay {

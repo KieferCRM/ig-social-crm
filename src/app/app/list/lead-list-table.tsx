@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import EmptyState from "@/components/ui/empty-state";
 import LeadDetailPanel from "@/components/leads/lead-detail-panel";
 
 type SourceDetail = Record<string, unknown> | null;
@@ -105,20 +106,12 @@ const DEFAULT_FILTERS: ViewFilters = {
   contact: "all",
 };
 
-const SMART_LISTS: Array<{ key: string; label: string; filters: ViewFilters }> = [
-  { key: "all", label: "All", filters: { ...DEFAULT_FILTERS } },
-  { key: "new", label: "New", filters: { ...DEFAULT_FILTERS, stage: "New" } },
-  { key: "hot", label: "Hot", filters: { ...DEFAULT_FILTERS, temp: "Hot" } },
-  { key: "closed", label: "Closed", filters: { ...DEFAULT_FILTERS, stage: "Closed" } },
-  { key: "with_contact", label: "With Contact", filters: { ...DEFAULT_FILTERS, contact: "with_contact" } },
-  { key: "missing_contact", label: "Missing Contact", filters: { ...DEFAULT_FILTERS, contact: "missing_contact" } },
-];
-
 type LeadListTableProps = {
   leads: LeadListRow[];
   initialFilters?: InitialLeadListFilters;
   followUpDueMode?: boolean;
   followUpLeadIds?: string[];
+  toolbarActions?: ReactNode;
 };
 
 function mergedFilters(initialFilters?: InitialLeadListFilters): ViewFilters {
@@ -134,6 +127,7 @@ export default function LeadListTable({
   initialFilters,
   followUpDueMode = false,
   followUpLeadIds = [],
+  toolbarActions,
 }: LeadListTableProps) {
   const [filters, setFilters] = useState<ViewFilters>(() => mergedFilters(initialFilters));
   const [activeLead, setActiveLead] = useState<LeadListRow | null>(null);
@@ -148,15 +142,12 @@ export default function LeadListTable({
       return [];
     }
   });
-  const [saveName, setSaveName] = useState("");
-  const [activeSmartList, setActiveSmartList] = useState("all");
   const [viewMessage, setViewMessage] = useState("");
   const [followUpOnly, setFollowUpOnly] = useState(followUpDueMode);
 
   useEffect(() => {
     setFilters(mergedFilters(initialFilters));
     setFollowUpOnly(followUpDueMode);
-    setActiveSmartList("");
     setViewMessage("");
   }, [initialFilters, followUpDueMode]);
 
@@ -195,17 +186,15 @@ export default function LeadListTable({
       .sort((a, b) => (b.time_last_updated || "").localeCompare(a.time_last_updated || ""));
   }, [filters, leads, followUpOnly, dueLeadSet]);
 
-  function applyFilters(next: ViewFilters, smartListKey?: string) {
+  function applyFilters(next: ViewFilters) {
     setFilters(next);
-    setActiveSmartList(smartListKey || "");
     setViewMessage("");
-    if (smartListKey) {
-      setFollowUpOnly(false);
-    }
   }
 
   function saveCurrentView() {
-    const name = saveName.trim();
+    if (typeof window === "undefined") return;
+    const requestedName = window.prompt("Name this saved view");
+    const name = (requestedName || "").trim();
     if (!name) {
       setViewMessage("Add a name before saving.");
       return;
@@ -213,7 +202,6 @@ export default function LeadListTable({
     const id = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const next = [{ id, name, filters }, ...savedViews].slice(0, 12);
     setSavedViews(next);
-    setSaveName("");
     setViewMessage("Saved view created.");
   }
 
@@ -223,47 +211,21 @@ export default function LeadListTable({
   }
 
   return (
-    <section className="crm-card crm-section-card crm-stack-10">
+    <section className="crm-card crm-section-card crm-stack-10 crm-lead-table-card">
       <div className="crm-section-head">
-        <h2 className="crm-section-title">Lead Records</h2>
-        <span className="crm-chip">{filteredLeads.length} result(s)</span>
+        <h2 className="crm-section-title">Lead records</h2>
+        <div className="crm-inline-actions">
+          <span className="crm-chip">{filteredLeads.length} result(s)</span>
+          {followUpDueMode && followUpLeadIds.length > 0 ? (
+            <span className="crm-chip crm-chip-danger">{followUpLeadIds.length} follow-up due</span>
+          ) : null}
+          {toolbarActions}
+        </div>
       </div>
 
-      <div className="crm-inline-actions">
-        {SMART_LISTS.map((preset) => (
-          <button
-            key={preset.key}
-            className="crm-btn crm-btn-secondary"
-            style={{
-              padding: "6px 9px",
-              fontSize: 12,
-              border: activeSmartList === preset.key ? "1px solid var(--accent)" : "1px solid var(--line)",
-            }}
-            onClick={() => applyFilters(preset.filters, preset.key)}
-          >
-            {preset.label}
-          </button>
-        ))}
-        {followUpDueMode ? (
-          <button
-            className="crm-btn crm-btn-secondary"
-            style={{
-              padding: "6px 9px",
-              fontSize: 12,
-              border: followUpOnly ? "1px solid var(--accent)" : "1px solid var(--line)",
-            }}
-            onClick={() => {
-              setFollowUpOnly((previous) => !previous);
-              setActiveSmartList("");
-            }}
-          >
-            Reminders Due
-          </button>
-        ) : null}
-      </div>
-
-      <div className="crm-filter-grid">
+      <div className="crm-lead-control-bar">
         <input
+          className="crm-lead-control-bar__search"
           placeholder="Search name, handle, email, phone, tags..."
           value={filters.search}
           onChange={(event) => applyFilters({ ...filters, search: event.target.value })}
@@ -299,29 +261,39 @@ export default function LeadListTable({
           }
         >
           <option value="all">All contacts</option>
-          <option value="with_contact">With phone/email</option>
-          <option value="missing_contact">Missing phone/email</option>
+          <option value="with_contact">With contact</option>
+          <option value="missing_contact">Missing contact</option>
         </select>
-      </div>
-
-      <div className="crm-inline-actions">
-        <input
-          placeholder="Save current filters as view..."
-          value={saveName}
-          onChange={(event) => setSaveName(event.target.value)}
-          style={{ maxWidth: 280 }}
-        />
-        <button className="crm-btn crm-btn-primary" style={{ padding: "8px 10px" }} onClick={saveCurrentView}>
+        <button className="crm-btn crm-btn-primary crm-lead-control-bar__save" style={{ padding: "8px 10px" }} onClick={saveCurrentView}>
           Save View
         </button>
       </div>
 
+      {followUpDueMode ? (
+        <div className="crm-inline-actions">
+          <button
+            className="crm-btn crm-btn-secondary"
+            style={{
+              padding: "6px 9px",
+              fontSize: 12,
+              border: followUpOnly ? "1px solid var(--accent)" : "1px solid var(--line)",
+            }}
+            onClick={() => {
+              setFollowUpOnly((previous) => !previous);
+              setViewMessage("");
+            }}
+          >
+            Reminders Due
+          </button>
+        </div>
+      ) : null}
+
       {savedViews.length > 0 ? (
-        <div className="crm-stack-8">
+        <div className="crm-lead-saved-views">
           {savedViews.map((view) => (
-            <div key={view.id} className="crm-card-muted" style={{ padding: 8, display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+            <div key={view.id} className="crm-card-muted crm-lead-saved-view">
               <div style={{ fontSize: 13, fontWeight: 600 }}>{view.name}</div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <button
                   className="crm-btn crm-btn-secondary"
                   style={{ padding: "6px 8px", fontSize: 12 }}
@@ -348,53 +320,60 @@ export default function LeadListTable({
         </div>
       ) : null}
 
-      <div className="crm-table-wrap">
-        <table className="crm-data-table">
-          <thead>
-            <tr>
-              {["Name", "Handle", "Email", "Phone", "Tags", "Stage", "Temp", "Source", "Last Message", "Updated", "View"].map((label) => (
-                <th key={label}>
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLeads.map((lead) => (
-              <tr key={lead.id}>
-                <td style={{ fontWeight: 600 }}>{displayName(lead)}</td>
-                <td>
-                  {lead.ig_username && !isSyntheticHandle(lead.ig_username) ? `@${lead.ig_username}` : "-"}
-                </td>
-                <td>{emailOf(lead) || "-"}</td>
-                <td>{phoneOf(lead) || "-"}</td>
-                <td className="crm-truncate-cell" style={{ maxWidth: 180 }}>
-                  {tagsOf(lead) || "-"}
-                </td>
-                <td>{lead.stage || "New"}</td>
-                <td>{lead.lead_temp || "Warm"}</td>
-                <td>{lead.source || "-"}</td>
-                <td className="crm-truncate-cell">
-                  {lead.last_message_preview || "-"}
-                </td>
-                <td>
-                  {lead.time_last_updated ? new Date(lead.time_last_updated).toLocaleString() : "-"}
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    onClick={() => setActiveLead(lead)}
-                    className="crm-btn crm-btn-secondary"
-                    style={{ padding: "6px 9px", fontSize: 12 }}
-                  >
-                    Open
-                  </button>
-                </td>
+      {filteredLeads.length === 0 ? (
+        <EmptyState
+          title="No leads match this view"
+          body="Clear a filter, switch to another saved view, or share your intake link to bring in new inquiries."
+        />
+      ) : (
+        <div className="crm-table-wrap crm-lead-table-scroll">
+          <table className="crm-data-table">
+            <thead>
+              <tr>
+                {["Name", "Handle", "Email", "Phone", "Tags", "Stage", "Temp", "Source", "Last message", "Updated", "Open"].map((label) => (
+                  <th key={label}>
+                    {label}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filteredLeads.map((lead) => (
+                <tr key={lead.id}>
+                  <td style={{ fontWeight: 600 }}>{displayName(lead)}</td>
+                  <td>
+                    {lead.ig_username && !isSyntheticHandle(lead.ig_username) ? `@${lead.ig_username}` : "-"}
+                  </td>
+                  <td>{emailOf(lead) || "-"}</td>
+                  <td>{phoneOf(lead) || "-"}</td>
+                  <td className="crm-truncate-cell" style={{ maxWidth: 180 }}>
+                    {tagsOf(lead) || "-"}
+                  </td>
+                  <td>{lead.stage || "New"}</td>
+                  <td>{lead.lead_temp || "Warm"}</td>
+                  <td>{lead.source || "-"}</td>
+                  <td className="crm-truncate-cell">
+                    {lead.last_message_preview || "-"}
+                  </td>
+                  <td>
+                    {lead.time_last_updated ? new Date(lead.time_last_updated).toLocaleString() : "-"}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => setActiveLead(lead)}
+                      className="crm-btn crm-btn-secondary"
+                      style={{ padding: "6px 9px", fontSize: 12 }}
+                    >
+                      Open
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <LeadDetailPanel
         leadId={activeLead?.id || null}
         initialLead={activeLead}
