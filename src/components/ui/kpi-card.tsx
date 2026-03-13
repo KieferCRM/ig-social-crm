@@ -10,7 +10,6 @@ type KpiCardProps = {
   helper?: string;
   action?: ReactNode;
   href?: string;
-  ctaLabel?: string;
   compact?: boolean;
 };
 
@@ -28,24 +27,30 @@ export default function KpiCard({
   helper,
   action,
   href,
-  ctaLabel = "View leads",
   compact = false,
 }: KpiCardProps) {
-  return (
-    <article className={`crm-kpi-card crm-kpi-tone-${tone}${compact ? " crm-kpi-card-compact" : ""}`}>
+  const className = `crm-kpi-card crm-kpi-tone-${tone}${compact ? " crm-kpi-card-compact" : ""}${href ? " crm-kpi-card-link" : ""}`;
+
+  const content = (
+    <>
       <div className="crm-kpi-label">{label}</div>
       <div className="crm-kpi-value" style={{ color: toneColor(tone) }}>{value}</div>
       {helper ? <div className="crm-kpi-helper">{helper}</div> : null}
-      {action ? <div style={{ marginTop: 8 }}>{action}</div> : null}
-      {href ? (
-        <Link
-          href={href}
-          className="crm-btn crm-btn-secondary crm-kpi-cta"
-          aria-label={`${label}: ${ctaLabel}`}
-        >
-          {ctaLabel}
-        </Link>
-      ) : null}
+      {action ? <div className="crm-kpi-action">{action}</div> : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={className} aria-label={`${label}: ${value}`}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <article className={className}>
+      {content}
     </article>
   );
 }

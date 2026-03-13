@@ -234,7 +234,6 @@ export default function DashboardPanel({
           value={newCount}
           tone={newCount > 0 ? "warn" : "default"}
           href="/app/list?stage=New"
-          ctaLabel="View new leads"
           compact
         />
         <KpiCard
@@ -242,7 +241,6 @@ export default function DashboardPanel({
           value={hot}
           tone={hot > 0 ? "danger" : "default"}
           href="/app/list?temp=Hot"
-          ctaLabel="View hot leads"
           compact
         />
         <KpiCard
@@ -251,7 +249,6 @@ export default function DashboardPanel({
           tone={activeDeals > 0 ? "ok" : "default"}
           helper={underContract > 0 ? `${underContract} under contract` : "No contracts yet"}
           href="/app/deals"
-          ctaLabel="Open deals board"
           compact
         />
         <KpiCard
@@ -259,7 +256,6 @@ export default function DashboardPanel({
           value={closingThisMonth}
           tone={closingThisMonth > 0 ? "warn" : "default"}
           href="/app/deals"
-          ctaLabel="View deal pipeline"
           compact
         />
       </div>
