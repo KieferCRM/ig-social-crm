@@ -203,7 +203,36 @@ export default async function AppHome({
 
   const leadRows = (leads || []) as LeadRow[];
   if (!error && leadRows.length === 0) {
-    redirect("/app/onboarding");
+    return (
+      <main className="crm-dashboard-page crm-stack-12">
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-inline-actions" style={{ justifyContent: "space-between", width: "100%" }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 18 }}>Your workspace is ready.</div>
+              <div style={{ marginTop: 6, fontSize: 14, color: "var(--ink-muted)", maxWidth: 560 }}>
+                You do not have any leads yet. Share your intake link, import an existing list, or explore the demo workspace to see how Merlyn is meant to flow.
+              </div>
+            </div>
+          </div>
+
+          <div className="crm-inline-actions">
+            <Link href="/app/intake" className="crm-btn crm-btn-primary">
+              Open intake setup
+            </Link>
+            <Link href="/demo" className="crm-btn crm-btn-secondary">
+              View demo workspace
+            </Link>
+          </div>
+
+          <div className="crm-card-muted" style={{ padding: 14, display: "grid", gap: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>What to do first</div>
+            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>1. Copy your intake link from the intake page</div>
+            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>2. Place it on your website, bio link, blast, or QR code</div>
+            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>3. Your first inbound inquiry will appear here automatically</div>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   const hot = leadRows.filter((l) => l.lead_temp === "Hot").length;
@@ -263,9 +292,9 @@ export default async function AppHome({
         <section className="crm-card crm-section-card">
           <div className="crm-inline-actions" style={{ justifyContent: "space-between", width: "100%" }}>
             <div>
-              <div style={{ fontWeight: 700 }}>You&apos;re ready.</div>
+              <div style={{ fontWeight: 700 }}>Your workspace is live.</div>
               <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>
-                Leads that submit your form will appear here.
+                New inquiries from your intake link will start landing here automatically.
               </div>
             </div>
             {newLead ? (
@@ -287,7 +316,6 @@ export default async function AppHome({
         recommendations={recommendations}
         rightRail={
           <DashboardRightRail
-            leads={sortedLeadRows}
             activeDeals={activeDeals}
             underContract={underContract}
             closingThisMonth={closingThisMonth}
