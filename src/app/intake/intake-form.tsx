@@ -182,10 +182,21 @@ export default function IntakeForm({
   if (submitted) {
     return (
       <section className="crm-card" style={{ marginTop: 14, padding: 16 }}>
-        <h2 style={{ margin: 0 }}>Request Received</h2>
-        <p style={{ marginTop: 8, color: "var(--ink-muted)" }}>
-          {message || "Thanks for sharing your details. We will follow up shortly."}
-        </p>
+        <div style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}>
+          <h2 style={{ margin: 0 }}>Request Received</h2>
+          <p style={{ margin: 0, color: "var(--ink-muted)", maxWidth: 520 }}>
+            Your inquiry has been sent to the agent.
+          </p>
+          <div className="crm-card-muted" style={{ width: "100%", maxWidth: 560, padding: 14, display: "grid", gap: 8, textAlign: "left" }}>
+            <div style={{ fontWeight: 700 }}>What happens next</div>
+            <div style={{ fontSize: 14, color: "var(--ink-muted)", lineHeight: 1.6 }}>
+              The agent will review your request and reach out shortly to discuss next steps or schedule a showing.
+            </div>
+            <div style={{ fontSize: 13, color: "var(--foreground)" }}>
+              Typical response time is within a few hours.
+            </div>
+          </div>
+        </div>
       </section>
     );
   }
