@@ -1923,6 +1923,7 @@ input:focus, textarea:focus, select:focus {
   padding: 14px;
   display: grid;
   gap: 10px;
+  overflow: visible;
 }
 
 .crm-demo-detail-badges {
@@ -1940,6 +1941,7 @@ input:focus, textarea:focus, select:focus {
   padding: 14px;
   display: grid;
   gap: 6px;
+  overflow: visible;
 }
 
 .crm-demo-detail-label {
@@ -1961,6 +1963,7 @@ input:focus, textarea:focus, select:focus {
 .crm-demo-detail-section {
   gap: 12px;
   padding: 14px;
+  overflow: visible;
 }
 
 .crm-demo-detail-section .crm-section-head {
@@ -1972,6 +1975,7 @@ input:focus, textarea:focus, select:focus {
 .crm-demo-related-card,
 .crm-demo-detail-empty {
   padding: 14px;
+  overflow: visible;
 }
 
 .crm-demo-detail-note {
