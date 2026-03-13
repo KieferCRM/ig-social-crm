@@ -497,20 +497,13 @@ td {
 .merlyn-familiar::before {
   content: "";
   position: absolute;
-  width: 84px;
-  height: 84px;
+  width: 74px;
+  height: 74px;
   border-radius: 50%;
   background:
-    conic-gradient(
-      from 20deg,
-      rgba(232, 205, 140, 0) 0deg,
-      rgba(232, 205, 140, 0.32) 42deg,
-      rgba(232, 205, 140, 0) 110deg,
-      rgba(191, 150, 73, 0.28) 196deg,
-      rgba(232, 205, 140, 0) 260deg
-    );
-  filter: blur(0.3px);
-  animation: merlyn-energy 8s linear infinite;
+    radial-gradient(circle, rgba(232, 205, 140, 0.15), rgba(232, 205, 140, 0) 68%);
+  filter: blur(1px);
+  opacity: 0.85;
 }
 
 .merlyn-familiar::after {
@@ -519,17 +512,9 @@ td {
   inset: 0;
   border-radius: inherit;
   background:
-    repeating-radial-gradient(
-      circle at 50% 50%,
-      rgba(237, 219, 173, 0.045) 0px,
-      rgba(237, 219, 173, 0.045) 1px,
-      transparent 1px,
-      transparent 3px
-    ),
     linear-gradient(160deg, rgba(237, 217, 153, 0.08), transparent 48%);
-  opacity: 0.72;
+  opacity: 0.48;
   mix-blend-mode: screen;
-  animation: merlyn-grain 3.6s ease-in-out infinite;
 }
 
 .merlyn-glyph {
@@ -538,41 +523,6 @@ td {
   width: 48px;
   height: 48px;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.32));
-  animation: merlyn-glyph-breathe 2.2s ease-in-out infinite;
-}
-
-.merlyn-glyph__hat {
-  fill: #6e85de;
-}
-
-.merlyn-glyph__brim {
-  fill: #89a8ff;
-}
-
-.merlyn-glyph__shadow {
-  fill: #122044;
-  opacity: 0.76;
-}
-
-.merlyn-glyph__skin {
-  fill: #e0b8d2;
-}
-
-.merlyn-glyph__eyes {
-  fill: #1a2340;
-}
-
-.merlyn-glyph__mustache {
-  fill: #b8ceff;
-}
-
-.merlyn-glyph__beard {
-  fill: #f3f8ff;
-}
-
-.merlyn-glyph__stars {
-  fill: #d8f8ff;
-  animation: merlyn-stars 2.8s ease-in-out infinite;
 }
 
 .merlyn-sigil-ring {
@@ -584,73 +534,15 @@ td {
   background:
     repeating-conic-gradient(
       from 0deg,
-      rgba(238, 220, 174, 0.7) 0deg,
-      rgba(238, 220, 174, 0.7) 9deg,
-      rgba(176, 138, 67, 0.18) 9deg,
-      rgba(176, 138, 67, 0.18) 18deg
+      rgba(238, 220, 174, 0.26) 0deg,
+      rgba(238, 220, 174, 0.26) 10deg,
+      rgba(176, 138, 67, 0.04) 10deg,
+      rgba(176, 138, 67, 0.04) 20deg
     );
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
   box-shadow:
-    0 0 0 1px rgba(223, 197, 131, 0.4),
-    0 0 10px rgba(202, 165, 93, 0.24);
-  animation: merlyn-ring 3s linear infinite, merlyn-ring-pulse 2.2s ease-in-out infinite;
-}
-
-@keyframes merlyn-glyph-breathe {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.06) translateY(-0.5px); }
-  100% { transform: scale(1); }
-}
-
-@keyframes merlyn-ring {
-  0% { transform: rotate(0deg); opacity: 0.9; }
-  100% { transform: rotate(360deg); opacity: 0.9; }
-}
-
-@keyframes merlyn-ring-pulse {
-  0% {
-    transform: scale(1);
-    box-shadow:
-      0 0 0 1px rgba(171, 210, 255, 0.42),
-      0 0 8px rgba(116, 188, 255, 0.24);
-  }
-  50% {
-    transform: scale(1.08);
-    box-shadow:
-      0 0 0 1px rgba(194, 225, 255, 0.75),
-      0 0 18px rgba(116, 188, 255, 0.44);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow:
-      0 0 0 1px rgba(171, 210, 255, 0.42),
-      0 0 8px rgba(116, 188, 255, 0.24);
-  }
-}
-
-@keyframes merlyn-stars {
-  0% { opacity: 0.7; transform: translateY(0); }
-  50% { opacity: 1; transform: translateY(-1px); }
-  100% { opacity: 0.7; transform: translateY(0); }
-}
-
-@keyframes merlyn-orbit {
-  0% { transform: translateX(-5px) translateY(-5px); }
-  50% { transform: translateX(5px) translateY(5px); }
-  100% { transform: translateX(-5px) translateY(-5px); }
-}
-
-@keyframes merlyn-energy {
-  0% { transform: rotate(0deg) scale(1); opacity: 0.74; }
-  50% { transform: rotate(180deg) scale(1.03); opacity: 0.9; }
-  100% { transform: rotate(360deg) scale(1); opacity: 0.74; }
-}
-
-@keyframes merlyn-grain {
-  0% { opacity: 0.62; transform: translate(0, 0); }
-  50% { opacity: 0.78; transform: translate(-0.4px, 0.4px); }
-  100% { opacity: 0.62; transform: translate(0, 0); }
+    0 0 0 1px rgba(223, 197, 131, 0.22);
 }
 
 @media (max-width: 920px) {
