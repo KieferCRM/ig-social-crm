@@ -29,23 +29,21 @@ export default function KpiCard({
   href,
   ctaLabel = "View leads",
 }: KpiCardProps) {
-  const body = (
-    <>
+  return (
+    <article className={`crm-kpi-card crm-kpi-tone-${tone}`}>
       <div className="crm-kpi-label">{label}</div>
       <div className="crm-kpi-value" style={{ color: toneColor(tone) }}>{value}</div>
       {helper ? <div className="crm-kpi-helper">{helper}</div> : null}
       {action ? <div style={{ marginTop: 8 }}>{action}</div> : null}
-      {href ? <div className="crm-kpi-link-hint">{ctaLabel}</div> : null}
-    </>
-  );
-
-  if (!href) {
-    return <article className={`crm-kpi-card crm-kpi-tone-${tone}`}>{body}</article>;
-  }
-
-  return (
-    <Link href={href} className={`crm-kpi-card crm-kpi-tone-${tone} crm-kpi-card-link`} aria-label={`${label}: ${ctaLabel}`}>
-      {body}
-    </Link>
+      {href ? (
+        <Link
+          href={href}
+          className="crm-btn crm-btn-secondary crm-kpi-cta"
+          aria-label={`${label}: ${ctaLabel}`}
+        >
+          {ctaLabel}
+        </Link>
+      ) : null}
+    </article>
   );
 }
