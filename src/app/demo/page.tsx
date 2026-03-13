@@ -325,11 +325,14 @@ export default function DemoPage() {
       </div>
 
       {selectedLead ? (
-        <div className="crm-detail-overlay" onClick={() => setSelectedLeadId("")}>
-          <section className="crm-card crm-detail-shell crm-demo-detail-shell" onClick={(event) => event.stopPropagation()}>
-            <div className="crm-section-head">
+        <div className="crm-detail-overlay crm-demo-detail-overlay" onClick={() => setSelectedLeadId("")}>
+          <section
+            className="crm-card crm-detail-shell crm-demo-detail-shell"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="crm-section-head crm-demo-detail-header">
               <div>
-                <h2 className="crm-section-title" style={{ marginBottom: 4 }}>{selectedLead.fullName}</h2>
+                <h2 className="crm-section-title crm-demo-detail-title">{selectedLead.fullName}</h2>
                 <p className="crm-section-subtitle">{selectedLead.title}</p>
               </div>
               <button type="button" className="crm-btn crm-btn-secondary" onClick={() => setSelectedLeadId("")}>
@@ -337,78 +340,81 @@ export default function DemoPage() {
               </button>
             </div>
 
-            <div className="crm-detail-scroll crm-stack-12">
-              <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className="crm-detail-scroll crm-stack-12 crm-demo-detail-scroll">
+              <section className="crm-card-muted crm-demo-detail-summary">
+                <div className="crm-demo-detail-badges">
                   <StatusBadge label={selectedLead.stage} tone={stageTone(selectedLead.stage)} />
                   <StatusBadge label={selectedLead.temp} tone={tempTone(selectedLead.temp)} />
                   <StatusBadge label={selectedLead.source} tone="info" />
                 </div>
-                <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>Last activity: {selectedLead.lastActivity}</div>
+                <div className="crm-demo-detail-meta">Last activity: {selectedLead.lastActivity}</div>
               </section>
 
-              <section className="crm-detail-grid">
-                <article className="crm-card-muted" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Contact</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{selectedLead.email}</div>
-                  <div style={{ marginTop: 4 }}>{selectedLead.phone}</div>
+              <section className="crm-detail-grid crm-demo-detail-grid">
+                <article className="crm-card-muted crm-demo-detail-block">
+                  <div className="crm-demo-detail-label">Contact</div>
+                  <div className="crm-demo-detail-value">{selectedLead.email}</div>
+                  <div className="crm-demo-detail-meta">{selectedLead.phone}</div>
                 </article>
-                <article className="crm-card-muted" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Inquiry</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{selectedLead.intent}</div>
-                  <div style={{ marginTop: 4 }}>{selectedLead.timeline}</div>
+                <article className="crm-card-muted crm-demo-detail-block">
+                  <div className="crm-demo-detail-label">Inquiry</div>
+                  <div className="crm-demo-detail-value">{selectedLead.intent}</div>
+                  <div className="crm-demo-detail-meta">{selectedLead.timeline}</div>
                 </article>
-                <article className="crm-card-muted" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Area</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{selectedLead.area}</div>
-                  <div style={{ marginTop: 4 }}>{selectedLead.source}</div>
+                <article className="crm-card-muted crm-demo-detail-block">
+                  <div className="crm-demo-detail-label">Area</div>
+                  <div className="crm-demo-detail-value">{selectedLead.area}</div>
+                  <div className="crm-demo-detail-meta">{selectedLead.source}</div>
                 </article>
-                <article className="crm-card-muted" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Next step</div>
-                  <div style={{ marginTop: 6, fontWeight: 700 }}>{selectedLead.nextStep}</div>
-                  <div style={{ marginTop: 4, color: "var(--ink-muted)" }}>This is the kind of work Merlyn keeps visible each day.</div>
+                <article className="crm-card-muted crm-demo-detail-block">
+                  <div className="crm-demo-detail-label">Next step</div>
+                  <div className="crm-demo-detail-value">{selectedLead.nextStep}</div>
+                  <div className="crm-demo-detail-meta">
+                    This is the kind of work Merlyn keeps visible each day.
+                  </div>
                 </article>
               </section>
 
-              <section className="crm-card crm-section-card crm-stack-10">
+              <section className="crm-card crm-section-card crm-stack-10 crm-demo-detail-section">
                 <div className="crm-section-head">
                   <h3 className="crm-section-title">Notes</h3>
                 </div>
-                <div className="crm-card-muted" style={{ padding: 12, whiteSpace: "pre-wrap" }}>
-                  {selectedLead.notes}
-                </div>
+                <div className="crm-card-muted crm-demo-detail-note">{selectedLead.notes}</div>
               </section>
 
-              <section className="crm-card crm-section-card crm-stack-10">
+              <section className="crm-card crm-section-card crm-stack-10 crm-demo-detail-section">
                 <div className="crm-section-head">
                   <h3 className="crm-section-title">Related deals</h3>
                 </div>
                 {(dealsByLeadId.get(selectedLead.id) || []).length > 0 ? (
-                  <div className="crm-stack-8">
+                  <div className="crm-stack-8 crm-demo-related-list">
                     {(dealsByLeadId.get(selectedLead.id) || []).map((deal) => (
-                      <div key={deal.id} className="crm-card-muted" style={{ padding: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                      <div key={deal.id} className="crm-card-muted crm-demo-related-card">
+                        <div className="crm-demo-related-head">
                           <strong>{deal.title}</strong>
-                          <StatusBadge label={deal.stage} tone={deal.stage === "Inspection" ? "warn" : deal.stage === "Showing" ? "info" : "default"} />
+                          <StatusBadge
+                            label={deal.stage}
+                            tone={deal.stage === "Inspection" ? "warn" : deal.stage === "Showing" ? "info" : "default"}
+                          />
                         </div>
-                        <div style={{ marginTop: 6, fontSize: 13, color: "var(--ink-muted)" }}>
+                        <div className="crm-demo-detail-meta">
                           {deal.address} • {deal.nextStep}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="crm-card-muted" style={{ padding: 12, color: "var(--ink-muted)", fontSize: 13 }}>
+                  <div className="crm-card-muted crm-demo-detail-empty">
                     No deal attached yet. In Merlyn, this lead is still in the lead-management stage.
                   </div>
                 )}
               </section>
 
-              <section className="crm-card crm-section-card crm-stack-10">
+              <section className="crm-card crm-section-card crm-stack-10 crm-demo-detail-section">
                 <div className="crm-section-head">
                   <h3 className="crm-section-title">Try the workflow</h3>
                 </div>
-                <div className="crm-inline-actions">
+                <div className="crm-inline-actions crm-demo-detail-actions">
                   <button type="button" className="crm-btn crm-btn-primary" onClick={() => handleAdvanceLead(selectedLead.id)}>
                     Advance stage
                   </button>
