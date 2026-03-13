@@ -2317,13 +2317,13 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-section {
-  margin-top: 84px;
+  margin-top: 68px;
 }
 
 .merlyn-section-head {
   display: grid;
-  gap: 10px;
-  max-width: 760px;
+  gap: 8px;
+  max-width: 700px;
 }
 
 .merlyn-section-kicker {
@@ -2352,17 +2352,17 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-hero-section {
-  margin-top: 48px;
+  margin-top: 40px;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  gap: 24px;
+  gap: 20px;
   align-items: stretch;
 }
 
 .merlyn-hero-copy {
   display: grid;
   align-content: center;
-  gap: 16px;
+  gap: 14px;
   padding: 12px 0;
 }
 
@@ -2396,7 +2396,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-hero-preview {
-  padding: 22px;
+  padding: 20px;
   border-radius: 28px;
   border: 1px solid rgba(129, 143, 255, 0.18);
   background:
@@ -2521,10 +2521,14 @@ input:focus, textarea:focus, select:focus {
 
 .merlyn-steps-grid,
 .merlyn-capture-grid {
-  margin-top: 26px;
+  margin-top: 22px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+
+.merlyn-product-grid {
+  align-items: stretch;
 }
 
 .merlyn-capture-grid {
@@ -2533,7 +2537,7 @@ input:focus, textarea:focus, select:focus {
 
 .merlyn-step-card,
 .merlyn-capture-card {
-  padding: 22px;
+  padding: 20px;
   display: grid;
   gap: 12px;
 }
@@ -2673,7 +2677,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-final-cta {
-  margin-top: 84px;
+  margin-top: 68px;
   display: flex;
   justify-content: space-between;
   gap: 18px;
@@ -2690,6 +2694,32 @@ input:focus, textarea:focus, select:focus {
   max-width: 720px;
   display: grid;
   gap: 12px;
+}
+
+.merlyn-concierge-band {
+  padding: 22px 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.merlyn-concierge-band__copy {
+  max-width: 720px;
+  display: grid;
+  gap: 10px;
+}
+
+.merlyn-concierge-band__copy h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  line-height: 1.08;
+}
+
+.merlyn-concierge-band__copy p {
+  margin: 0;
+  color: #a9b4ca;
+  line-height: 1.7;
 }
 
 .merlyn-footer {
@@ -2759,6 +2789,11 @@ input:focus, textarea:focus, select:focus {
     grid-template-columns: 1fr;
   }
 
+  .merlyn-concierge-band {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .merlyn-final-cta,
   .merlyn-footer__meta {
     justify-items: start;
@@ -2791,6 +2826,7 @@ input:focus, textarea:focus, select:focus {
   .merlyn-showcase,
   .merlyn-deals-card,
   .merlyn-reminder-card,
+  .merlyn-concierge-band,
   .merlyn-final-cta,
   .merlyn-step-card,
   .merlyn-capture-card {

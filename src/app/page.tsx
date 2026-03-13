@@ -2,12 +2,6 @@ import Link from "next/link";
 import MerlynMascot from "@/components/branding/merlyn-mascot";
 import { FEATURE_SIGNUP_ENABLED, PRODUCT_STAGE_LABEL } from "@/lib/features";
 
-const valueBand = [
-  "Capture serious inquiries automatically",
-  "Keep leads and deals organized",
-  "Know exactly who needs follow-up next",
-];
-
 const howItWorks = [
   {
     step: "01",
@@ -26,52 +20,23 @@ const howItWorks = [
   },
 ];
 
-const captureMethods = [
-  {
-    title: "Shareable Intake Form",
-    kicker: "Live now",
-    body: "A simple capture engine for websites, bio links, QR codes, and outbound campaigns. When someone submits, the lead is created automatically in Merlyn.",
-    points: [
-      "Website and landing-page ready",
-      "Useful for bio links and open house QR codes",
-      "Feeds directly into your CRM pipeline",
-    ],
-  },
-  {
-    title: "Concierge for Missed Calls",
-    kicker: "In development",
-    body: "When an agent misses a call, Merlyn Concierge is designed to text the lead back, collect inquiry details, and create the lead in the CRM automatically.",
-    points: [
-      "Built around missed-call recovery",
-      "Keeps texting and call language inside Concierge",
-      "Extends capture beyond forms without manual re-entry",
-    ],
-  },
-];
-
 const pipelineStages = ["New", "Qualified", "Showing", "Negotiating", "Closed"];
-
-const reminders = [
-  "3 leads need first follow-up today",
-  "1 open house inquiry still needs qualification",
-  "2 active deals are waiting on next-step updates",
-];
 
 const productCards = [
   {
-    label: "Lead capture",
-    title: "See where every inquiry came from",
-    body: "From website form submissions to open house QR scans, Merlyn keeps your inbound lead sources organized and visible.",
+    label: "Capture",
+    title: "Bring serious inquiries into the CRM automatically",
+    body: "Use one shareable intake form across your website, bio links, Facebook blasts, and open house QR codes.",
   },
   {
-    label: "Pipeline clarity",
-    title: "Work leads without losing context",
-    body: "Stages, notes, reminders, and next actions live together so your daily follow-up is easy to prioritize.",
+    label: "Pipeline",
+    title: "See what needs follow-up without digging",
+    body: "Leads arrive organized, move through clear stages, and stay easy to review when it is time to act.",
   },
   {
-    label: "Deal tracking",
-    title: "Keep active deals separate from raw inbound leads",
-    body: "Track transactions on a dedicated deals board while your lead pipeline stays focused on conversion and follow-up.",
+    label: "Deals",
+    title: "Track active deals separately from raw leads",
+    body: "Once an opportunity matures, Merlyn gives it a dedicated deals board so your pipeline stays clean.",
   },
 ];
 
@@ -88,9 +53,8 @@ export default function HomePage() {
 
           <nav className="merlyn-nav__links" aria-label="Primary">
             <a href="#how-it-works">How It Works</a>
-            <a href="#capture-methods">Capture</a>
-            <a href="#deals">Deals</a>
-            <a href="#follow-up">Follow-Up</a>
+            <a href="#product-overview">Product</a>
+            <a href="#concierge">Concierge</a>
           </nav>
 
           <div className="merlyn-nav__actions">
@@ -109,7 +73,7 @@ export default function HomePage() {
             <div className="merlyn-section-kicker">Inbound lead command center for solo real estate agents</div>
             <h1>Capture inbound real estate leads automatically.</h1>
             <p className="merlyn-hero-copy__body">
-              Merlyn helps solo agents capture serious inquiries through a shareable intake form and a missed-call Concierge, organize every lead and active deal in one place, and stay clear on who needs follow-up next.
+              Merlyn helps solo agents capture serious inquiries through a shareable intake form and a missed-call Concierge, organize leads and deals in one place, and know exactly who needs follow-up next.
             </p>
 
             <div className="merlyn-hero-copy__actions">
@@ -139,7 +103,7 @@ export default function HomePage() {
                 <div className="merlyn-hero-preview__panel-kicker">New inquiries</div>
                 <div className="merlyn-hero-preview__lead">
                   <strong>Website Form</strong>
-                  <span>Buyer inquiry submitted for West Loop condo search</span>
+                  <span>Buyer inquiry submitted and added automatically</span>
                 </div>
                 <div className="merlyn-hero-preview__lead">
                   <strong>Open House QR</strong>
@@ -147,7 +111,7 @@ export default function HomePage() {
                 </div>
                 <div className="merlyn-hero-preview__lead">
                   <strong>Missed Call Text</strong>
-                  <span>New inquiry awaiting review in Concierge</span>
+                  <span>Upcoming Concierge flow creates a lead after the reply</span>
                 </div>
               </section>
 
@@ -175,22 +139,11 @@ export default function HomePage() {
           </aside>
         </section>
 
-        <section className="merlyn-value-band">
-          {valueBand.map((item) => (
-            <div key={item} className="merlyn-value-band__item">
-              <span className="merlyn-value-band__dot" aria-hidden />
-              <span>{item}</span>
-            </div>
-          ))}
-        </section>
-
         <section id="how-it-works" className="merlyn-section">
           <div className="merlyn-section-head">
             <div className="merlyn-section-kicker">How it works</div>
-            <h2>From inbound inquiry to follow-up clarity in three steps.</h2>
-            <p>
-              Merlyn is built to reduce manual entry, surface the next move, and keep your lead pipeline readable at a glance.
-            </p>
+            <h2>From inquiry to follow-up clarity in three simple steps.</h2>
+            <p>Share the form, let leads appear automatically, and work the pipeline with less manual cleanup.</p>
           </div>
 
           <div className="merlyn-steps-grid">
@@ -204,129 +157,42 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="capture-methods" className="merlyn-section">
+        <section id="product-overview" className="merlyn-section">
           <div className="merlyn-section-head">
-            <div className="merlyn-section-kicker">Capture methods</div>
-            <h2>Two ways Merlyn brings serious inbound inquiries into the CRM.</h2>
-            <p>
-              The intake form is the live capture engine today. Concierge is the next extension, built to turn missed calls into structured leads.
-            </p>
+            <div className="merlyn-section-kicker">Product overview</div>
+            <h2>Capture, organize, and move opportunities forward.</h2>
+            <p>Merlyn keeps the story simple: capture inbound leads, work the pipeline clearly, and track active deals separately.</p>
           </div>
 
-          <div className="merlyn-capture-grid">
-            {captureMethods.map((item) => (
-              <article key={item.title} className="merlyn-surface merlyn-capture-card">
-                <div className="merlyn-capture-card__head">
-                  <h3>{item.title}</h3>
-                  <span className={`merlyn-badge${item.kicker === "In development" ? " merlyn-badge-warm" : ""}`}>{item.kicker}</span>
-                </div>
-                <p>{item.body}</p>
-                <ul className="merlyn-list">
-                  {item.points.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
+          <div className="merlyn-steps-grid merlyn-product-grid">
+            {productCards.map((card) => (
+              <article key={card.title} className="merlyn-surface merlyn-step-card">
+                <div className="merlyn-showcase__label">{card.label}</div>
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="merlyn-section merlyn-section-split">
-          <div className="merlyn-section-copy">
-            <div className="merlyn-section-kicker">Leads and pipeline</div>
-            <h2>Keep lead organization simple, visible, and actionable.</h2>
-            <p>
-              Merlyn gives solo agents a clear lead workspace, a stage-based pipeline, and the context needed to move inquiries forward without losing momentum.
-            </p>
-            <ul className="merlyn-list">
-              <li>Visible lead stages and next actions</li>
-              <li>Fast review of inbound form submissions</li>
-              <li>Better daily prioritization for follow-up</li>
-            </ul>
-          </div>
-
-          <div className="merlyn-surface merlyn-showcase">
-            <div className="merlyn-showcase__kicker">Lead workspace snapshot</div>
-            <div className="merlyn-showcase__grid">
-              {productCards.map((card) => (
-                <article key={card.title} className="merlyn-showcase__item">
-                  <div className="merlyn-showcase__label">{card.label}</div>
-                  <h3>{card.title}</h3>
-                  <p>{card.body}</p>
-                </article>
-              ))}
+        <section id="concierge" className="merlyn-section">
+          <div className="merlyn-surface merlyn-concierge-band">
+            <div className="merlyn-concierge-band__copy">
+              <div className="merlyn-section-kicker">Concierge</div>
+              <h2>Missed-call capture, without the manual chase.</h2>
+              <p>
+                Merlyn Concierge is coming soon. It is designed to text missed callers back, collect inquiry details, and create the lead in the CRM automatically.
+              </p>
             </div>
-          </div>
-        </section>
-
-        <section id="deals" className="merlyn-section merlyn-section-split merlyn-section-split-reverse">
-          <div className="merlyn-surface merlyn-deals-card">
-            <div className="merlyn-deals-card__head">
-              <div className="merlyn-showcase__label">Deals board</div>
-              <span className="merlyn-badge merlyn-badge-subtle">Separate from leads</span>
-            </div>
-            <div className="merlyn-deals-card__metrics">
-              <div>
-                <span>Active deals</span>
-                <strong>3</strong>
-              </div>
-              <div>
-                <span>Under contract</span>
-                <strong>2</strong>
-              </div>
-              <div>
-                <span>Closing soon</span>
-                <strong>1</strong>
-              </div>
-            </div>
-            <p>
-              Merlyn tracks active deals separately from raw inbound leads, so your pipeline stays focused on conversion while transactions remain easy to monitor.
-            </p>
-          </div>
-
-          <div className="merlyn-section-copy">
-            <div className="merlyn-section-kicker">Deals</div>
-            <h2>Track active deals without muddying your lead pipeline.</h2>
-            <p>
-              Once an inquiry matures into a real transaction, Merlyn gives it a dedicated place to live. That separation helps agents see both new opportunity flow and active deal progress clearly.
-            </p>
-            <ul className="merlyn-list">
-              <li>Separate board for active transactions</li>
-              <li>Clear view of what is still a lead versus a deal</li>
-              <li>Better operational clarity from first inquiry to close</li>
-            </ul>
-          </div>
-        </section>
-
-        <section id="follow-up" className="merlyn-section merlyn-section-split">
-          <div className="merlyn-section-copy">
-            <div className="merlyn-section-kicker">Reminders and follow-up</div>
-            <h2>Stay clear on what needs attention next.</h2>
-            <p>
-              Merlyn is designed to reduce the mental overhead of solo-agent follow-up. The goal is simple: fewer missed opportunities and a clearer daily plan.
-            </p>
-          </div>
-
-          <div className="merlyn-surface merlyn-reminder-card">
-            <div className="merlyn-reminder-card__kicker">Today’s focus</div>
-            <ul className="merlyn-reminder-list">
-              {reminders.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-            <div className="merlyn-reminder-card__footer">
-              You always know which leads or deals need the next touch.
-            </div>
+            <span className="merlyn-badge merlyn-badge-warm">Coming soon</span>
           </div>
         </section>
 
         <section className="merlyn-final-cta">
           <div className="merlyn-final-cta__copy">
             <div className="merlyn-section-kicker">Ready to stop losing serious inquiries?</div>
-            <h2>Stay organized from first inquiry to active deal.</h2>
-            <p>
-              Merlyn brings inbound capture, pipeline clarity, and deal visibility into one calm operating system for solo agents.
-            </p>
+            <h2>Start with a clearer way to capture and work inbound leads.</h2>
+            <p>Merlyn helps solo agents stay organized from first inquiry to active deal without adding more manual work.</p>
           </div>
           <div className="merlyn-final-cta__actions">
             <Link href="/auth" className="merlyn-button merlyn-button-primary">
