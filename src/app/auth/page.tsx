@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import MerlynMascot from "@/components/branding/merlyn-mascot";
 import { FEATURE_SIGNUP_ENABLED, PRODUCT_NAME } from "@/lib/features";
@@ -11,16 +11,15 @@ type AuthMode = "sign_in" | "sign_up" | "recovery";
 type BusyAction = "sign_in" | "sign_up" | "forgot" | "reset" | null;
 
 const valueBullets = [
-  "Capture leads through a shareable intake form",
-  "Turn missed calls into new opportunities",
-  "Keep every inquiry organized in one pipeline",
+  "Capture website, bio-link, and QR-code inquiries automatically",
+  "Turn missed calls into qualified leads with Concierge",
+  "See what needs follow-up today without digging through tabs",
 ];
 
 const previewRows = [
-  { source: "Website Form", detail: "Buyer inquiry submitted", status: "Captured", tone: "ok" },
-  { source: "Open House QR", detail: "Seller lead captured", status: "Needs review", tone: "warn" },
-  { source: "Missed Call Text", detail: "New inquiry awaiting review", status: "Follow up", tone: "default" },
-  { source: "Bio Link Form", detail: "Buyer lead added to pipeline", status: "Captured", tone: "ok" },
+  { source: "Website form", detail: "New buyer inquiry enters the pipeline automatically", status: "Captured", tone: "ok" },
+  { source: "Open house QR", detail: "Seller details arrive ready for review", status: "Ready", tone: "warn" },
+  { source: "Missed call text-back", detail: "Concierge collects the basics and creates the lead", status: "In progress", tone: "default" },
 ] as const;
 
 function toFriendlyError(message: string): string {
@@ -36,6 +35,7 @@ function toFriendlyError(message: string): string {
 
 export default function AuthPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => supabaseBrowser(), []);
 
   const [mode, setMode] = useState<AuthMode>("sign_in");
@@ -62,6 +62,22 @@ export default function AuthPage() {
 
     return () => subscription.unsubscribe();
   }, [supabase]);
+
+  useEffect(() => {
+    const requestedMode = searchParams.get("mode");
+    if (requestedMode === "sign_up" || requestedMode === "signup") {
+      setMode("sign_up");
+      setError(null);
+      setMessage(null);
+      return;
+    }
+
+    if (requestedMode === "sign_in" || requestedMode === "signin") {
+      setMode("sign_in");
+      setError(null);
+      setMessage(null);
+    }
+  }, [searchParams]);
 
   function switchMode(nextMode: Exclude<AuthMode, "recovery">) {
     setMode(nextMode);
@@ -194,11 +210,24 @@ export default function AuthPage() {
     await handleSignIn();
   }
 
-  const heading = mode === "recovery" ? "Reset your password" : `Welcome to ${PRODUCT_NAME}`;
+  const heading =
+    mode === "recovery"
+      ? "Reset your password"
+      : mode === "sign_up"
+        ? `Create your ${PRODUCT_NAME} workspace`
+        : "Welcome back";
   const subheading =
     mode === "recovery"
-      ? "Create a new password to get back into your lead pipeline."
-      : "Capture inbound inquiries, organize every lead and deal, and see what needs follow-up today.";
+      ? "Create a new password to get back into your workspace."
+      : mode === "sign_up"
+        ? "Start with your intake form, let serious inquiries land automatically, and keep follow-up clear from day one."
+        : "Sign in to review new inquiries, follow up faster, and keep deals moving.";
+  const modeHelper =
+    mode === "recovery"
+      ? "Use the same email on your account."
+      : mode === "sign_up"
+        ? "New here? Create your workspace and you can start sharing your intake link right away."
+        : "Already have an account? Your dashboard, leads, and intake tools will be waiting.";
   const primaryLabel =
     busyAction === "sign_in"
       ? "Signing In..."
@@ -224,6 +253,7 @@ export default function AuthPage() {
           <div className="crm-auth-copy">
             <h1 className="crm-auth-title">{heading}</h1>
             <p className="crm-auth-subtitle">{subheading}</p>
+            <p className="crm-auth-helper">{modeHelper}</p>
           </div>
 
           {mode !== "recovery" ? (
@@ -345,10 +375,10 @@ export default function AuthPage() {
         </section>
 
         <aside className="crm-card crm-auth-trust-panel">
-          <div className="crm-auth-panel-kicker">Built for solo real estate agents</div>
-          <h2 className="crm-auth-panel-title">Every inbound inquiry captured, organized, and moved toward the right deal outcome.</h2>
+          <div className="crm-auth-panel-kicker">Inbound lead CRM for solo real estate agents</div>
+          <h2 className="crm-auth-panel-title">Stop manually re-entering serious inquiries.</h2>
           <p className="crm-auth-panel-body">
-            Merlyn helps solo real estate agents capture serious inquiries through a shareable intake form and an auto-text concierge for missed calls, then organizes every lead and active deal in one clear pipeline.
+            Merlyn captures inbound form submissions and missed-call follow-up details, then keeps leads, next steps, and deals in one calm workspace.
           </p>
 
           <div className="crm-auth-value-list">
@@ -363,7 +393,7 @@ export default function AuthPage() {
           <div className="crm-card-muted crm-auth-preview-card">
             <div className="crm-auth-preview-head">
               <span className="crm-auth-preview-label">How leads enter Merlyn</span>
-              <span className="crm-chip">Current setup</span>
+              <span className="crm-chip crm-chip-ok">Built in</span>
             </div>
 
             <div className="crm-auth-preview-list">
@@ -381,8 +411,13 @@ export default function AuthPage() {
             </div>
           </div>
 
-          <div className="crm-auth-microcopy">
-            Share one intake form, catch missed-call opportunities, and keep both follow-ups and deals moving clearly.
+          <div className="crm-auth-next-steps">
+            <div className="crm-auth-next-steps-title">What happens after you sign in</div>
+            <div className="crm-auth-next-steps-list">
+              <div>1. Share your intake link</div>
+              <div>2. Review your first lead</div>
+              <div>3. Work the pipeline from one place</div>
+            </div>
           </div>
 
           <div className="crm-auth-links">

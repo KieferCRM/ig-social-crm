@@ -124,7 +124,7 @@ export default function DemoPage() {
 
         <div className="crm-sidebar-footer">
           <span className="crm-chip crm-chip-info crm-sidebar-mode-chip">DEMO MODE</span>
-          <Link href="/auth" className="crm-btn crm-btn-secondary crm-sidebar-logout">
+          <Link href="/signup" className="crm-btn crm-btn-secondary crm-sidebar-logout">
             Create workspace
           </Link>
         </div>
@@ -133,7 +133,7 @@ export default function DemoPage() {
       <div className="crm-workspace">
         <div className="crm-demo-banner">
           <span>Demo workspace — exploring Merlyn with sample leads.</span>
-          <Link href="/auth" className="crm-btn crm-btn-primary">
+          <Link href="/signup" className="crm-btn crm-btn-primary">
             Create your workspace
           </Link>
         </div>

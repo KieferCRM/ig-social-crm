@@ -54,7 +54,7 @@ const previewColumns = [
 ];
 
 export default function HomePage() {
-  const primaryHref = "/auth";
+  const primaryHref = "/signup";
   const secondaryHref = "/demo";
 
   return (
