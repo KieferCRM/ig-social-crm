@@ -1374,6 +1374,13 @@ h1, h2, h3, h4 {
   background: rgba(47, 18, 18, 0.9);
 }
 
+.crm-chip-hot {
+  color: #ffd4d4;
+  border-color: rgba(248, 113, 113, 0.42);
+  background: rgba(58, 24, 28, 0.92);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.08);
+}
+
 .crm-chip-info {
   color: #c5d6e5;
   border-color: rgba(110, 124, 137, 0.5);
@@ -1429,6 +1436,11 @@ input:focus, textarea:focus, select:focus {
   flex-direction: column;
 }
 
+.crm-kpi-card-compact {
+  min-height: 122px;
+  padding: 12px 13px;
+}
+
 .crm-kpi-label {
   font-size: 12px;
   color: var(--ink-faint);
@@ -1441,10 +1453,19 @@ input:focus, textarea:focus, select:focus {
   line-height: 1.1;
 }
 
+.crm-kpi-card-compact .crm-kpi-value {
+  margin-top: 4px;
+  font-size: 31px;
+}
+
 .crm-kpi-helper {
   margin-top: 4px;
   font-size: 12px;
   color: var(--ink-muted);
+}
+
+.crm-kpi-card-compact .crm-kpi-helper {
+  margin-top: 3px;
 }
 
 .crm-kpi-cta {
@@ -1454,15 +1475,61 @@ input:focus, textarea:focus, select:focus {
   font-size: 12px;
 }
 
+.crm-kpi-card-compact .crm-kpi-cta {
+  margin-top: 8px;
+  padding: 5px 9px;
+}
+
 .crm-kpi-tone-warn .crm-kpi-value,
 .crm-kpi-tone-danger .crm-kpi-value,
 .crm-kpi-tone-ok .crm-kpi-value {
   text-shadow: 0 0 22px rgba(0, 0, 0, 0.35);
 }
 
+.crm-kpi-tone-danger {
+  border-color: rgba(248, 113, 113, 0.34);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(248, 113, 113, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.crm-kpi-tone-danger .crm-kpi-value {
+  color: #f87171 !important;
+  text-shadow: 0 0 24px rgba(248, 113, 113, 0.18);
+}
+
 .crm-focus-row {
   border-color: rgba(34, 197, 94, 0.18);
   box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.06);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.crm-focus-row-alert {
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+.crm-focus-row-primary {
+  border-width: 2px;
+  border-color: rgba(248, 113, 113, 0.38);
+  background:
+    linear-gradient(180deg, rgba(37, 28, 32, 0.96), rgba(24, 22, 28, 0.98)),
+    linear-gradient(135deg, rgba(248, 113, 113, 0.1), transparent 52%);
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 113, 113, 0.12),
+    0 0 0 1px rgba(248, 113, 113, 0.08);
+}
+
+.crm-focus-row-primary::before {
+  background:
+    linear-gradient(120deg, rgba(248, 113, 113, 0.12), transparent 40%),
+    linear-gradient(300deg, rgba(248, 113, 113, 0.06), transparent 55%);
+  opacity: 1;
+}
+
+.crm-focus-row-hot {
+  border-color: rgba(248, 113, 113, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.08);
 }
 
 .crm-utility-rail {

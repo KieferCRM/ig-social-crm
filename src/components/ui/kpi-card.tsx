@@ -11,6 +11,7 @@ type KpiCardProps = {
   action?: ReactNode;
   href?: string;
   ctaLabel?: string;
+  compact?: boolean;
 };
 
 function toneColor(tone: KpiCardProps["tone"]): string {
@@ -28,9 +29,10 @@ export default function KpiCard({
   action,
   href,
   ctaLabel = "View leads",
+  compact = false,
 }: KpiCardProps) {
   return (
-    <article className={`crm-kpi-card crm-kpi-tone-${tone}`}>
+    <article className={`crm-kpi-card crm-kpi-tone-${tone}${compact ? " crm-kpi-card-compact" : ""}`}>
       <div className="crm-kpi-label">{label}</div>
       <div className="crm-kpi-value" style={{ color: toneColor(tone) }}>{value}</div>
       {helper ? <div className="crm-kpi-helper">{helper}</div> : null}

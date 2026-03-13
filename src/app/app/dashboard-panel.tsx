@@ -194,6 +194,8 @@ export default function DashboardPanel({
   }
 
   const focusCount = newLeadQueue.length + staleHotQueue.length + recommendations.length;
+  const hasNewQueue = newLeadQueue.length > 0;
+  const hasHotQueue = staleHotQueue.length > 0;
 
   function openLeadPanel(leadId: string, seed?: LeadPreview) {
     if (seed) {
@@ -233,13 +235,15 @@ export default function DashboardPanel({
           tone={newCount > 0 ? "warn" : "default"}
           href="/app/list?stage=New"
           ctaLabel="View new leads"
+          compact
         />
         <KpiCard
           label="Hot Leads"
           value={hot}
-          tone={hot > 0 ? "warn" : "default"}
+          tone={hot > 0 ? "danger" : "default"}
           href="/app/list?temp=Hot"
           ctaLabel="View hot leads"
+          compact
         />
         <KpiCard
           label="Active Deals"
@@ -248,6 +252,7 @@ export default function DashboardPanel({
           helper={underContract > 0 ? `${underContract} under contract` : "No contracts yet"}
           href="/app/deals"
           ctaLabel="Open deals board"
+          compact
         />
         <KpiCard
           label="Closing This Month"
@@ -255,6 +260,7 @@ export default function DashboardPanel({
           tone={closingThisMonth > 0 ? "warn" : "default"}
           href="/app/deals"
           ctaLabel="View deal pipeline"
+          compact
         />
       </div>
 
@@ -262,7 +268,7 @@ export default function DashboardPanel({
         <section className="crm-card crm-dashboard-primary-card crm-section-card">
           <div className="crm-section-head">
             <h2 className="crm-section-title">Focus Queue</h2>
-            <StatusBadge label={focusCount > 0 ? "Needs Attention" : "In Good Shape"} tone={focusCount > 0 ? "warn" : "ok"} />
+            <StatusBadge label={focusCount > 0 ? "Needs Attention" : "In Good Shape"} tone={focusCount > 0 ? "danger" : "ok"} />
           </div>
           <div className="crm-stack-8">
             {newLeadQueue.length === 0 && staleHotQueue.length === 0 && recommendations.length === 0 ? (
@@ -274,7 +280,11 @@ export default function DashboardPanel({
             ) : (
               <>
                 {newLeadQueue.slice(0, 4).map((lead) => (
-                  <div key={`new-${lead.id}`} className="crm-card-muted crm-focus-row" style={{ padding: 8 }}>
+                  <div
+                    key={`new-${lead.id}`}
+                    className={`crm-card-muted crm-focus-row${focusCount > 0 ? " crm-focus-row-alert" : ""}${hasNewQueue && newLeadQueue[0]?.id === lead.id ? " crm-focus-row-primary" : ""}`}
+                    style={{ padding: 8 }}
+                  >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 13 }}>{leadDisplayName(lead)}</div>
@@ -289,7 +299,7 @@ export default function DashboardPanel({
                         className="crm-btn crm-btn-secondary"
                         style={{ padding: "5px 8px", fontSize: 11 }}
                       >
-                        Open
+                        Open lead
                       </button>
                       <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
                         Pipeline
@@ -301,18 +311,22 @@ export default function DashboardPanel({
                 {staleHotQueue.slice(0, 2).map((lead) => {
                   const staleDays = Math.round(daysSince(lead.time_last_updated));
                   return (
-                    <div key={`hot-${lead.id}`} className="crm-card-muted crm-focus-row" style={{ padding: 8 }}>
+                    <div
+                      key={`hot-${lead.id}`}
+                      className={`crm-card-muted crm-focus-row crm-focus-row-hot${focusCount > 0 ? " crm-focus-row-alert" : ""}${!hasNewQueue && hasHotQueue && staleHotQueue[0]?.id === lead.id ? " crm-focus-row-primary" : ""}`}
+                      style={{ padding: 8 }}
+                    >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>{leadDisplayName(lead)}</div>
                           <div style={{ marginTop: 2, fontSize: 12, color: "var(--ink-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {leadIdentityLine(lead)}
                           </div>
-                          <div style={{ marginTop: 2, fontSize: 12, color: "var(--danger)" }}>
-                            Hot lead inactive for {staleDays} day{staleDays === 1 ? "" : "s"}
+                          <div style={{ marginTop: 2, fontSize: 12, color: "#f87171" }}>
+                            No activity for {staleDays} day{staleDays === 1 ? "" : "s"}
                           </div>
                         </div>
-                        <StatusBadge label="Hot" tone="danger" />
+                        <span className="crm-chip crm-chip-hot">Hot</span>
                       </div>
                       <div className="crm-card-actions" style={{ marginTop: 6 }}>
                         <button
@@ -321,7 +335,7 @@ export default function DashboardPanel({
                           className="crm-btn crm-btn-secondary"
                           style={{ padding: "5px 8px", fontSize: 11 }}
                         >
-                          Open
+                          Open lead
                         </button>
                       </div>
                     </div>
@@ -331,7 +345,11 @@ export default function DashboardPanel({
                 {recommendations.slice(0, 3).map((item) => {
                   const saveState = savingByRecommendation[item.id];
                   return (
-                    <div key={item.id} className="crm-card-muted crm-focus-row" style={{ padding: 8 }}>
+                    <div
+                      key={item.id}
+                      className={`crm-card-muted crm-focus-row${focusCount > 0 ? " crm-focus-row-alert" : ""}${!hasNewQueue && !hasHotQueue && recommendations[0]?.id === item.id ? " crm-focus-row-primary" : ""}`}
+                      style={{ padding: 8 }}
+                    >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>{item.title}</div>
