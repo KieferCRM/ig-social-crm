@@ -181,7 +181,7 @@ export default function IntakeForm({
 
   if (submitted) {
     return (
-      <section className="crm-card" style={{ marginTop: 14, padding: 16 }}>
+      <section className="crm-card crm-public-intake-confirmation" style={{ marginTop: 14, padding: 16 }}>
         <div style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}>
           <h2 style={{ margin: 0 }}>Request Received</h2>
           <p style={{ margin: 0, color: "var(--ink-muted)", maxWidth: 520 }}>
@@ -203,9 +203,9 @@ export default function IntakeForm({
 
   return (
     <>
-      <section className="crm-card" style={{ marginTop: 14, padding: 16 }}>
+      <section className="crm-card crm-public-intake-form" style={{ marginTop: 14, padding: 16 }}>
         <form onSubmit={submitForm} style={{ display: "grid", gap: 12 }}>
-          <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+          <section className="crm-card-muted crm-public-intake-form__group" style={{ padding: 12, display: "grid", gap: 10 }}>
             <div style={{ fontWeight: 700 }}>Contact</div>
             <div style={{ display: "grid", gap: 8 }}>
               <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
@@ -242,7 +242,7 @@ export default function IntakeForm({
             </div>
           </section>
 
-          <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+          <section className="crm-card-muted crm-public-intake-form__group" style={{ padding: 12, display: "grid", gap: 10 }}>
             <div style={{ fontWeight: 700 }}>Lead Details</div>
             <div style={{ display: "grid", gap: 8 }}>
               <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
@@ -285,7 +285,7 @@ export default function IntakeForm({
             </div>
           </section>
 
-          <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+          <section className="crm-card-muted crm-public-intake-form__group" style={{ padding: 12, display: "grid", gap: 10 }}>
             <div style={{ fontWeight: 700 }}>Follow-up</div>
             <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
               Contact Preference
@@ -301,7 +301,7 @@ export default function IntakeForm({
             </label>
           </section>
 
-          <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+          <section className="crm-card-muted crm-public-intake-form__group" style={{ padding: 12, display: "grid", gap: 10 }}>
             <div style={{ fontWeight: 700 }}>Additional</div>
             <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
               How did you find us?

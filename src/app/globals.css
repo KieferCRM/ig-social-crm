@@ -1099,6 +1099,53 @@ h1, h2, h3, h4 {
   gap: 10px;
 }
 
+.crm-public-intake-page {
+  width: min(840px, calc(100% - 24px));
+  margin: 18px auto 42px;
+  display: grid;
+  gap: 14px;
+}
+
+.crm-public-intake-hero {
+  padding: 20px;
+  display: grid;
+  gap: 10px;
+  background:
+    linear-gradient(180deg, rgba(18, 24, 33, 0.98), rgba(15, 21, 29, 0.96)),
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.08), transparent 32%);
+}
+
+.crm-public-intake-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.crm-public-intake-hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 0.98;
+}
+
+.crm-public-intake-hero p {
+  margin: 0;
+  max-width: 58ch;
+  color: var(--ink-muted);
+  line-height: 1.6;
+}
+
+.crm-public-intake-form,
+.crm-public-intake-confirmation {
+  padding: 18px;
+}
+
+.crm-public-intake-form__group {
+  background:
+    linear-gradient(180deg, rgba(24, 33, 43, 0.94), rgba(18, 24, 33, 0.96));
+}
+
 .crm-intake-hero-grid {
   display: grid;
   grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.05fr);
@@ -2674,6 +2721,18 @@ input:focus, textarea:focus, select:focus {
 }
 
 @media (max-width: 760px) {
+  .crm-public-intake-page {
+    width: min(100% - 20px, 840px);
+    margin-top: 12px;
+    margin-bottom: 28px;
+  }
+
+  .crm-public-intake-hero,
+  .crm-public-intake-form,
+  .crm-public-intake-confirmation {
+    padding: 16px;
+  }
+
   .crm-topbar {
     padding: 14px;
   }
