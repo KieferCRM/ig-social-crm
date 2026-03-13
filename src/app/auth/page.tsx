@@ -222,13 +222,13 @@ export default function AuthPage() {
     mode === "recovery"
       ? "Create a new password to get back into your workspace."
       : mode === "sign_up"
-        ? "Start with your intake form, let serious inquiries land automatically, and keep follow-up clear from day one."
+        ? "Set up your workspace, capture serious inquiries automatically, and keep follow-up clear from day one."
         : "Sign in to review new inquiries, follow up faster, and keep deals moving.";
   const modeHelper =
     mode === "recovery"
       ? "Use the same email on your account."
       : mode === "sign_up"
-        ? "New here? Create your workspace and you can start sharing your intake link right away."
+        ? "New here? Create your workspace and start organizing serious inquiries in one place."
         : "Already have an account? Your dashboard, leads, and intake tools will be waiting.";
   const primaryLabel =
     busyAction === "sign_in"
@@ -416,7 +416,7 @@ export default function AuthPage() {
           <div className="crm-auth-next-steps">
             <div className="crm-auth-next-steps-title">What happens after you sign in</div>
             <div className="crm-auth-next-steps-list">
-              <div>1. Share your intake link</div>
+              <div>1. Finish your workspace setup</div>
               <div>2. Review your first lead</div>
               <div>3. Work the pipeline from one place</div>
             </div>
