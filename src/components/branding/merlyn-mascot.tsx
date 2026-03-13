@@ -23,29 +23,36 @@ export default function MerlynMascot({
       {...ariaProps}
     >
       <svg className="merlyn-logo__icon" viewBox="0 0 72 72" fill="none">
+        <circle cx="36" cy="36" r="26" className="merlyn-logo__ring" strokeWidth="1.8" />
         <path
-          d="M15 45.5C24.3 41.4 31.6 39.2 40.1 38.7C46.8 38.3 52.4 39 57 41.4C50.1 42.1 43.6 43.6 36.5 45.6C29.5 47.6 22.6 48.3 15 45.5Z"
+          d="M17 43.2C28.6 38.7 42.3 38.4 55 42.8"
           className="merlyn-logo__stroke"
-          strokeWidth="3.6"
+          strokeWidth="3.8"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
-          d="M23.1 38.9C26.6 33.8 29.6 28.8 30.9 23.4C31.8 19.5 33.4 15.5 37.6 13.7C41.4 12 44.3 14.9 44.4 20.2C44.6 25.6 42.1 31.8 40 36.4"
+          d="M26.2 39.2L31.7 21.9C32.6 19.1 35.8 17.8 38.4 19.2L49 24.9C51.1 26 50.5 29.1 48.2 29.4L39.7 30.4L44.2 39.2"
           className="merlyn-logo__stroke"
-          strokeWidth="3.6"
+          strokeWidth="3.8"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
-          d="M28.3 28.2C31.6 26.8 35.4 26.6 39.6 27.2"
+          d="M29.5 28.6C33 27.2 36.8 27.1 40.8 28.1"
           className="merlyn-logo__accent"
-          strokeWidth="3"
+          strokeWidth="2.8"
           strokeLinecap="round"
         />
         <path
-          d="M49.6 20.8L51.3 17.2L53 20.8L56.6 22.5L53 24.2L51.3 27.8L49.6 24.2L46 22.5L49.6 20.8Z"
+          d="M50.6 18.2L51.9 15.2L53.2 18.2L56.2 19.5L53.2 20.8L51.9 23.8L50.6 20.8L47.6 19.5L50.6 18.2Z"
           className="merlyn-logo__spark"
+        />
+        <path
+          d="M20.5 49.4C29.2 54.6 42.7 55.1 51.7 50.3"
+          className="merlyn-logo__trail"
+          strokeWidth="2.2"
+          strokeLinecap="round"
         />
       </svg>
 
