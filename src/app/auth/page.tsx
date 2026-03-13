@@ -11,15 +11,16 @@ type AuthMode = "sign_in" | "sign_up" | "recovery";
 type BusyAction = "sign_in" | "sign_up" | "forgot" | "reset" | null;
 
 const valueBullets = [
-  "Capture leads automatically",
-  "Keep every inquiry organized",
-  "Follow up with the right prospects faster",
+  "Capture leads through a shareable intake form",
+  "Turn missed calls into new opportunities",
+  "Keep every inquiry organized in one pipeline",
 ];
 
 const previewRows = [
-  { source: "Instagram DM", detail: "Buyer inquiry captured and assigned", tone: "ok" },
-  { source: "Website Form", detail: "New seller lead needs review today", tone: "warn" },
-  { source: "Facebook Lead", detail: "Follow-up overdue from yesterday", tone: "default" },
+  { source: "Website Form", detail: "Buyer inquiry submitted", status: "Captured", tone: "ok" },
+  { source: "Open House QR", detail: "Seller lead captured", status: "Needs review", tone: "warn" },
+  { source: "Missed Call Text", detail: "New inquiry awaiting review", status: "Follow up", tone: "default" },
+  { source: "Bio Link Form", detail: "Buyer lead added to pipeline", status: "Captured", tone: "ok" },
 ] as const;
 
 function toFriendlyError(message: string): string {
@@ -197,7 +198,7 @@ export default function AuthPage() {
   const subheading =
     mode === "recovery"
       ? "Create a new password to get back into your lead pipeline."
-      : "Sign in to manage leads, track activity, and see who needs follow-up today.";
+      : "Capture inbound inquiries, organize every lead, and see who needs follow-up today.";
   const primaryLabel =
     busyAction === "sign_in"
       ? "Signing In..."
@@ -350,9 +351,9 @@ export default function AuthPage() {
 
         <aside className="crm-card crm-auth-trust-panel">
           <div className="crm-auth-panel-kicker">Built for solo real estate agents</div>
-          <h2 className="crm-auth-panel-title">Every inbound inquiry organized the moment it lands.</h2>
+          <h2 className="crm-auth-panel-title">Every inbound inquiry captured and organized in one clear pipeline.</h2>
           <p className="crm-auth-panel-body">
-            Merlyn captures serious leads from Instagram, Facebook, your website, and forms so you can focus on follow-up instead of manual entry.
+            Merlyn helps solo real estate agents capture serious inquiries through a shareable intake form and an auto-text concierge for missed calls, then organizes every lead in one clear pipeline.
           </p>
 
           <div className="crm-auth-value-list">
@@ -366,8 +367,8 @@ export default function AuthPage() {
 
           <div className="crm-card-muted crm-auth-preview-card">
             <div className="crm-auth-preview-head">
-              <span className="crm-auth-preview-label">Today in your pipeline</span>
-              <span className="crm-chip crm-chip-ok">Live</span>
+              <span className="crm-auth-preview-label">How leads enter Merlyn</span>
+              <span className="crm-chip">Current setup</span>
             </div>
 
             <div className="crm-auth-preview-list">
@@ -378,7 +379,7 @@ export default function AuthPage() {
                     <div className="crm-auth-preview-detail">{row.detail}</div>
                   </div>
                   <span className={`crm-chip${row.tone === "ok" ? " crm-chip-ok" : row.tone === "warn" ? " crm-chip-warn" : ""}`}>
-                    {row.tone === "ok" ? "Ready" : row.tone === "warn" ? "Needs review" : "Follow up"}
+                    {row.status}
                   </span>
                 </div>
               ))}
@@ -386,7 +387,7 @@ export default function AuthPage() {
           </div>
 
           <div className="crm-auth-microcopy">
-            No manual lead entry. No guesswork about who needs attention next.
+            Share one intake form, catch missed-call opportunities, and keep your next follow-up clear.
           </div>
 
           <div className="crm-auth-links">
