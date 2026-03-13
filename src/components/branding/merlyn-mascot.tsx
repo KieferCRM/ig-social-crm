@@ -2,91 +2,59 @@ type MerlynMascotProps = {
   className?: string;
   decorative?: boolean;
   title?: string;
-  variant?: "full" | "icon";
+  variant?: "icon" | "full";
+  tone?: "light" | "dark";
 };
 
 export default function MerlynMascot({
   className,
   decorative = true,
   title = "Merlyn logo",
-  variant = "full",
+  variant = "icon",
+  tone = "light",
 }: MerlynMascotProps) {
-  const outlineId = "merlynHatOutline";
-  const accentId = "merlynHatAccent";
-
   const ariaProps = decorative
     ? { "aria-hidden": true as const }
     : { role: "img" as const, "aria-label": title };
 
   return (
-    <div className={`merlyn-familiar ${className || ""}`.trim()} {...ariaProps}>
-      <svg className="merlyn-glyph" viewBox="0 0 120 120" fill="none">
-        <defs>
-          <linearGradient id={outlineId} x1="22" y1="20" x2="95" y2="86" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#f1ddb0" />
-            <stop offset="55%" stopColor="#d3ae63" />
-            <stop offset="100%" stopColor="#b88839" />
-          </linearGradient>
-          <linearGradient id={accentId} x1="42" y1="40" x2="78" y2="40" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#e8cc8a" />
-            <stop offset="100%" stopColor="#c79843" />
-          </linearGradient>
-        </defs>
-
-        {variant === "full" ? (
-          <>
-            <path
-              d="M33 74C49 67 61 63 74 62C84 61 93 62 100 66C90 67 80 69 68 72C56 75 45 77 33 74Z"
-              stroke={`url(#${outlineId})`}
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M45 63C50 55 54 47 56 38C57 29 60 22 66 19C72 16 76 22 76 30C76 38 72 48 69 58"
-              stroke={`url(#${outlineId})`}
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M53 46C58 44 64 44 70 45"
-              stroke={`url(#${accentId})`}
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-            <path
-              d="M79 35L82 29L85 35L91 38L85 41L82 47L79 41L73 38L79 35Z"
-              fill="#f2ddb0"
-              opacity="0.9"
-            />
-          </>
-        ) : (
-          <>
-            <path
-              d="M31 72C46 66 58 63 71 62C81 61 89 62 95 65C85 66 76 68 65 71C54 74 43 75 31 72Z"
-              stroke={`url(#${outlineId})`}
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M43 61C48 53 52 46 54 38C55 30 58 24 63 21C69 18 72 24 72 31C72 39 69 48 66 56"
-              stroke={`url(#${outlineId})`}
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M51 45C56 43 61 43 66 44"
-              stroke={`url(#${accentId})`}
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-          </>
-        )}
+    <span
+      className={`merlyn-logo merlyn-logo-${variant} merlyn-logo-${tone}${className ? ` ${className}` : ""}`}
+      {...ariaProps}
+    >
+      <svg className="merlyn-logo__icon" viewBox="0 0 72 72" fill="none">
+        <path
+          d="M15 45.5C24.3 41.4 31.6 39.2 40.1 38.7C46.8 38.3 52.4 39 57 41.4C50.1 42.1 43.6 43.6 36.5 45.6C29.5 47.6 22.6 48.3 15 45.5Z"
+          className="merlyn-logo__stroke"
+          strokeWidth="3.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M23.1 38.9C26.6 33.8 29.6 28.8 30.9 23.4C31.8 19.5 33.4 15.5 37.6 13.7C41.4 12 44.3 14.9 44.4 20.2C44.6 25.6 42.1 31.8 40 36.4"
+          className="merlyn-logo__stroke"
+          strokeWidth="3.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M28.3 28.2C31.6 26.8 35.4 26.6 39.6 27.2"
+          className="merlyn-logo__accent"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path
+          d="M49.6 20.8L51.3 17.2L53 20.8L56.6 22.5L53 24.2L51.3 27.8L49.6 24.2L46 22.5L49.6 20.8Z"
+          className="merlyn-logo__spark"
+        />
       </svg>
-      <div className="merlyn-sigil-ring" />
-    </div>
+
+      {variant === "full" ? (
+        <span className="merlyn-logo__wordmark">
+          <span className="merlyn-logo__name">Merlyn</span>
+          <span className="merlyn-logo__tag">Inbound Lead CRM</span>
+        </span>
+      ) : null}
+    </span>
   );
 }

@@ -217,13 +217,8 @@ export default function AuthPage() {
       <div className="crm-auth-layout">
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
-            <MerlynMascot className="crm-auth-mark" variant="icon" decorative />
-            <div>
-              <div className="crm-chip" style={{ width: "fit-content" }}>
-                {PRODUCT_NAME} for Real Estate Agents
-              </div>
-              <div className="crm-auth-kicker">Inbound lead command center</div>
-            </div>
+            <MerlynMascot className="crm-auth-logo" variant="full" decorative />
+            <div className="crm-auth-kicker">For solo real estate agents</div>
           </div>
 
           <div className="crm-auth-copy">
