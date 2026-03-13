@@ -198,7 +198,7 @@ export default function AuthPage() {
   const subheading =
     mode === "recovery"
       ? "Create a new password to get back into your lead pipeline."
-      : "Capture inbound inquiries, organize every lead, and see who needs follow-up today.";
+      : "Capture inbound inquiries, organize every lead and deal, and see what needs follow-up today.";
   const primaryLabel =
     busyAction === "sign_in"
       ? "Signing In..."
@@ -351,9 +351,9 @@ export default function AuthPage() {
 
         <aside className="crm-card crm-auth-trust-panel">
           <div className="crm-auth-panel-kicker">Built for solo real estate agents</div>
-          <h2 className="crm-auth-panel-title">Every inbound inquiry captured and organized in one clear pipeline.</h2>
+          <h2 className="crm-auth-panel-title">Every inbound inquiry captured, organized, and moved toward the right deal outcome.</h2>
           <p className="crm-auth-panel-body">
-            Merlyn helps solo real estate agents capture serious inquiries through a shareable intake form and an auto-text concierge for missed calls, then organizes every lead in one clear pipeline.
+            Merlyn helps solo real estate agents capture serious inquiries through a shareable intake form and an auto-text concierge for missed calls, then organizes every lead and active deal in one clear pipeline.
           </p>
 
           <div className="crm-auth-value-list">
@@ -387,7 +387,7 @@ export default function AuthPage() {
           </div>
 
           <div className="crm-auth-microcopy">
-            Share one intake form, catch missed-call opportunities, and keep your next follow-up clear.
+            Share one intake form, catch missed-call opportunities, and keep both follow-ups and deals moving clearly.
           </div>
 
           <div className="crm-auth-links">
