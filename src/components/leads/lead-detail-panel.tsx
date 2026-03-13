@@ -572,7 +572,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const [threadChannel, setThreadChannel] = useState<LeadThreadResponse["channel"] | null>(null);
   const [smsDraft, setSmsDraft] = useState("");
   const [smsSending, setSmsSending] = useState(false);
-  const [calling, setCalling] = useState(false);
   const [commNotice, setCommNotice] = useState("");
   const [dealDraft, setDealDraft] = useState<DealDraft | null>(null);
   const [dealSaving, setDealSaving] = useState(false);
@@ -880,47 +879,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     window.setTimeout(() => smsComposerRef.current?.focus(), 120);
   }
 
-  async function runCallBridge() {
-    if (!displayLead?.id) return;
-    if (communicationBlocker) {
-      setCommNotice(communicationBlocker);
-      return;
-    }
-    setCommNotice("");
-    setCalling(true);
-    try {
-      const response = await fetch("/api/receptionist/call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lead_id: displayLead.id }),
-      });
-      const data = (await response.json()) as {
-        interaction?: LeadInteraction;
-        call?: { ok?: boolean; status?: string; error?: string };
-        error?: string;
-      };
-
-      if (!response.ok) {
-        setCommNotice(data.error || "Could not start click-to-call.");
-        return;
-      }
-
-      if (data.interaction) {
-        setInteractions((previous) => upsertInteraction(previous, data.interaction as LeadInteraction));
-      }
-
-      if (data.call?.ok) {
-        setCommNotice("Bridge call started. Your forwarding phone rings first.");
-      } else {
-        setCommNotice(data.call?.error || "Call attempt logged, but bridge could not be completed.");
-      }
-    } catch {
-      setCommNotice("Could not start click-to-call.");
-    } finally {
-      setCalling(false);
-    }
-  }
-
   async function sendSmsMessage() {
     const text = smsDraft.trim();
     if (!text || !displayLead?.id) return;
@@ -1151,18 +1109,10 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                     style={{
                       marginTop: 10,
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                       gap: 8,
                     }}
                   >
-                    <button
-                      type="button"
-                      className="crm-btn crm-btn-secondary"
-                      onClick={runCallBridge}
-                      disabled={!canRunCommunications || calling}
-                    >
-                      {calling ? "Calling..." : "Call"}
-                    </button>
                     <button
                       type="button"
                       className="crm-btn crm-btn-secondary"
@@ -1186,6 +1136,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                   </div>
 
                   <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <span className="crm-chip">Calls live in Merlyn Concierge</span>
                     {businessPhone ? <span className="crm-chip">Business #: {businessPhone}</span> : null}
                     {!communicationsEnabled ? <span className="crm-chip crm-chip-warn">Receptionist communications disabled</span> : null}
                     {communicationBlocker ? <span className="crm-chip crm-chip-warn">{communicationBlocker}</span> : null}

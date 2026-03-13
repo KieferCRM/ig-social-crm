@@ -291,13 +291,6 @@ function answerAskMerlyn(question: string, leads: LeadForAsk[], reminders: Remin
   return `Top priority: ${top.action} ${top.leadName} (${top.priority}). ${top.reason}`;
 }
 
-function toTelHref(phone: string | null): string | null {
-  if (!phone) return null;
-  const clean = phone.replace(/[^\d+]/g, "").trim();
-  if (!clean) return null;
-  return `tel:${clean}`;
-}
-
 export default function AskMerlynCard({ leads }: { leads: LeadForAsk[] }) {
   const [askQuestion, setAskQuestion] = useState("");
   const [askResponse, setAskResponse] = useState("Ask Merlyn what to prioritize today.");
@@ -319,7 +312,6 @@ export default function AskMerlynCard({ leads }: { leads: LeadForAsk[] }) {
   }, []);
 
   const guidance = useMemo(() => buildGuidance(leads, reminders), [leads, reminders]);
-  const leadById = useMemo(() => new Map(leads.map((lead) => [lead.id, lead])), [leads]);
 
   function runAskMerlyn(rawQuestion: string) {
     const question = rawQuestion.trim();
@@ -349,8 +341,6 @@ export default function AskMerlynCard({ leads }: { leads: LeadForAsk[] }) {
             </div>
           ) : (
             guidance.slice(0, 3).map((item) => {
-              const lead = leadById.get(item.leadId);
-              const callHref = toTelHref(lead?.canonical_phone || null);
               return (
                 <article key={`${item.leadId}-${item.reason}`} className="crm-card-muted" style={{ padding: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -359,18 +349,10 @@ export default function AskMerlynCard({ leads }: { leads: LeadForAsk[] }) {
                   </div>
                   <div style={{ marginTop: 2, fontSize: 12, color: "var(--ink-muted)" }}>{item.reason}</div>
                   <div className="crm-card-actions" style={{ marginTop: 6 }}>
-                    {callHref ? (
-                      <a href={callHref} className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
-                        Call
-                      </a>
-                    ) : (
-                      <Link href={`/app/leads/${item.leadId}`} className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
-                        Call
-                      </Link>
-                    )}
                     <Link href={`/app/leads/${item.leadId}`} className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
                       Open Lead
                     </Link>
+                    <span className="crm-chip">Calls live in Merlyn Concierge</span>
                   </div>
                 </article>
               );

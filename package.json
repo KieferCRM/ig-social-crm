@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
+    "dev:webpack": "next dev --webpack",
+    "clean:local": "rm -rf .next tsconfig.tsbuildinfo",
+    "dev:clean": "npm run clean:local && npm run dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src scripts middleware.ts next.config.mjs postcss.config.mjs eslint.config.mjs --cache --cache-location .eslintcache",
@@ -14,6 +17,7 @@
     "preflight:env:solo-prod": "node scripts/preflight_env.mjs --mode=solo-prod",
     "smoke:solo": "node scripts/smoke_solo.mjs",
     "smoke:ingest": "./scripts/smoke_ingest.sh",
+    "smoke:receptionist": "node scripts/smoke_receptionist.mjs",
     "security:rls:penetration": "node scripts/rls_penetration.mjs",
     "release:check": "npm run preflight:env:solo-prod && npm run typecheck && npm run lint && npm run build",
     "release:check:local": "npm run preflight:env:core && npm run typecheck && npm run lint && npm run build",
