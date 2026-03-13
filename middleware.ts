@@ -11,6 +11,14 @@ export async function middleware(req: NextRequest) {
   const isAuthRoute = pathname === "/auth";
   const isHomeRoute = pathname === "/";
   const isLegacySelectWorkspaceRoute = pathname === "/app/select-workspace";
+  const isOnboardingRoute = pathname === "/app/onboarding";
+
+  if (isOnboardingRoute) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/app";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
 
   if (process.env.NODE_ENV === "production" && (isDebugRoute || isPingRoute)) {
     return new NextResponse("Not Found", { status: 404 });
