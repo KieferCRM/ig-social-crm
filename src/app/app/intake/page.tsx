@@ -246,7 +246,7 @@ export default function LeadCaptureSetupPage() {
               {questionnaireConfig.description || "Answer a few quick questions so we can follow up with the right next step."}
             </p>
           </div>
-          <div className="crm-funnel-preview-body">
+          <div className="crm-funnel-preview-body crm-intake-preview-body">
             {previewQuestions.map((question) => {
               const type = previewFieldType(question);
               const options = previewOptions(question);

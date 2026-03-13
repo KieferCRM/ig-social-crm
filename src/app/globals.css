@@ -1108,8 +1108,18 @@ h1, h2, h3, h4 {
 
 .crm-intake-preview-panel {
   position: static;
-  max-height: 760px;
+  max-height: min(760px, calc(100vh - 180px));
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.crm-intake-preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .crm-intake-preview-input {
@@ -2623,6 +2633,15 @@ input:focus, textarea:focus, select:focus {
 
   .crm-intake-hero-grid {
     grid-template-columns: 1fr;
+  }
+
+  .crm-intake-preview-panel {
+    max-height: none;
+  }
+
+  .crm-intake-preview-body {
+    overflow: visible;
+    padding-right: 0;
   }
 
   .crm-lead-control-bar {
