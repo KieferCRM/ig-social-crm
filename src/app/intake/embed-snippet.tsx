@@ -23,8 +23,8 @@ export default function EmbedSnippet() {
   }
 
   return (
-    <section className="crm-card" style={{ marginTop: 14, padding: 16 }}>
-      <h2 style={{ margin: 0 }}>Embed Snippet</h2>
+    <section style={{ display: "grid", gap: 10 }}>
+      <h2 style={{ margin: 0 }}>Embed Snippets</h2>
       <p style={{ marginTop: 8, color: "var(--ink-muted)" }}>
         Drop these snippets into your website or link-in-bio pages to capture leads without Meta API access.
       </p>
