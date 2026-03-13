@@ -1099,6 +1099,39 @@ h1, h2, h3, h4 {
   gap: 10px;
 }
 
+.crm-intake-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.05fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.crm-intake-preview-panel {
+  position: static;
+  max-height: 760px;
+  overflow: hidden;
+}
+
+.crm-intake-preview-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: rgba(17, 24, 33, 0.94);
+  color: var(--ink-muted);
+  cursor: default;
+}
+
+.crm-intake-preview-input:disabled {
+  opacity: 1;
+  color: var(--ink-muted);
+}
+
+.crm-intake-preview-submit {
+  width: 100%;
+  justify-content: center;
+}
+
 .crm-filter-grid {
   display: grid;
   grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(130px, 1fr));
@@ -2586,6 +2619,10 @@ input:focus, textarea:focus, select:focus {
 
   .crm-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .crm-intake-hero-grid {
+    grid-template-columns: 1fr;
   }
 
   .crm-lead-control-bar {

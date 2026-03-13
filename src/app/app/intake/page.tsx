@@ -1,23 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { QuestionnaireConfig } from "@/lib/questionnaire";
+import { useEffect, useMemo, useState } from "react";
 import EmptyState from "@/components/ui/empty-state";
-import StatusBadge from "@/components/ui/status-badge";
+import {
+  DEFAULT_QUESTIONNAIRE_CONFIG,
+  type QuestionnaireConfig,
+  type QuestionnaireQuestion,
+} from "@/lib/questionnaire";
 
-type HealthResponse = {
-  db?: string;
-  ingestion_queue?: {
-    received?: number;
-    failed?: number;
-    dlq?: number;
-    received_older_than_5m?: number;
-  };
-  alerts?: {
-    has_dlq?: boolean;
-    has_stuck_received?: boolean;
-  };
+type SubmissionItem = {
+  id: string;
+  lead_name: string;
+  intent: string;
+  timeline: string;
+  timestamp: string | null;
+};
+
+type SubmissionResponse = {
+  submissions?: SubmissionItem[];
   error?: string;
 };
 
@@ -26,258 +27,356 @@ type QuestionnaireResponse = {
   error?: string;
 };
 
-type LeadListResponse = {
-  leads?: Array<{ id: string; source: string | null; time_last_updated: string | null }>;
-};
+const LINK_PLACEMENT_CARDS = [
+  {
+    title: "Website button",
+    body: "Use the intake link behind your Contact or Get Started button so serious inquiries come in cleanly.",
+  },
+  {
+    title: "Instagram bio",
+    body: "Place the link in your bio so buyers and sellers can submit details without messaging back and forth.",
+  },
+  {
+    title: "Email Signature",
+    body: "Add a simple Start here link to every outbound email so warm replies have a clear next step.",
+  },
+] as const;
 
-export default function LeadIntakeHubPage() {
-  const [loading, setLoading] = useState(true);
+function formatDateTime(value: string | null): string {
+  if (!value) return "No timestamp";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No timestamp";
+  return date.toLocaleString();
+}
+
+function previewFieldType(question: QuestionnaireQuestion): "text" | "email" | "tel" | "textarea" | "select" {
+  if (question.input_type === "textarea") return "textarea";
+  if (question.crm_field === "intent" || question.crm_field === "timeline" || question.crm_field === "contact_preference") {
+    return "select";
+  }
+  return question.input_type;
+}
+
+function previewOptions(question: QuestionnaireQuestion): string[] {
+  if (question.crm_field === "intent") return ["Buying", "Selling", "Investing"];
+  if (question.crm_field === "timeline") return ["ASAP", "30-60 days", "3-6 months", "Just researching"];
+  if (question.crm_field === "contact_preference") return ["Text", "Phone", "Email"];
+  return [];
+}
+
+export default function LeadCaptureSetupPage() {
+  const [submissionsLoading, setSubmissionsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [questionnaire, setQuestionnaire] = useState<QuestionnaireConfig | null>(null);
-  const [recentImportCount, setRecentImportCount] = useState(0);
-  const [copyMessage, setCopyMessage] = useState("");
+  const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
+  const [questionnaireConfig, setQuestionnaireConfig] = useState<QuestionnaireConfig>(DEFAULT_QUESTIONNAIRE_CONFIG);
   const [intakeUrl, setIntakeUrl] = useState("/intake");
+  const [linkActionMessage, setLinkActionMessage] = useState("");
+  const [showQrCode, setShowQrCode] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const [healthResponse, questionnaireResponse, leadsResponse] = await Promise.all([
-          fetch("/api/health"),
-          fetch("/api/questionnaire"),
-          fetch("/api/leads/simple"),
-        ]);
-
-        const healthData = (await healthResponse.json()) as HealthResponse;
-        if (healthResponse.ok) {
-          setHealth(healthData);
-        } else {
-          setHealth(null);
-          setError(healthData.error || "Could not load intake health.");
-        }
-
-        const questionnaireData = (await questionnaireResponse.json()) as QuestionnaireResponse;
-        if (questionnaireResponse.ok) {
-          setQuestionnaire(questionnaireData.config || null);
-        } else {
-          setQuestionnaire(null);
-          setError((prev) => prev || questionnaireData.error || "Could not load questionnaire config.");
-        }
-
-        const leadData = (await leadsResponse.json()) as LeadListResponse;
-        if (leadsResponse.ok && Array.isArray(leadData.leads)) {
-          const sevenDaysAgo = Date.now() - 7 * 24 * 3600_000;
-          const importLeads = leadData.leads.filter((lead) => {
-            const source = (lead.source || "").toLowerCase();
-            const updatedAt = lead.time_last_updated ? new Date(lead.time_last_updated).getTime() : 0;
-            return source.includes("import") && updatedAt >= sevenDaysAgo;
-          });
-          setRecentImportCount(importLeads.length);
-        }
-      } catch {
-        setError("Could not load lead intake hub.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void load();
-  }, []);
-  
   useEffect(() => {
     if (typeof window === "undefined") return;
     setIntakeUrl(`${window.location.origin}/intake`);
   }, []);
 
-  const questionCount = questionnaire?.questions.length || 0;
-  const requiredCount = questionnaire?.questions.filter((question) => question.required).length || 0;
+  useEffect(() => {
+    let mounted = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
 
-  const mappingReady = useMemo(() => {
-    if (!questionnaire) return false;
-    return questionnaire.questions.some((question) =>
-      ["full_name", "email", "phone", "ig_username"].includes(question.crm_field)
-    );
-  }, [questionnaire]);
+    async function loadWorkspaceData() {
+      setSubmissionsLoading(true);
+      setError("");
+      try {
+        const [submissionsResponse, questionnaireResponse] = await Promise.all([
+          fetch("/api/intake/submissions", {
+            signal: controller.signal,
+            cache: "no-store",
+          }),
+          fetch("/api/questionnaire", {
+            signal: controller.signal,
+            cache: "no-store",
+          }),
+        ]);
 
-  const queueHealthy = Boolean(
-    health &&
-      !health.alerts?.has_dlq &&
-      !health.alerts?.has_stuck_received &&
-      (health.ingestion_queue?.failed || 0) === 0
+        const submissionsData = (await submissionsResponse.json()) as SubmissionResponse;
+        const questionnaireData = (await questionnaireResponse.json()) as QuestionnaireResponse;
+        if (!mounted) return;
+
+        if (submissionsResponse.ok) {
+          setSubmissions(submissionsData.submissions || []);
+        } else {
+          setSubmissions([]);
+          setError(submissionsData.error || "Could not load recent submissions.");
+        }
+
+        if (questionnaireResponse.ok && questionnaireData.config) {
+          setQuestionnaireConfig(questionnaireData.config);
+        } else {
+          setQuestionnaireConfig(DEFAULT_QUESTIONNAIRE_CONFIG);
+        }
+      } catch {
+        if (!mounted) return;
+        setSubmissions([]);
+        setQuestionnaireConfig(DEFAULT_QUESTIONNAIRE_CONFIG);
+        setError("Could not load recent submissions.");
+      } finally {
+        window.clearTimeout(timeout);
+        if (mounted) setSubmissionsLoading(false);
+      }
+    }
+
+    void loadWorkspaceData();
+
+    return () => {
+      mounted = false;
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, []);
+
+  const qrCodeUrl = useMemo(
+    () => `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(intakeUrl)}`,
+    [intakeUrl]
   );
+
+  function setTransientLinkMessage(value: string, durationMs = 1700) {
+    setLinkActionMessage(value);
+    window.setTimeout(() => setLinkActionMessage(""), durationMs);
+  }
+
+  async function shareIntakeLink() {
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({
+          title: "Merlyn Lead Capture Form",
+          text: "Use this form to submit your real estate goals and contact details.",
+          url: intakeUrl,
+        });
+        setTransientLinkMessage("Shared");
+        return;
+      }
+      await navigator.clipboard.writeText(intakeUrl);
+      setTransientLinkMessage("Copied");
+    } catch {
+      setTransientLinkMessage("Share failed", 2000);
+    }
+  }
 
   async function copyIntakeLink() {
     try {
       await navigator.clipboard.writeText(intakeUrl);
-      setCopyMessage("Copied");
-      window.setTimeout(() => setCopyMessage(""), 1500);
+      setTransientLinkMessage("Copied");
     } catch {
-      setCopyMessage("Copy failed");
-      window.setTimeout(() => setCopyMessage(""), 1800);
+      setTransientLinkMessage("Copy failed", 2000);
     }
   }
 
+  const previewQuestions = questionnaireConfig.questions.length > 0
+    ? questionnaireConfig.questions
+    : DEFAULT_QUESTIONNAIRE_CONFIG.questions;
+
   return (
-    <main className="crm-page" style={{ maxWidth: 1120, display: "grid", gap: 12 }}>
-      <section className="crm-card" style={{ padding: 16 }}>
-        <h1 style={{ margin: 0 }}>Lead Intake Hub</h1>
-        <p style={{ marginTop: 8, color: "var(--ink-muted)", maxWidth: 800 }}>
-          This is where leads enter Merlyn. Build your intake funnel, share your lead capture link, and import existing contacts from CSV in one place.
-        </p>
-      </section>
-
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
-        <article className="crm-card" style={{ padding: 16, display: "grid", gap: 10, minHeight: 188 }}>
-          <div className="crm-chip crm-chip-info" style={{ width: "fit-content" }}>Primary Action</div>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>Build Funnel</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 14 }}>
-            Design your questionnaire and map answers into your CRM fields.
-          </div>
-          <div style={{ marginTop: "auto" }}>
-            <Link href="/app/intake/questionnaire" className="crm-btn crm-btn-primary">Open Funnel Builder</Link>
-          </div>
-        </article>
-
-        <article className="crm-card" style={{ padding: 16, display: "grid", gap: 10, minHeight: 188 }}>
-          <div className="crm-chip crm-chip-info" style={{ width: "fit-content" }}>Primary Action</div>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>Share Intake Form</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 14 }}>
-            Open your live intake page and share it anywhere leads find you.
-          </div>
-          <div style={{ marginTop: "auto" }}>
-            <Link href="/intake" className="crm-btn crm-btn-primary" target="_blank" rel="noreferrer">Open Live Intake</Link>
-          </div>
-        </article>
-
-        <article className="crm-card" style={{ padding: 16, display: "grid", gap: 10, minHeight: 188 }}>
-          <div className="crm-chip crm-chip-info" style={{ width: "fit-content" }}>Primary Action</div>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>Import Leads</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 14 }}>
-            Bring in your existing lead list from CSV with clear review and results.
-          </div>
-          <div style={{ marginTop: "auto" }}>
-            <Link href="/app/intake/import" className="crm-btn crm-btn-primary">Open CSV Import</Link>
-          </div>
-        </article>
-      </section>
-
-      <section className="crm-card" style={{ padding: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18 }}>How Lead Intake Works</div>
-        <p style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: 14 }}>
-          Set up your funnel once, share your link, and let Merlyn organize new and imported leads into your pipeline.
-        </p>
-
-        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
-          <div className="crm-card-muted" style={{ padding: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Step 1</div>
-            <div style={{ marginTop: 4, fontWeight: 700 }}>Build Funnel</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>Choose your intake questions and required fields.</div>
-          </div>
-          <div className="crm-card-muted" style={{ padding: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Step 2</div>
-            <div style={{ marginTop: 4, fontWeight: 700 }}>Capture Leads</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>Leads submit your form or get imported from CSV.</div>
-          </div>
-          <div className="crm-card-muted" style={{ padding: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Step 3</div>
-            <div style={{ marginTop: 4, fontWeight: 700 }}>Map Into CRM</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>Answers and import data fill your CRM fields automatically.</div>
-          </div>
-          <div className="crm-card-muted" style={{ padding: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Step 4</div>
-            <div style={{ marginTop: 4, fontWeight: 700 }}>Work The Pipeline</div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>Follow up quickly from your dashboard, leads list, and pipeline.</div>
+    <main className="crm-page crm-page-wide crm-stack-12">
+      <section className="crm-card crm-section-card">
+        <div className="crm-page-header">
+          <div className="crm-page-header-main">
+            <h1 className="crm-page-title">Lead intake</h1>
+            <p className="crm-page-subtitle">
+              Share one intake form for buyers, sellers, and investors. When someone submits it, Merlyn creates the lead automatically.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="crm-card" style={{ padding: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18 }}>Lead Capture Link</div>
-        <p style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: 14 }}>
-          Share this link in your bio, ads, DMs, and email campaigns.
-        </p>
-        <div className="crm-card-muted" style={{ marginTop: 10, padding: 12, display: "grid", gap: 10 }}>
-          <code style={{ wordBreak: "break-all" }}>{intakeUrl}</code>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <button className="crm-btn crm-btn-secondary" onClick={() => void copyIntakeLink()}>Copy Link</button>
-            <Link href="/intake" className="crm-btn crm-btn-primary" target="_blank" rel="noreferrer">Open Form</Link>
-            {copyMessage ? (
-              <span className={`crm-chip ${copyMessage === "Copied" ? "crm-chip-ok" : "crm-chip-danger"}`}>{copyMessage}</span>
+      <section className="crm-intake-hero-grid">
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Share your lead capture link</h2>
+            <span className="crm-chip crm-chip-ok">Ready now</span>
+          </div>
+          <p className="crm-section-subtitle">
+            This is the link you share. Prospects open it, complete the questionnaire, and land in Merlyn automatically.
+          </p>
+          <div className="crm-card-muted" style={{ padding: 14 }}>
+            <code style={{ wordBreak: "break-all", fontSize: 15, fontWeight: 700 }}>{intakeUrl}</code>
+          </div>
+          <div className="crm-inline-actions">
+            <button type="button" className="crm-btn crm-btn-primary" onClick={() => void copyIntakeLink()}>
+              Copy Link
+            </button>
+            <Link href="/intake" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
+              Open Form
+            </Link>
+            <button type="button" className="crm-btn crm-btn-secondary" onClick={() => void shareIntakeLink()}>
+              Share
+            </button>
+          </div>
+          <div className="crm-inline-actions">
+            <button type="button" className="crm-btn crm-btn-secondary" onClick={() => setShowQrCode((value) => !value)}>
+              {showQrCode ? "Hide QR code" : "Show QR code"}
+            </button>
+            {linkActionMessage ? (
+              <span
+                className={`crm-chip ${
+                  linkActionMessage === "Copied" || linkActionMessage === "Shared"
+                    ? "crm-chip-ok"
+                    : "crm-chip-danger"
+                }`}
+              >
+                {linkActionMessage}
+              </span>
             ) : null}
           </div>
-        </div>
+
+          {showQrCode ? (
+            <div className="crm-card-muted crm-stack-10" style={{ padding: 12, width: "fit-content" }}>
+              <img src={qrCodeUrl} alt="Lead intake QR code" width={220} height={220} style={{ borderRadius: 12 }} />
+              <a className="crm-btn crm-btn-secondary" href={qrCodeUrl} target="_blank" rel="noreferrer">
+                Open QR Image
+              </a>
+            </div>
+          ) : null}
+        </section>
+
+        <aside className="crm-card crm-funnel-preview-panel crm-intake-preview-panel">
+          <div className="crm-funnel-preview-head">
+            <p className="crm-funnel-preview-kicker">Form Preview</p>
+            <h3>{questionnaireConfig.title || "Lead Intake Form"}</h3>
+            <p>
+              {questionnaireConfig.description || "Answer a few quick questions so we can follow up with the right next step."}
+            </p>
+          </div>
+          <div className="crm-funnel-preview-body">
+            {previewQuestions.map((question) => {
+              const type = previewFieldType(question);
+              const options = previewOptions(question);
+              return (
+                <label key={question.id} className="crm-funnel-preview-field">
+                  <span>
+                    {question.label || question.prompt}
+                    {question.required ? <em>Required</em> : null}
+                  </span>
+                  {type === "textarea" ? (
+                    <textarea
+                      disabled
+                      rows={4}
+                      className="crm-intake-preview-input"
+                      placeholder={question.placeholder || question.prompt}
+                    />
+                  ) : type === "select" ? (
+                    <select disabled className="crm-intake-preview-input">
+                      <option>{question.placeholder || question.prompt}</option>
+                      {options.map((option) => (
+                        <option key={`${question.id}-${option}`}>{option}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      disabled
+                      type={type}
+                      className="crm-intake-preview-input"
+                      placeholder={question.placeholder || question.prompt}
+                    />
+                  )}
+                  <small>{question.prompt}</small>
+                </label>
+              );
+            })}
+          </div>
+          <button type="button" disabled className="crm-btn crm-btn-primary crm-intake-preview-submit">
+            {questionnaireConfig.submit_label || "Submit Intake"}
+          </button>
+          <p className="crm-funnel-preview-success">
+            Visual preview only. Prospects see this experience when they open your intake link.
+          </p>
+        </aside>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-        <div className="crm-card-muted" style={{ padding: 12 }}>
-          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Questions</div>
-          <div style={{ marginTop: 5, fontWeight: 800, fontSize: 26 }}>{questionCount}</div>
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div className="crm-section-head">
+          <h2 className="crm-section-title">Builder and import tools</h2>
         </div>
-        <div className="crm-card-muted" style={{ padding: 12 }}>
-          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Required Questions</div>
-          <div style={{ marginTop: 5, fontWeight: 800, fontSize: 26 }}>{requiredCount}</div>
-        </div>
-        <div className="crm-card-muted" style={{ padding: 12 }}>
-          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Imports (7 Days)</div>
-          <div style={{ marginTop: 5, fontWeight: 800, fontSize: 26 }}>{recentImportCount}</div>
-        </div>
-        <div className="crm-card-muted" style={{ padding: 12 }}>
-          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Mapping Status</div>
-          <div style={{ marginTop: 8 }}>
-            <StatusBadge label={mappingReady ? "Ready" : "Needs Update"} tone={mappingReady ? "ok" : "warn"} />
-          </div>
-        </div>
-        <div className="crm-card-muted" style={{ padding: 12 }}>
-          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Lead Intake Link</div>
-          <div style={{ marginTop: 8 }}>
-            <StatusBadge label="Live" tone="ok" />
-          </div>
-        </div>
-      </section>
-
-      <section className="crm-card" style={{ padding: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>Ingestion Health</div>
-          <StatusBadge label={queueHealthy ? "Healthy" : "Needs Attention"} tone={queueHealthy ? "ok" : "danger"} />
-        </div>
-        <p style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: 14 }}>
-          This section shows whether lead data is flowing in cleanly.
+        <p className="crm-section-subtitle">
+          Adjust the questionnaire when needed, or bring in an existing list without changing your capture link.
         </p>
+        <div className="crm-inline-actions">
+          <Link href="/app/intake/questionnaire" className="crm-btn crm-btn-secondary">
+            Funnel Builder
+          </Link>
+          <Link href="/app/intake/import" className="crm-btn crm-btn-secondary">
+            CSV Import
+          </Link>
+        </div>
+      </section>
 
-        {loading ? (
-          <div style={{ marginTop: 10, color: "var(--ink-muted)" }}>Loading ingestion health...</div>
-        ) : health ? (
-          <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-            <div className="crm-card-muted" style={{ padding: 10 }}>
-              <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Database</div>
-              <div style={{ marginTop: 6, fontWeight: 700 }}>{health.db || "Unknown"}</div>
-            </div>
-            <div className="crm-card-muted" style={{ padding: 10 }}>
-              <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Leads Received</div>
-              <div style={{ marginTop: 6, fontWeight: 700 }}>{health.ingestion_queue?.received || 0}</div>
-            </div>
-            <div className="crm-card-muted" style={{ padding: 10 }}>
-              <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Failed Events</div>
-              <div style={{ marginTop: 6, fontWeight: 700 }}>{health.ingestion_queue?.failed || 0}</div>
-            </div>
-            <div className="crm-card-muted" style={{ padding: 10 }}>
-              <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Needs Manual Review</div>
-              <div style={{ marginTop: 6, fontWeight: 700 }}>{health.ingestion_queue?.dlq || 0}</div>
-              <div style={{ marginTop: 2, fontSize: 11, color: "var(--ink-muted)" }}>Diagnostic queue (DLQ)</div>
-            </div>
-            <div className="crm-card-muted" style={{ padding: 10 }}>
-              <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Waiting Over 5 Minutes</div>
-              <div style={{ marginTop: 6, fontWeight: 700 }}>{health.ingestion_queue?.received_older_than_5m || 0}</div>
-            </div>
-          </div>
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div className="crm-section-head">
+          <h2 className="crm-section-title">Best places to use it</h2>
+        </div>
+        <div className="crm-grid-cards-3">
+          {LINK_PLACEMENT_CARDS.map((card) => (
+            <article key={card.title} className="crm-card-muted" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 700 }}>{card.title}</div>
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--ink-muted)" }}>{card.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div className="crm-section-head">
+          <h2 className="crm-section-title">Recent submissions</h2>
+        </div>
+        <p className="crm-section-subtitle">
+          The latest leads created by your intake form.
+        </p>
+        {submissionsLoading ? (
+          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading recent submissions...</div>
+        ) : submissions.length === 0 ? (
+          <EmptyState title="No submissions yet" body="Share the intake link on your site, bio, or email signature to start receiving inquiries." />
         ) : (
-          <div style={{ marginTop: 10 }}>
-            <EmptyState title="Ingestion health unavailable" body={error || "Could not load ingestion health."} />
+          <div className="crm-stack-8">
+            {submissions.map((item) => (
+              <Link
+                key={item.id}
+                href={`/app/leads/${item.id}`}
+                className="crm-card-muted"
+                style={{
+                  padding: 12,
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto",
+                  gap: 8,
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Lead Name</div>
+                  <div style={{ marginTop: 3, fontWeight: 700 }}>{item.lead_name}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Intent</div>
+                  <div style={{ marginTop: 3 }}>{item.intent}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Timeline</div>
+                  <div style={{ marginTop: 3 }}>{item.timeline}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Submitted</div>
+                  <div style={{ marginTop: 3, fontSize: 12 }}>{formatDateTime(item.timestamp)}</div>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </section>
+
+      {error ? (
+        <section className="crm-card crm-section-card">
+          <div style={{ fontSize: 13, color: "var(--danger)" }}>{error}</div>
+        </section>
+      ) : null}
     </main>
   );
 }
