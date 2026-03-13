@@ -1,12 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  DEFAULT_QUESTIONNAIRE_CONFIG,
-  isCoreQuestionField,
-  type QuestionnaireConfig,
-  type QuestionnaireQuestion,
-} from "@/lib/questionnaire";
 
 type IntakeResponse = {
   ok?: boolean;
@@ -15,10 +9,6 @@ type IntakeResponse = {
   lead_id?: string;
   reminder_created?: boolean;
   error?: string;
-};
-
-type IntakeConfigResponse = {
-  config?: QuestionnaireConfig;
 };
 
 type TransportFields = {
@@ -30,27 +20,59 @@ type TransportFields = {
   utm_campaign: string;
 };
 
-const EMPTY_TRANSPORT: TransportFields = {
-  source: "website_intake",
-  external_id: "",
-  website: "",
-  utm_source: "",
-  utm_medium: "",
-  utm_campaign: "",
+type IntakeFields = {
+  full_name: string;
+  email: string;
+  phone: string;
+  intent: string;
+  timeline: string;
+  budget_range: string;
+  location_area: string;
+  contact_preference: string;
+  referral_source: string;
+  notes: string;
 };
 
-export default function IntakeForm() {
-  const [config, setConfig] = useState<QuestionnaireConfig>(DEFAULT_QUESTIONNAIRE_CONFIG);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [transport, setTransport] = useState<TransportFields>(EMPTY_TRANSPORT);
-  const [configLoading, setConfigLoading] = useState(true);
+function createEmptyTransport(defaultSource: string): TransportFields {
+  return {
+    source: defaultSource,
+    external_id: "",
+    website: "",
+    utm_source: "",
+    utm_medium: "",
+    utm_campaign: "",
+  };
+}
+
+const EMPTY_FORM: IntakeFields = {
+  full_name: "",
+  email: "",
+  phone: "",
+  intent: "",
+  timeline: "",
+  budget_range: "",
+  location_area: "",
+  contact_preference: "",
+  referral_source: "",
+  notes: "",
+};
+
+function clean(value: string): string {
+  return value.trim();
+}
+
+export default function IntakeForm({
+  defaultSource = "website_intake",
+}: {
+  defaultSource?: string;
+}) {
+  const [form, setForm] = useState<IntakeFields>(EMPTY_FORM);
+  const [transport, setTransport] = useState<TransportFields>(
+    createEmptyTransport(defaultSource)
+  );
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState("");
-
-  const requiredMissing = useMemo(() => {
-    return config.questions.some((question) => question.required && !answers[question.id]?.trim());
-  }, [answers, config.questions]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -62,76 +84,69 @@ export default function IntakeForm() {
       utm_medium: params.get("utm_medium") || "",
       utm_campaign: params.get("utm_campaign") || "",
     }));
-
-    async function loadConfig() {
-      setConfigLoading(true);
-      try {
-        const response = await fetch("/api/intake/config");
-        const data = (await response.json()) as IntakeConfigResponse;
-        const nextConfig = data.config || DEFAULT_QUESTIONNAIRE_CONFIG;
-        setConfig(nextConfig);
-        setAnswers((prev) => {
-          const next: Record<string, string> = {};
-          for (const question of nextConfig.questions) {
-            next[question.id] = prev[question.id] || "";
-          }
-          return next;
-        });
-      } catch {
-        setConfig(DEFAULT_QUESTIONNAIRE_CONFIG);
-        setAnswers((prev) => {
-          const next: Record<string, string> = {};
-          for (const question of DEFAULT_QUESTIONNAIRE_CONFIG.questions) {
-            next[question.id] = prev[question.id] || "";
-          }
-          return next;
-        });
-      } finally {
-        setConfigLoading(false);
-      }
-    }
-
-    void loadConfig();
   }, []);
 
-  function updateAnswer(questionId: string, value: string) {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+  const requiredMissing = useMemo(() => {
+    return !clean(form.full_name) || !clean(form.email);
+  }, [form.email, form.full_name]);
+
+  function updateField<K extends keyof IntakeFields>(key: K, value: IntakeFields[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function renderInput(question: QuestionnaireQuestion) {
-    const value = answers[question.id] || "";
-    if (question.input_type === "textarea") {
-      return (
-        <textarea
-          rows={4}
-          value={value}
-          onChange={(event) => updateAnswer(question.id, event.target.value)}
-          placeholder={question.placeholder || question.prompt}
-        />
-      );
-    }
-
-    return (
-      <input
-        type={question.input_type}
-        value={value}
-        onChange={(event) => updateAnswer(question.id, event.target.value)}
-        placeholder={question.placeholder || question.prompt}
-      />
-    );
+  function mergedNotes(): string {
+    const notes = clean(form.notes);
+    const referral = clean(form.referral_source);
+    if (!notes && !referral) return "";
+    if (notes && !referral) return notes;
+    if (!notes && referral) return `How they found us: ${referral}`;
+    return `${notes}\n\nHow they found us: ${referral}`;
   }
 
-  async function submitForm() {
+  async function submitForm(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (requiredMissing) {
-      setMessage("Please complete all required fields.");
+      setMessage("Please complete Full Name and Email.");
       return;
     }
 
     setSaving(true);
     setMessage("");
     try {
+      const fullName = clean(form.full_name);
+      const email = clean(form.email);
+      const phone = clean(form.phone);
+      const intent = clean(form.intent);
+      const timeline = clean(form.timeline);
+      const budgetRange = clean(form.budget_range);
+      const locationArea = clean(form.location_area);
+      const contactPreference = clean(form.contact_preference);
+      const referralSource = clean(form.referral_source);
+      const notes = mergedNotes();
+
+      const questionnaireAnswers: Record<string, string> = {};
+      if (fullName) questionnaireAnswers.full_name = fullName;
+      if (email) questionnaireAnswers.email = email;
+      if (phone) questionnaireAnswers.phone = phone;
+      if (intent) questionnaireAnswers.intent = intent;
+      if (timeline) questionnaireAnswers.timeline = timeline;
+      if (budgetRange) questionnaireAnswers.budget_range = budgetRange;
+      if (locationArea) questionnaireAnswers.location_area = locationArea;
+      if (contactPreference) questionnaireAnswers.contact_preference = contactPreference;
+      if (referralSource) questionnaireAnswers.source = referralSource;
+      if (clean(form.notes)) questionnaireAnswers.notes = clean(form.notes);
+
       const payload: Record<string, unknown> = {
-        questionnaire_answers: answers,
+        full_name: fullName,
+        email,
+        phone: phone || undefined,
+        intent: intent || undefined,
+        timeline: timeline || undefined,
+        budget_range: budgetRange || undefined,
+        location_area: locationArea || undefined,
+        contact_preference: contactPreference || undefined,
+        notes: notes || undefined,
+        questionnaire_answers: questionnaireAnswers,
         source: transport.source || "website_intake",
         external_id: transport.external_id || "",
         website: transport.website || "",
@@ -139,13 +154,6 @@ export default function IntakeForm() {
         utm_medium: transport.utm_medium || "",
         utm_campaign: transport.utm_campaign || "",
       };
-
-      for (const question of config.questions) {
-        const answer = answers[question.id]?.trim();
-        if (!answer) continue;
-        if (!isCoreQuestionField(question.crm_field)) continue;
-        payload[question.crm_field] = answer;
-      }
 
       const response = await fetch("/api/intake", {
         method: "POST",
@@ -157,11 +165,12 @@ export default function IntakeForm() {
         setMessage(data.error || "Could not submit intake form.");
         return;
       }
+
       setSubmitted(true);
       setMessage(
         data.reminder_created
-          ? "Thanks. We received your info and scheduled a follow-up."
-          : config.success_message || "Thanks. We received your info."
+          ? "Thanks. We received your details and scheduled follow-up."
+          : "Thanks. We received your details."
       );
     } catch {
       setMessage("Could not submit intake form.");
@@ -182,88 +191,157 @@ export default function IntakeForm() {
   }
 
   return (
-    <section className="crm-card" style={{ marginTop: 14, padding: 16 }}>
-      <div style={{ display: "grid", gap: 6 }}>
-        <h2 style={{ margin: 0 }}>{config.title}</h2>
-        <p style={{ margin: 0, color: "var(--ink-muted)" }}>{config.description}</p>
-      </div>
-
-      {configLoading ? (
-        <div style={{ marginTop: 14, color: "var(--ink-muted)", fontSize: 14 }}>
-          Loading questionnaire...
-        </div>
-      ) : (
-        <div style={{ marginTop: 14, display: "grid", gap: 12 }}>
-          {config.questions.map((question) => (
-            <label key={question.id} style={{ display: "grid", gap: 6, fontSize: 14 }}>
-              <div style={{ fontWeight: 600 }}>
-                {question.prompt}
-                {question.required ? <span style={{ color: "var(--danger)" }}> *</span> : null}
-              </div>
-              {renderInput(question)}
-            </label>
-          ))}
-
-          <details className="crm-card-muted" style={{ padding: 12 }}>
-            <summary style={{ cursor: "pointer", fontWeight: 600 }}>Tracking Settings</summary>
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-              <label style={{ display: "grid", gap: 4, fontSize: 13, color: "var(--ink-muted)" }}>
-                Source label
+    <>
+      <section className="crm-card" style={{ marginTop: 14, padding: 16 }}>
+        <form onSubmit={submitForm} style={{ display: "grid", gap: 12 }}>
+          <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+            <div style={{ fontWeight: 700 }}>Contact</div>
+            <div style={{ display: "grid", gap: 8 }}>
+              <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                Full Name <span style={{ color: "var(--danger)" }}>*</span>
                 <input
-                  value={transport.source}
-                  onChange={(event) =>
-                    setTransport((prev) => ({ ...prev, source: event.target.value }))
-                  }
+                  required
+                  autoComplete="name"
+                  value={form.full_name}
+                  onChange={(event) => updateField("full_name", event.target.value)}
+                  placeholder="Jane Doe"
                 />
               </label>
-              <label style={{ display: "grid", gap: 4, fontSize: 13, color: "var(--ink-muted)" }}>
-                External ID (optional)
+              <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                Email <span style={{ color: "var(--danger)" }}>*</span>
                 <input
-                  value={transport.external_id}
-                  onChange={(event) =>
-                    setTransport((prev) => ({ ...prev, external_id: event.target.value }))
-                  }
+                  required
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={(event) => updateField("email", event.target.value)}
+                  placeholder="jane@email.com"
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                Phone
+                <input
+                  type="tel"
+                  autoComplete="tel"
+                  value={form.phone}
+                  onChange={(event) => updateField("phone", event.target.value)}
+                  placeholder="(555) 555-5555"
                 />
               </label>
             </div>
-          </details>
+          </section>
+
+          <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+            <div style={{ fontWeight: 700 }}>Lead Details</div>
+            <div style={{ display: "grid", gap: 8 }}>
+              <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                Intent
+                <select
+                  value={form.intent}
+                  onChange={(event) => updateField("intent", event.target.value)}
+                >
+                  <option value="">Select intent</option>
+                  <option value="Buy">Buy</option>
+                  <option value="Sell">Sell</option>
+                  <option value="Invest">Invest</option>
+                  <option value="Just browsing">Just browsing</option>
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                Timeline
+                <input
+                  value={form.timeline}
+                  onChange={(event) => updateField("timeline", event.target.value)}
+                  placeholder="30-60 days"
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                Budget Range
+                <input
+                  value={form.budget_range}
+                  onChange={(event) => updateField("budget_range", event.target.value)}
+                  placeholder="$400k - $550k"
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+                Preferred Location
+                <input
+                  value={form.location_area}
+                  onChange={(event) => updateField("location_area", event.target.value)}
+                  placeholder="City, neighborhood, or area"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+            <div style={{ fontWeight: 700 }}>Follow-up</div>
+            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+              Contact Preference
+              <select
+                value={form.contact_preference}
+                onChange={(event) => updateField("contact_preference", event.target.value)}
+              >
+                <option value="">Select preference</option>
+                <option value="Text">Text</option>
+                <option value="Call">Call</option>
+                <option value="Email">Email</option>
+              </select>
+            </label>
+          </section>
+
+          <section className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+            <div style={{ fontWeight: 700 }}>Additional</div>
+            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+              How did you find us?
+              <input
+                value={form.referral_source}
+                onChange={(event) => updateField("referral_source", event.target.value)}
+                placeholder="Instagram, referral, website, etc."
+              />
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+              Notes / Anything else we should know
+              <textarea
+                rows={4}
+                value={form.notes}
+                onChange={(event) => updateField("notes", event.target.value)}
+                placeholder="Share any additional context."
+              />
+            </label>
+          </section>
 
           <input
-            tabIndex={-1}
-            autoComplete="off"
-            aria-hidden="true"
-            placeholder="Leave empty"
-            value={transport.website}
-            onChange={(event) =>
-              setTransport((prev) => ({ ...prev, website: event.target.value }))
-            }
-            style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+            type="hidden"
+            name="source"
+            value={transport.source}
           />
+          <input type="hidden" name="external_id" value={transport.external_id} />
+          <input type="hidden" name="website" value={transport.website} />
+          <input type="hidden" name="utm_source" value={transport.utm_source} />
+          <input type="hidden" name="utm_medium" value={transport.utm_medium} />
+          <input type="hidden" name="utm_campaign" value={transport.utm_campaign} />
 
-          <div style={{ marginTop: 4, display: "flex", gap: 8 }}>
-            <button
-              className="crm-btn crm-btn-primary"
-              onClick={() => void submitForm()}
-              disabled={saving || configLoading}
-            >
-              {saving ? "Submitting..." : config.submit_label || "Submit"}
+          <div>
+            <button className="crm-btn crm-btn-primary" type="submit" disabled={saving}>
+              {saving ? "Submitting..." : "Submit"}
             </button>
           </div>
-        </div>
-      )}
 
-      {message ? (
-        <div
-          style={{ marginTop: 10 }}
-          className={`crm-chip ${
-            message.includes("Could not") || message.includes("Please")
-              ? "crm-chip-danger"
-              : "crm-chip-ok"
-          }`}
-        >
-          {message}
-        </div>
-      ) : null}
-    </section>
+          {message ? (
+            <div
+              style={{ marginTop: 2, width: "fit-content" }}
+              className={`crm-chip ${
+                message.includes("Could not") || message.includes("Please")
+                  ? "crm-chip-danger"
+                  : "crm-chip-ok"
+              }`}
+            >
+              {message}
+            </div>
+          ) : null}
+        </form>
+      </section>
+    </>
   );
 }
