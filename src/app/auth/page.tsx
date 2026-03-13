@@ -424,7 +424,7 @@ export default function AuthPage() {
 
           <div className="crm-auth-links">
             <Link href="/">Back to overview</Link>
-            <Link href="/intake">See intake form</Link>
+            <Link href="/demo">View demo workspace</Link>
           </div>
         </aside>
       </div>
