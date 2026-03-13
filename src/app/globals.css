@@ -640,9 +640,9 @@ td {
 }
 
 .merlyn-marketing--home {
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: clip;
 }
 
 .merlyn-marketing__veil {
@@ -671,11 +671,9 @@ td {
 }
 
 .merlyn-marketing__container--home {
-  height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: clamp(12px, 2vh, 24px);
-  padding: clamp(16px, 2.8vh, 28px) 0 12px;
+  gap: clamp(28px, 5vw, 64px);
+  padding: 24px 0 44px;
 }
 
 /* =========================================================
@@ -2350,12 +2348,8 @@ input:focus, textarea:focus, select:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   padding: 0;
-}
-
-.merlyn-nav--minimal {
-  min-height: 44px;
 }
 
 .merlyn-nav__brand {
@@ -2364,257 +2358,409 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
 }
 
+.merlyn-nav__logo .merlyn-logo__glyph {
+  filter: drop-shadow(0 14px 24px rgba(82, 116, 255, 0.28));
+}
+
 .merlyn-nav__logo .merlyn-logo__name {
-  font-size: 1.18rem;
+  font-size: 1.16rem;
+  letter-spacing: -0.02em;
+}
+
+.merlyn-nav__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .merlyn-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  padding: 11px 18px;
+  min-height: 46px;
+  padding: 0 18px;
   border-radius: 14px;
   text-decoration: none;
+  font-size: 0.96rem;
   font-weight: 700;
   border: 1px solid transparent;
-  transition: transform 140ms ease, filter 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, color 140ms ease;
 }
 
 .merlyn-button:hover {
   transform: translateY(-1px);
-  filter: brightness(1.03);
 }
 
 .merlyn-button-primary {
-  color: #f8f9ff;
-  background: linear-gradient(135deg, #17a271, #22c55e);
-  box-shadow: 0 16px 34px rgba(34, 197, 94, 0.22);
+  color: #f8fbff;
+  background: linear-gradient(135deg, #4563ff 0%, #5c75ff 52%, #7494ff 100%);
+  box-shadow: 0 18px 32px rgba(66, 96, 255, 0.28);
+}
+
+.merlyn-button-primary:hover {
+  box-shadow: 0 20px 36px rgba(66, 96, 255, 0.34);
+}
+
+.merlyn-button-secondary {
+  color: #dce7ff;
+  border-color: rgba(117, 141, 184, 0.34);
+  background: rgba(10, 18, 32, 0.55);
+}
+
+.merlyn-button-secondary:hover {
+  border-color: rgba(160, 182, 228, 0.5);
+  background: rgba(15, 24, 42, 0.82);
 }
 
 .merlyn-surface {
-  border-radius: 26px;
-  border: 1px solid rgba(61, 79, 95, 0.92);
+  border-radius: 28px;
+  border: 1px solid rgba(74, 89, 117, 0.7);
   background:
-    linear-gradient(180deg, rgba(18, 24, 33, 0.98), rgba(13, 18, 26, 0.98)),
-    linear-gradient(135deg, rgba(34, 197, 94, 0.03), transparent 44%);
-  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.32);
+    linear-gradient(180deg, rgba(13, 21, 36, 0.96), rgba(10, 17, 29, 0.98)),
+    linear-gradient(135deg, rgba(93, 118, 255, 0.08), transparent 42%);
+  box-shadow:
+    0 32px 60px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .merlyn-hero {
   display: grid;
-  min-height: 0;
 }
 
 .merlyn-hero--home {
-  grid-template-columns: minmax(0, 1.02fr) minmax(320px, 420px);
-  grid-template-areas:
-    "intro preview"
-    "actions preview"
-    "note preview";
-  align-content: center;
-  gap: clamp(14px, 2vw, 24px);
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 500px);
+  align-items: center;
+  gap: clamp(28px, 5vw, 68px);
+  padding: clamp(18px, 3vw, 26px) 0 clamp(10px, 1vw, 18px);
 }
 
 .merlyn-hero__intro {
-  grid-area: intro;
   display: grid;
-  align-content: end;
-  gap: 12px;
-  max-width: 560px;
+  gap: 18px;
+  max-width: 620px;
 }
 
-.merlyn-hero__eyebrow {
+.merlyn-hero__eyebrow,
+.merlyn-section__eyebrow {
   width: fit-content;
-  padding: 7px 12px;
+  padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(83, 186, 255, 0.2);
-  background: rgba(83, 186, 255, 0.1);
-  color: #dbf1ff;
+  border: 1px solid rgba(125, 151, 224, 0.26);
+  background: rgba(92, 117, 255, 0.1);
+  color: #d9e4ff;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.merlyn-hero__intro h1 {
+.merlyn-hero__intro h1,
+.merlyn-section__header h2,
+.merlyn-concierge-band__copy h2,
+.merlyn-final-cta__copy h2 {
   margin: 0;
-  max-width: 10ch;
-  font-size: clamp(2.8rem, 5.8vw, 4.8rem);
-  line-height: 0.92;
   letter-spacing: -0.05em;
+}
+
+.merlyn-hero__intro h1 {
+  max-width: 11ch;
+  font-size: clamp(3rem, 6vw, 5.35rem);
+  line-height: 0.92;
 }
 
 .merlyn-hero__body {
   margin: 0;
-  max-width: 56ch;
-  color: #b4c1cb;
-  font-size: clamp(1rem, 1.45vw, 1.08rem);
-  line-height: 1.6;
+  max-width: 60ch;
+  color: #b5c3d6;
+  font-size: clamp(1rem, 1.55vw, 1.12rem);
+  line-height: 1.7;
 }
 
-.merlyn-hero__actions {
+.merlyn-hero__actions,
+.merlyn-final-cta__actions {
   display: flex;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.merlyn-hero__actions--home {
-  grid-area: actions;
-}
-
 .merlyn-hero__note {
-  margin: 0;
-  color: #88a0ad;
+  margin: -2px 0 0;
+  max-width: 54ch;
+  color: #8ea0b5;
   font-size: 13px;
-}
-
-.merlyn-hero__note--home {
-  grid-area: note;
-  max-width: 440px;
+  line-height: 1.5;
 }
 
 .merlyn-hero-frame {
-  grid-area: preview;
-  align-self: center;
-  min-height: 0;
-  padding: 18px;
+  padding: 22px;
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
-.merlyn-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.merlyn-stat-card {
-  padding: 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(64, 80, 94, 0.9);
-  background: rgba(255, 255, 255, 0.03);
-  display: grid;
-  gap: 8px;
-}
-
-.merlyn-stat-card--new {
-  background:
-    linear-gradient(180deg, rgba(34, 197, 94, 0.14), rgba(255, 255, 255, 0.03)),
-    rgba(255, 255, 255, 0.03);
-}
-
-.merlyn-stat-card--qualified {
-  background:
-    linear-gradient(180deg, rgba(83, 186, 255, 0.18), rgba(255, 255, 255, 0.03)),
-    rgba(255, 255, 255, 0.03);
-}
-
-.merlyn-stat-card--deals {
-  background:
-    linear-gradient(180deg, rgba(245, 181, 80, 0.18), rgba(255, 255, 255, 0.03)),
-    rgba(255, 255, 255, 0.03);
-}
-
-.merlyn-stat-card__label {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #93a8b7;
-}
-
-.merlyn-stat-card__count {
-  font-size: clamp(1.8rem, 3vw, 2.35rem);
-  line-height: 1;
-  color: #f5f8fb;
-}
-
-.merlyn-preview-stack {
-  display: grid;
-  gap: 12px;
-}
-
-.merlyn-preview-panel {
-  padding: 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(58, 75, 91, 0.86);
-  background: rgba(255, 255, 255, 0.025);
-  display: grid;
-  gap: 12px;
-}
-
-.merlyn-preview-panel__head {
+.merlyn-preview-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.merlyn-preview-panel__title {
-  color: #f2f6fa;
-  font-size: 0.98rem;
+.merlyn-preview-header h2 {
+  margin: 6px 0 0;
+  max-width: 14ch;
+  font-size: 1.45rem;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.merlyn-preview-kicker {
+  color: #91a4ba;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.merlyn-preview-chip {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(118, 144, 190, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d9e5fb;
+  font-size: 11px;
   font-weight: 700;
 }
 
-.merlyn-preview-panel__hint {
-  color: #8aa0ac;
-  font-size: 12px;
-  font-weight: 600;
+.merlyn-preview-visual {
+  display: grid;
+  gap: 14px;
 }
 
-.merlyn-focus-list {
+.merlyn-preview-spotlight,
+.merlyn-preview-row,
+.merlyn-preview-column {
+  border-radius: 20px;
+  border: 1px solid rgba(80, 96, 125, 0.64);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.merlyn-preview-spotlight {
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+  background:
+    linear-gradient(135deg, rgba(72, 96, 214, 0.24), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.merlyn-preview-spotlight__label {
+  color: #b9c7dc;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.merlyn-preview-spotlight strong {
+  font-size: 1.08rem;
+  color: #f5f8fe;
+}
+
+.merlyn-preview-spotlight p,
+.merlyn-preview-row__body p,
+.merlyn-info-card p,
+.merlyn-concierge-band__copy p,
+.merlyn-final-cta__copy p {
   margin: 0;
+  color: #aebed0;
+  line-height: 1.6;
+}
+
+.merlyn-preview-spotlight__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.merlyn-preview-spotlight__meta span,
+.merlyn-concierge-band__steps span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d7e2f4;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.merlyn-preview-stream {
+  display: grid;
+  gap: 10px;
+}
+
+.merlyn-preview-row {
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.merlyn-preview-row__label {
+  color: #8fa5be;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.merlyn-preview-row__body {
+  display: grid;
+  gap: 5px;
+}
+
+.merlyn-preview-row__body strong {
+  color: #f3f7ff;
+  font-size: 0.96rem;
+}
+
+.merlyn-preview-columns,
+.merlyn-card-grid--triple,
+.merlyn-concierge-band {
+  display: grid;
+  gap: 14px;
+}
+
+.merlyn-preview-columns,
+.merlyn-card-grid--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.merlyn-preview-column {
+  padding: 16px;
+}
+
+.merlyn-preview-column__title,
+.merlyn-info-card__index {
+  color: #dbe6fb;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.merlyn-preview-column ul {
+  margin: 12px 0 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 10px;
-  color: #d4e1e8;
+  gap: 9px;
+  color: #b3c2d4;
+  font-size: 0.94rem;
 }
 
-.merlyn-focus-list li {
+.merlyn-preview-column li {
+  position: relative;
+  padding-left: 14px;
+}
+
+.merlyn-preview-column li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(138, 170, 255, 0.9);
+}
+
+.merlyn-section {
+  display: grid;
+  gap: 18px;
+}
+
+.merlyn-section__header {
+  display: grid;
+  gap: 12px;
+  max-width: 680px;
+}
+
+.merlyn-section__header h2,
+.merlyn-concierge-band__copy h2,
+.merlyn-final-cta__copy h2 {
+  font-size: clamp(2rem, 3vw, 2.75rem);
+  line-height: 1.04;
+}
+
+.merlyn-info-card {
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.merlyn-info-card h3,
+.merlyn-preview-column__title {
+  margin: 0;
+}
+
+.merlyn-info-card h3 {
+  font-size: 1.18rem;
+  letter-spacing: -0.03em;
+}
+
+.merlyn-info-card--overview {
+  gap: 12px;
+}
+
+.merlyn-concierge-band {
+  grid-template-columns: minmax(0, 1.2fr) auto;
+  align-items: center;
+  padding: 24px;
+}
+
+.merlyn-concierge-band__copy {
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.merlyn-concierge-band__steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.merlyn-final-cta {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  padding: 26px;
+}
+
+.merlyn-final-cta__copy {
+  display: grid;
   gap: 12px;
-  align-items: start;
-  padding-top: 10px;
-  border-top: 1px solid rgba(61, 79, 95, 0.72);
-}
-
-.merlyn-focus-list li:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.merlyn-focus-list li span {
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.merlyn-focus-list li strong {
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: rgba(34, 197, 94, 0.12);
-  color: #ddf6e7;
-  font-size: 11px;
-  font-weight: 700;
+  max-width: 620px;
 }
 
 .merlyn-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  min-height: 30px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(61, 79, 95, 0.92);
-  color: #8ea1ae;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 8px;
+  color: #92a3b6;
+  font-size: 0.94rem;
 }
 
 .merlyn-footer__links {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
-  font-size: 12px;
+  gap: 16px;
+  font-size: 0.84rem;
 }
 
 .merlyn-footer__links a {
@@ -2623,94 +2769,111 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-footer__links a:hover {
-  color: #eef7fb;
+  color: #eef5ff;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1080px) {
   .merlyn-marketing__container--home {
-    width: min(100% - 28px, 1160px);
+    width: min(100% - 32px, 1160px);
+  }
+
+  .merlyn-hero--home,
+  .merlyn-concierge-band,
+  .merlyn-final-cta {
+    grid-template-columns: 1fr;
+  }
+
+  .merlyn-preview-columns,
+  .merlyn-card-grid--triple {
+    grid-template-columns: 1fr;
+  }
+
+  .merlyn-concierge-band__steps,
+  .merlyn-final-cta__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .merlyn-marketing__container--home {
+    gap: 24px;
+    padding-top: 18px;
+    padding-bottom: 28px;
+  }
+
+  .merlyn-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .merlyn-nav__actions,
+  .merlyn-hero__actions,
+  .merlyn-final-cta__actions {
+    width: 100%;
+  }
+
+  .merlyn-nav__actions .merlyn-button,
+  .merlyn-hero__actions .merlyn-button,
+  .merlyn-final-cta__actions .merlyn-button {
+    flex: 1 1 0;
   }
 
   .merlyn-hero--home {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "intro"
-      "preview"
-      "actions"
-      "note";
-    align-content: start;
+    gap: 24px;
+    padding-top: 4px;
   }
 
   .merlyn-hero__intro h1 {
-    max-width: 12ch;
+    max-width: 11ch;
+    font-size: clamp(2.6rem, 12vw, 4rem);
+  }
+
+  .merlyn-hero-frame,
+  .merlyn-info-card,
+  .merlyn-concierge-band,
+  .merlyn-final-cta {
+    padding: 18px;
+  }
+
+  .merlyn-preview-header {
+    flex-direction: column;
+  }
+
+  .merlyn-preview-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .merlyn-footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
-@media (max-width: 640px) {
-  .merlyn-marketing__container--home {
-    gap: 10px;
-    padding-top: 14px;
-    padding-bottom: 10px;
+@media (max-width: 520px) {
+  .merlyn-marketing__container {
+    width: min(100% - 24px, 1160px);
   }
 
-  .merlyn-nav__logo .merlyn-logo__name {
-    font-size: 1.05rem;
+  .merlyn-nav__actions,
+  .merlyn-hero__actions,
+  .merlyn-final-cta__actions {
+    flex-direction: column;
   }
 
-  .merlyn-hero--home {
-    gap: 12px;
+  .merlyn-nav__actions .merlyn-button,
+  .merlyn-hero__actions .merlyn-button,
+  .merlyn-final-cta__actions .merlyn-button {
+    width: 100%;
   }
 
   .merlyn-hero__intro h1 {
     max-width: none;
-    font-size: clamp(2.2rem, 11vw, 3.15rem);
   }
 
-  .merlyn-hero__body {
-    font-size: 0.95rem;
-    line-height: 1.48;
-  }
-
-  .merlyn-hero-frame,
-  .merlyn-preview-panel {
-    padding: 14px;
-  }
-
-  .merlyn-hero__actions--home .merlyn-button {
-    width: 100%;
-  }
-
-  .merlyn-focus-list li span {
-    font-size: 12.5px;
-  }
-
-  .merlyn-footer {
-    justify-content: center;
-    padding-top: 8px;
-  }
-}
-
-@media (max-height: 760px) {
-  .merlyn-marketing__container--home {
-    gap: 10px;
-    padding-top: 12px;
-    padding-bottom: 10px;
-  }
-
-  .merlyn-hero--home {
-    gap: 12px 18px;
-  }
-
-  .merlyn-hero__intro h1 {
-    font-size: clamp(2.5rem, 5vw, 4.1rem);
-  }
-
-  .merlyn-hero__body {
-    line-height: 1.5;
-  }
-
-  .merlyn-hero-frame,
-  .merlyn-preview-panel {
-    padding: 14px;
+  .merlyn-section__header h2,
+  .merlyn-concierge-band__copy h2,
+  .merlyn-final-cta__copy h2 {
+    font-size: 1.8rem;
   }
 }
