@@ -101,20 +101,6 @@ export default function DashboardRightRail({
           )}
         </div>
       </section>
-
-      <section className="crm-card crm-utility-card">
-        <div className="crm-section-head">
-          <h2 className="crm-section-title">Keep the workspace moving</h2>
-        </div>
-        <p className="crm-section-subtitle" style={{ marginTop: 0 }}>
-          Start where progress is most likely: today&apos;s leads, the pipeline, or your intake link.
-        </p>
-        <div className="crm-stack-8">
-          <Link href="/app/list?follow_up=due" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Review due follow-ups</Link>
-          <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Open pipeline</Link>
-          <Link href="/app/intake" className="crm-btn crm-btn-secondary" style={{ padding: "7px 10px", fontSize: 12 }}>Share intake link</Link>
-        </div>
-      </section>
     </div>
   );
 }

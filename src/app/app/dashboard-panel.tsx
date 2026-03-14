@@ -283,20 +283,18 @@ export default function DashboardPanel({
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{leadDisplayName(lead)}</div>
-                        <div style={{ marginTop: 2, fontSize: 12, color: "var(--ink-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{leadIdentityLine(lead)}</div>
+                        <button
+                          type="button"
+                          onClick={() => openLeadPanel(lead.id, lead)}
+                          className="crm-focus-link"
+                        >
+                          {leadDisplayName(lead)}
+                        </button>
+                        <div className="crm-focus-meta">{leadIdentityLine(lead)}</div>
                       </div>
                       <StatusBadge label="New" tone="warn" />
                     </div>
                     <div className="crm-card-actions" style={{ marginTop: 6 }}>
-                      <button
-                        type="button"
-                        onClick={() => openLeadPanel(lead.id, lead)}
-                        className="crm-btn crm-btn-secondary"
-                        style={{ padding: "5px 8px", fontSize: 11 }}
-                      >
-                        Open lead
-                      </button>
                       <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
                         Pipeline
                       </Link>
@@ -314,25 +312,19 @@ export default function DashboardPanel({
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13 }}>{leadDisplayName(lead)}</div>
-                          <div style={{ marginTop: 2, fontSize: 12, color: "var(--ink-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {leadIdentityLine(lead)}
-                          </div>
-                          <div style={{ marginTop: 2, fontSize: 12, color: "#f87171" }}>
+                          <button
+                            type="button"
+                            onClick={() => openLeadPanel(lead.id, lead)}
+                            className="crm-focus-link"
+                          >
+                            {leadDisplayName(lead)}
+                          </button>
+                          <div className="crm-focus-meta">{leadIdentityLine(lead)}</div>
+                          <div className="crm-focus-alert">
                             No activity for {staleDays} day{staleDays === 1 ? "" : "s"}
                           </div>
                         </div>
                         <span className="crm-chip crm-chip-hot">Hot</span>
-                      </div>
-                      <div className="crm-card-actions" style={{ marginTop: 6 }}>
-                        <button
-                          type="button"
-                          onClick={() => openLeadPanel(lead.id, lead)}
-                          className="crm-btn crm-btn-secondary"
-                          style={{ padding: "5px 8px", fontSize: 11 }}
-                        >
-                          Open lead
-                        </button>
                       </div>
                     </div>
                   );
