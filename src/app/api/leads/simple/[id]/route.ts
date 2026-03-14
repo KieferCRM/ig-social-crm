@@ -3,7 +3,6 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { loadAccessContext, ownerFilter } from "@/lib/access-context";
 import { parseJsonBody } from "@/lib/http";
 import { withReminderOwnerColumn } from "@/lib/reminders";
-import { normalizeLeadEmail, normalizeLeadPhone } from "@/lib/leads/identity";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -43,6 +42,24 @@ function optionalString(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeEmailValue(value: string | null | undefined): string | null {
+  const trimmed = optionalString(value);
+  return trimmed ? trimmed.toLowerCase() : null;
+}
+
+function normalizePhoneValue(value: string | null | undefined): string | null {
+  const trimmed = optionalString(value);
+  if (!trimmed) return null;
+
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return null;
+
+  if (trimmed.startsWith("+")) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return `+${digits}`;
 }
 
 function parseNullableDecimal(value: unknown): number | null | "invalid" {
@@ -152,9 +169,9 @@ export async function PATCH(request: Request, { params }: Params) {
 
   if (has("full_name")) update.full_name = optionalString(body.full_name);
 
-  if (has("canonical_email")) update.canonical_email = normalizeLeadEmail(body.canonical_email);
+  if (has("canonical_email")) update.canonical_email = normalizeEmailValue(body.canonical_email);
 
-  if (has("canonical_phone")) update.canonical_phone = normalizeLeadPhone(body.canonical_phone);
+  if (has("canonical_phone")) update.canonical_phone = normalizePhoneValue(body.canonical_phone);
 
   if (has("stage")) {
     const stage = optionalString(body.stage);
