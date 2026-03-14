@@ -1188,10 +1188,15 @@ h1, h2, h3, h4 {
 }
 
 .crm-lead-command-action-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  flex-wrap: wrap;
   margin-top: 10px;
+}
+
+.crm-lead-command-action-row .crm-btn {
+  min-height: 48px;
+  justify-content: center;
 }
 
 .crm-lead-command-activity-list {
@@ -3794,10 +3799,13 @@ input:focus, textarea:focus, select:focus {
 
   .crm-lead-command-primary-actions,
   .crm-lead-command-secondary-actions,
-  .crm-lead-command-action-row,
   .crm-lead-command-next-actions,
   .crm-lead-command-composer-actions {
     flex-direction: column;
+  }
+
+  .crm-lead-command-action-row {
+    grid-template-columns: 1fr;
   }
 
   .crm-lead-command-primary-actions .crm-btn,

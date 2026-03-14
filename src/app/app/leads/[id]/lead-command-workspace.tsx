@@ -58,9 +58,10 @@ type LeadCommandWorkspaceProps = {
 
 const QUICK_STEP_OPTIONS = [
   { key: "call", label: "Call", value: "Call lead" },
-  { key: "text", label: "Text", value: "Send follow-up text" },
-  { key: "showing", label: "Schedule Showing", value: "Schedule showing" },
-  { key: "reminder", label: "Set Reminder", value: "Set reminder" },
+  { key: "text", label: "Text", value: "Send text follow-up" },
+  { key: "follow_up", label: "Schedule Follow-Up", value: "Schedule follow-up" },
+  { key: "note", label: "Add Note", value: "Add note after contact" },
+  { key: "stage", label: "Move Stage", value: "Move lead to the next stage" },
 ] as const;
 
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
@@ -348,7 +349,7 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
               </div>
 
               <div className="crm-card-muted crm-lead-command-action-block">
-                <div className="crm-lead-command-mini-label">Set Next Step</div>
+                <div className="crm-lead-command-mini-label">Primary Actions</div>
                 <div className="crm-lead-command-action-row">
                   {QUICK_STEP_OPTIONS.map((option) => (
                     <button
@@ -365,7 +366,7 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
                   ))}
                 </div>
                 <div className="crm-lead-command-inline-note">
-                  {nextStepValue}
+                  Next step: {nextStepValue}
                 </div>
               </div>
 
@@ -383,6 +384,7 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
                 <div className="crm-lead-command-activity-list">
                   <div>Lead created — {createdAtShort || "No timestamp"}</div>
                   <div>Profile updated — {updatedAtShort || "No timestamp"}</div>
+                  <div>Last message — {firstNonEmpty(lead.last_message_preview) || "No message logged"}</div>
                 </div>
               </div>
 
