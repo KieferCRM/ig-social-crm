@@ -2053,6 +2053,165 @@ h1, h2, h3, h4 {
   align-items: start;
 }
 
+.crm-detail-header {
+  padding: 14px;
+}
+
+.crm-detail-header__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.crm-detail-kicker {
+  font-size: 12px;
+  color: var(--ink-muted);
+  font-weight: 700;
+}
+
+.crm-detail-title {
+  margin-top: 4px;
+  font-size: 2rem;
+  line-height: 1.05;
+  font-weight: 800;
+}
+
+.crm-detail-contact-line {
+  margin-top: 6px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--ink-muted);
+}
+
+.crm-detail-chip-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crm-detail-header__actions,
+.crm-detail-footer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crm-detail-status-note {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.crm-detail-workspace {
+  display: grid;
+  gap: 12px;
+}
+
+.crm-detail-section {
+  padding: 14px;
+}
+
+.crm-detail-quick-actions {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.crm-detail-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.crm-detail-field {
+  display: grid;
+  gap: 6px;
+}
+
+.crm-detail-field > span,
+.crm-detail-subsection__label,
+.crm-detail-action-label {
+  font-size: 12px;
+  color: var(--ink-muted);
+  font-weight: 700;
+}
+
+.crm-detail-field-full {
+  grid-column: 1 / -1;
+}
+
+.crm-detail-subsection {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.crm-detail-action-stack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.crm-detail-action-card {
+  padding: 12px;
+}
+
+.crm-detail-action-copy {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.crm-detail-activity-list {
+  margin-top: 6px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.crm-detail-empty {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  color: var(--ink-muted);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 13px;
+}
+
+.crm-detail-deal-details {
+  overflow: hidden;
+}
+
+.crm-detail-deal-summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.crm-detail-deal-summary::-webkit-details-marker {
+  display: none;
+}
+
+.crm-detail-deal-body {
+  margin-top: 12px;
+  display: grid;
+  gap: 12px;
+}
+
 .crm-dashboard-hero-v2 {
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -3228,6 +3387,22 @@ input:focus, textarea:focus, select:focus {
   }
 
   .crm-demo-detail-actions .crm-btn {
+    width: 100%;
+  }
+
+  .crm-detail-quick-actions,
+  .crm-detail-grid-2,
+  .crm-detail-action-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-detail-header__actions,
+  .crm-detail-footer-actions {
+    width: 100%;
+  }
+
+  .crm-detail-header__actions .crm-btn,
+  .crm-detail-footer-actions .crm-btn {
     width: 100%;
   }
 }

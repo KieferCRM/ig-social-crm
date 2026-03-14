@@ -7,6 +7,7 @@ import {
   asInputNumber,
   calculateCommissionAmount,
   formatCurrency,
+  parseDecimalValue,
   formatPercentLabel,
   parsePositiveDecimal,
 } from "@/lib/deal-metrics";
@@ -82,6 +83,26 @@ type DealDraft = {
   commissionAmountManuallyEdited: boolean;
 };
 
+type LeadDraft = {
+  full_name: string;
+  canonical_phone: string;
+  canonical_email: string;
+  stage: string;
+  lead_temp: string;
+  notes: string;
+  next_step: string;
+  contact_preference: string;
+};
+
+type SaveNotice = {
+  tone: "ok" | "error";
+  text: string;
+};
+
+const STAGE_OPTIONS = ["New", "Contacted", "Qualified", "Closed"] as const;
+const TEMP_OPTIONS = ["Cold", "Warm", "Hot"] as const;
+const CONTACT_PREFERENCE_OPTIONS = ["Text", "Call", "Email"] as const;
+
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
   for (const value of values) {
     if (!value) continue;
@@ -89,6 +110,26 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string | nu
     if (trimmed) return trimmed;
   }
   return null;
+}
+
+function normalizeEmailValue(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed || null;
+}
+
+function normalizePhoneValue(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return null;
+
+  if (trimmed.startsWith("+")) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return `+${digits}`;
 }
 
 function isSyntheticHandle(handle: string | null): boolean {
@@ -169,6 +210,53 @@ function formatDateTime(value: string | null | undefined): string {
   return date.toLocaleString();
 }
 
+function formatShortDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatPhoneDisplay(value: string | null | undefined): string {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  const localDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (localDigits.length !== 10) return value;
+  return `(${localDigits.slice(0, 3)}) ${localDigits.slice(3, 6)}-${localDigits.slice(6)}`;
+}
+
+function stripCurrencyFormatting(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.replace(/[$,\s]/g, "");
+}
+
+function formatCurrencyInput(value: string | null | undefined): string {
+  const parsed = parseDecimalValue(value);
+  if (parsed === null) return "";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: Number.isInteger(parsed) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(parsed);
+}
+
+function toDateTimeLocalValue(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toIsoDateTime(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
 function tagsFromLead(lead: LeadDetail): string | null {
   if (Array.isArray(lead.tags) && lead.tags.length > 0) {
     return lead.tags.join(", ");
@@ -215,16 +303,6 @@ function leadTempChipClass(leadTemp: string | null): string {
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
-}
-
-function leadContactName(lead: LeadDetail): string {
-  const full = firstNonEmpty(lead.full_name);
-  if (full) return full;
-  const first = firstNonEmpty(lead.first_name);
-  const last = firstNonEmpty(lead.last_name);
-  const combined = [first, last].filter(Boolean).join(" ").trim();
-  if (combined) return combined;
-  return "Not provided";
 }
 
 function fieldLabel(key: string): string {
@@ -295,9 +373,11 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const [error, setError] = useState("");
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [reminders, setReminders] = useState<ReminderPreview[]>([]);
+  const [draft, setDraft] = useState<LeadDraft | null>(null);
+  const [reminderDraft, setReminderDraft] = useState("");
   const [dealDraft, setDealDraft] = useState<DealDraft | null>(null);
-  const [dealSaving, setDealSaving] = useState(false);
-  const [dealNotice, setDealNotice] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<SaveNotice | null>(null);
 
   const seededLead = useMemo<LeadDetail | null>(() => {
     if (!initialLead) return null;
@@ -351,7 +431,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     setLead(seededLead);
     setReminders([]);
     setError("");
-    setDealNotice("");
+    setSaveNotice(null);
   }, [leadId, open, seededLead]);
 
   useEffect(() => {
@@ -414,11 +494,9 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   }, [displayLead]);
 
   const stageLabel = displayLead ? prettyLabel(displayLead.stage) : "";
-  const tempLabel = displayLead ? prettyLabel(displayLead.lead_temp) : "";
   const sourceLabel = displayLead ? sourceDisplayLabel(displayLead.source) : "";
   const emailValue = firstNonEmpty(displayLead?.canonical_email || null);
   const phoneValue = firstNonEmpty(displayLead?.canonical_phone || null);
-  const nameValue = displayLead ? leadContactName(displayLead) : "Not provided";
   const urgencyLabel = prettyLabel(displayLead?.urgency_level);
   const urgencyScore =
     typeof displayLead?.urgency_score === "number" && Number.isFinite(displayLead.urgency_score)
@@ -426,11 +504,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
       : null;
 
   const leadSummary = useMemo(() => (displayLead ? summaryRows(displayLead) : []), [displayLead]);
-  const notesText = firstNonEmpty(displayLead?.notes || null);
-  const lastUpdatedText = formatDateTime(displayLead?.time_last_updated);
-  const lastActivityText = firstNonEmpty(displayLead?.last_message_preview || null);
-  const createdAtText = formatDateTime(displayLead?.created_at);
-  const lastCommunicationText = formatDateTime(displayLead?.last_communication_at);
   const dealPrice = parsePositiveDecimal(displayLead?.deal_price);
   const commissionPercent = parsePositiveDecimal(displayLead?.commission_percent);
   const commissionAmount =
@@ -439,26 +512,55 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const hasDealData = dealPrice !== null || commissionPercent !== null || commissionAmount !== null || Boolean(closeDateText);
   const pendingReminders = reminders.filter((item) => item.status === "pending");
   const nextReminder = pendingReminders[0] || null;
+  const actionPhoneValue = normalizePhoneValue(draft?.canonical_phone || phoneValue);
+  const actionEmailValue = normalizeEmailValue(draft?.canonical_email || emailValue);
+  const telHref = actionPhoneValue ? `tel:${actionPhoneValue}` : null;
+  const smsHref = actionPhoneValue ? `sms:${actionPhoneValue}` : null;
+  const emailHref = actionEmailValue ? `mailto:${encodeURIComponent(actionEmailValue)}` : null;
 
   useEffect(() => {
     if (!displayLead?.id) {
+      setDraft(null);
+      setReminderDraft("");
       setDealDraft(null);
       return;
     }
 
+    setDraft({
+      full_name: displayLead.full_name || "",
+      canonical_phone: formatPhoneDisplay(displayLead.canonical_phone) || displayLead.canonical_phone || "",
+      canonical_email: displayLead.canonical_email || "",
+      stage: prettyLabel(displayLead.stage) || "New",
+      lead_temp: prettyLabel(displayLead.lead_temp) || "Warm",
+      notes: displayLead.notes || "",
+      next_step: displayLead.next_step || "",
+      contact_preference: displayLead.contact_preference || "",
+    });
+
+    setReminderDraft(toDateTimeLocalValue(nextReminder?.due_at));
+
     setDealDraft({
-      deal_price: asInputNumber(displayLead.deal_price),
+      deal_price: formatCurrencyInput(asInputNumber(displayLead.deal_price)),
       commission_percent: asInputNumber(displayLead.commission_percent),
-      commission_amount: asInputNumber(displayLead.commission_amount),
+      commission_amount: formatCurrencyInput(asInputNumber(displayLead.commission_amount)),
       close_date: asInputDate(displayLead.close_date),
       commissionAmountManuallyEdited: Boolean(parsePositiveDecimal(displayLead.commission_amount)),
     });
   }, [
     displayLead?.id,
+    displayLead?.full_name,
+    displayLead?.canonical_phone,
+    displayLead?.canonical_email,
+    displayLead?.stage,
+    displayLead?.lead_temp,
+    displayLead?.notes,
+    displayLead?.next_step,
+    displayLead?.contact_preference,
     displayLead?.deal_price,
     displayLead?.commission_percent,
     displayLead?.commission_amount,
     displayLead?.close_date,
+    nextReminder?.due_at,
   ]);
 
   const recommendedAction = useMemo(() => {
@@ -506,6 +608,21 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     return items.slice(0, 4);
   }, [displayLead, pendingReminders.length]);
 
+  function updateDraftField<K extends keyof LeadDraft>(key: K, value: LeadDraft[K]) {
+    setDraft((previous) => (previous ? { ...previous, [key]: value } : previous));
+  }
+
+  function formatDraftPhoneOnBlur() {
+    setDraft((previous) => {
+      if (!previous) return previous;
+      const normalized = normalizePhoneValue(previous.canonical_phone);
+      return {
+        ...previous,
+        canonical_phone: normalized ? formatPhoneDisplay(normalized) : previous.canonical_phone.trim(),
+      };
+    });
+  }
+
   function updateDealPrice(value: string) {
     setDealDraft((previous) => {
       if (!previous) return previous;
@@ -548,52 +665,96 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     );
   }
 
-  async function saveDealDetails() {
-    if (!displayLead?.id || !dealDraft) return;
-    setDealSaving(true);
-    setDealNotice("");
+  function formatDealCurrencyField(key: "deal_price" | "commission_amount") {
+    setDealDraft((previous) => {
+      if (!previous) return previous;
+      return { ...previous, [key]: formatCurrencyInput(previous[key]) };
+    });
+  }
+
+  async function saveChanges() {
+    if (!displayLead?.id || !draft || !dealDraft) return;
+    setSaving(true);
+    setSaveNotice(null);
 
     try {
-      const dealPriceValue = parsePositiveDecimal(dealDraft.deal_price);
-      const commissionPercentValue = parsePositiveDecimal(dealDraft.commission_percent);
-      let commissionAmountValue = parsePositiveDecimal(dealDraft.commission_amount);
-      if (!dealDraft.commissionAmountManuallyEdited && commissionAmountValue === null) {
-        commissionAmountValue = calculateCommissionAmount(dealPriceValue, commissionPercentValue);
-      }
-
-      let closeDateValue: string | null = null;
-      if (dealDraft.close_date.trim()) {
-        const date = new Date(dealDraft.close_date);
-        if (Number.isNaN(date.getTime())) {
-          setDealNotice("Close date must be a valid date.");
-          return;
-        }
-        closeDateValue = date.toISOString().slice(0, 10);
-      }
-
-      const response = await fetch(`/api/leads/simple/${encodeURIComponent(displayLead.id)}`, {
+      const leadResponse = await fetch(`/api/leads/simple/${encodeURIComponent(displayLead.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          deal_price: dealPriceValue,
-          commission_percent: commissionPercentValue,
-          commission_amount: commissionAmountValue,
-          close_date: closeDateValue,
+          full_name: draft.full_name,
+          canonical_phone: normalizePhoneValue(draft.canonical_phone),
+          canonical_email: normalizeEmailValue(draft.canonical_email),
+          stage: draft.stage,
+          lead_temp: draft.lead_temp,
+          notes: draft.notes,
+          next_step: draft.next_step,
+          contact_preference: draft.contact_preference,
+          deal_price: parsePositiveDecimal(dealDraft.deal_price),
+          commission_percent: parsePositiveDecimal(dealDraft.commission_percent),
+          commission_amount: parsePositiveDecimal(dealDraft.commission_amount),
+          close_date: dealDraft.close_date.trim() || null,
         }),
       });
 
-      const data = (await response.json()) as LeadUpdateResponse;
-      if (!response.ok || !data.lead) {
-        setDealNotice(data.error || "Could not save deal details.");
+      const leadData = (await leadResponse.json()) as LeadUpdateResponse;
+      if (!leadResponse.ok || !leadData.lead) {
+        setSaveNotice({ tone: "error", text: leadData.error || "Could not save lead changes." });
+        return;
+      }
+      setLead(leadData.lead);
+
+      const reminderDueAt = toIsoDateTime(reminderDraft);
+      if (reminderDraft.trim() && !reminderDueAt) {
+        setSaveNotice({ tone: "error", text: "Reminder date must be valid." });
         return;
       }
 
-      setLead(data.lead);
-      setDealNotice("Deal details saved. Performance metrics will update on refresh.");
+      if (reminderDueAt) {
+        if (nextReminder?.id) {
+          const reminderResponse = await fetch(`/api/reminders/${encodeURIComponent(nextReminder.id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              due_at: reminderDueAt,
+              note: draft.next_step || nextReminder.note,
+            }),
+          });
+          const reminderData = (await reminderResponse.json()) as { reminder?: ReminderPreview; error?: string };
+          if (!reminderResponse.ok || !reminderData.reminder) {
+            setSaveNotice({ tone: "error", text: reminderData.error || "Lead saved, but reminder could not be updated." });
+            return;
+          }
+          setReminders((previous) =>
+            previous.map((item) => (item.id === reminderData.reminder?.id ? reminderData.reminder : item))
+          );
+        } else {
+          const reminderResponse = await fetch("/api/reminders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lead_id: displayLead.id,
+              due_at: reminderDueAt,
+              note: draft.next_step || null,
+              preset: "1d",
+            }),
+          });
+          const reminderData = (await reminderResponse.json()) as { reminder?: ReminderPreview; error?: string };
+          if (!reminderResponse.ok || !reminderData.reminder) {
+            setSaveNotice({ tone: "error", text: reminderData.error || "Lead saved, but reminder could not be created." });
+            return;
+          }
+          setReminders((previous) =>
+            [...previous, reminderData.reminder as ReminderPreview].sort((a, b) => a.due_at.localeCompare(b.due_at))
+          );
+        }
+      }
+
+      setSaveNotice({ tone: "ok", text: "Changes saved." });
     } catch {
-      setDealNotice("Could not save deal details.");
+      setSaveNotice({ tone: "error", text: "Could not save changes." });
     } finally {
-      setDealSaving(false);
+      setSaving(false);
     }
   }
 
@@ -602,17 +763,18 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   return (
     <div className="crm-detail-overlay" onClick={onClose}>
       <aside className="crm-card crm-detail-shell" onClick={(event) => event.stopPropagation()}>
-        <section className="crm-card-muted" style={{ padding: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+        <section className="crm-card-muted crm-detail-header">
+          <div className="crm-detail-header__top">
             <div>
-              <div style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>Lead Command Workspace</div>
-              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 800 }}>{headerIdentity?.primary.label || "Lead"}</div>
-              {headerIdentity?.secondary ? (
-                <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>{headerIdentity.secondary}</div>
-              ) : null}
-              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {stageLabel ? <span className="crm-chip">{stageLabel}</span> : null}
-                {tempLabel ? <span className={leadTempChipClass(displayLead?.lead_temp || null)}>{tempLabel}</span> : null}
+              <div className="crm-detail-kicker">Lead Command Workspace</div>
+              <div className="crm-detail-title">{draft?.full_name || headerIdentity?.primary.label || "Lead"}</div>
+              <div className="crm-detail-contact-line">
+                <span>{formatPhoneDisplay(draft?.canonical_phone) || "No phone saved yet"}</span>
+                <span>{draft?.canonical_email || "No email saved yet"}</span>
+              </div>
+              <div className="crm-detail-chip-row">
+                {draft?.stage ? <span className="crm-chip">{draft.stage}</span> : stageLabel ? <span className="crm-chip">{stageLabel}</span> : null}
+                {draft?.lead_temp ? <span className={leadTempChipClass(draft.lead_temp)}>{draft.lead_temp}</span> : null}
                 {sourceLabel ? <span className="crm-chip crm-chip-info">{sourceLabel}</span> : null}
                 {urgencyLabel ? (
                   <span className={urgencyLabel.toLowerCase() === "high" ? "crm-chip crm-chip-danger" : "crm-chip"}>
@@ -623,18 +785,28 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "6px 10px", fontSize: 12 }}>
-                Open in Pipeline
-              </Link>
-              <button type="button" onClick={onClose} className="crm-btn crm-btn-secondary" style={{ padding: "6px 10px", fontSize: 12 }}>
+            <div className="crm-detail-header__actions">
+              <button
+                type="button"
+                className="crm-btn crm-btn-primary"
+                onClick={() => void saveChanges()}
+                disabled={saving || !displayLead?.id || !draft || !dealDraft}
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+              <button type="button" onClick={onClose} className="crm-btn crm-btn-secondary">
                 Close
               </button>
             </div>
           </div>
 
           {loading && displayLead ? (
-            <div style={{ marginTop: 8, fontSize: 12, color: "var(--ink-muted)" }}>Refreshing details...</div>
+            <div className="crm-detail-status-note">Refreshing details...</div>
+          ) : null}
+          {saveNotice ? (
+            <div className="crm-detail-status-note">
+              <span className={`crm-chip ${saveNotice.tone === "ok" ? "crm-chip-ok" : "crm-chip-danger"}`}>{saveNotice.text}</span>
+            </div>
           ) : null}
         </section>
 
@@ -658,225 +830,261 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
           ) : null}
 
           {displayLead ? (
-            <div className="crm-detail-grid">
-              <div style={{ display: "grid", gap: 12 }}>
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Contact Info</h2>
-                    {sourceLabel ? <span className="crm-chip crm-chip-info">{sourceLabel}</span> : null}
+            <div className="crm-detail-workspace">
+              <section className="crm-card-muted crm-detail-section">
+                <div className="crm-section-head">
+                  <div>
+                    <h2 className="crm-section-title">Quick Actions</h2>
+                    <p className="crm-section-subtitle">Reach out or open the full lead record without leaving the dashboard.</p>
                   </div>
-
-                  <div
-                    style={{
-                      marginTop: 8,
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-                      gap: 8,
-                    }}
-                  >
-                    <MiniField label="Name" value={nameValue} />
-                    <MiniField label="Phone" value={phoneValue || "Not provided"} />
-                    <MiniField label="Email" value={emailValue || "Not provided"} />
-                  </div>
-                </section>
-
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Lead Summary</h2>
-                  </div>
-                  {leadSummary.length === 0 ? (
-                    <div style={{ marginTop: 8, fontSize: 13, color: "var(--ink-muted)" }}>
-                      Summary details are still being collected.
-                    </div>
+                </div>
+                <div className="crm-detail-quick-actions">
+                  {telHref ? (
+                    <a className="crm-btn crm-btn-secondary" href={telHref}>Call</a>
                   ) : (
-                    <div
-                      style={{
-                        marginTop: 8,
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-                        gap: 8,
-                      }}
+                    <button type="button" className="crm-btn crm-btn-secondary" disabled>Call</button>
+                  )}
+                  {smsHref ? (
+                    <a className="crm-btn crm-btn-secondary" href={smsHref}>Text</a>
+                  ) : (
+                    <button type="button" className="crm-btn crm-btn-secondary" disabled>Text</button>
+                  )}
+                  {emailHref ? (
+                    <a className="crm-btn crm-btn-secondary" href={emailHref}>Email</a>
+                  ) : (
+                    <button type="button" className="crm-btn crm-btn-secondary" disabled>Email</button>
+                  )}
+                  <Link href={`/app/leads/${encodeURIComponent(displayLead.id)}`} className="crm-btn crm-btn-secondary">
+                    Open Full Record
+                  </Link>
+                </div>
+              </section>
+
+              <section className="crm-card-muted crm-detail-section">
+                <div className="crm-section-head">
+                  <div>
+                    <h2 className="crm-section-title">Editable Lead Details</h2>
+                    <p className="crm-section-subtitle">Update the essentials fast, then save and move on.</p>
+                  </div>
+                </div>
+
+                <div className="crm-detail-grid-2">
+                  <label className="crm-detail-field">
+                    <span>Name</span>
+                    <input
+                      value={draft?.full_name || ""}
+                      onChange={(event) => updateDraftField("full_name", event.target.value)}
+                      placeholder="Lead name"
+                    />
+                  </label>
+                  <label className="crm-detail-field">
+                    <span>Phone</span>
+                    <input
+                      inputMode="tel"
+                      value={draft?.canonical_phone || ""}
+                      onChange={(event) => updateDraftField("canonical_phone", event.target.value)}
+                      onBlur={formatDraftPhoneOnBlur}
+                      placeholder="(256) 851-8200"
+                    />
+                  </label>
+                  <label className="crm-detail-field">
+                    <span>Email</span>
+                    <input
+                      inputMode="email"
+                      value={draft?.canonical_email || ""}
+                      onChange={(event) => updateDraftField("canonical_email", event.target.value)}
+                      placeholder="agent@lead.com"
+                    />
+                  </label>
+                  <label className="crm-detail-field">
+                    <span>Stage</span>
+                    <select
+                      value={draft?.stage || "New"}
+                      onChange={(event) => updateDraftField("stage", event.target.value)}
                     >
+                      {STAGE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="crm-detail-field">
+                    <span>Temperature</span>
+                    <select
+                      value={draft?.lead_temp || "Warm"}
+                      onChange={(event) => updateDraftField("lead_temp", event.target.value)}
+                    >
+                      {TEMP_OPTIONS.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="crm-detail-field">
+                    <span>Contact Preference</span>
+                    <select
+                      value={draft?.contact_preference || ""}
+                      onChange={(event) => updateDraftField("contact_preference", event.target.value)}
+                    >
+                      <option value="">Not set</option>
+                      {CONTACT_PREFERENCE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="crm-detail-subsection">
+                  <div className="crm-detail-subsection__label">Lead Summary</div>
+                  {leadSummary.length === 0 ? (
+                    <div className="crm-detail-empty">Summary details are still being collected.</div>
+                  ) : (
+                    <div className="crm-detail-grid-2">
                       {leadSummary.map((row) => (
                         <MiniField key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
                       ))}
                     </div>
                   )}
-                </section>
+                </div>
 
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Notes</h2>
-                  </div>
-                  <div style={{ marginTop: 8, fontSize: 13, whiteSpace: "pre-wrap" }}>
-                    {notesText || "No notes yet."}
-                  </div>
-                </section>
-              </div>
-
-              <div style={{ display: "grid", gap: 12 }}>
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Deal Details</h2>
-                    {stageLabel ? (
-                      <span className={stageLabel.toLowerCase() === "closed" ? "crm-chip crm-chip-ok" : "crm-chip"}>
-                        {stageLabel}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                        gap: 8,
-                      }}
-                    >
-                      <label style={{ display: "grid", gap: 6 }}>
-                        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Sale Price</span>
-                        <input
-                          inputMode="decimal"
-                          placeholder="450000"
-                          value={dealDraft?.deal_price || ""}
-                          onChange={(event) => updateDealPrice(event.target.value)}
-                        />
-                      </label>
-                      <label style={{ display: "grid", gap: 6 }}>
-                        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Commission %</span>
-                        <input
-                          inputMode="decimal"
-                          placeholder="3"
-                          value={dealDraft?.commission_percent || ""}
-                          onChange={(event) => updateCommissionPercent(event.target.value)}
-                        />
-                      </label>
-                      <label style={{ display: "grid", gap: 6 }}>
-                        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Commission Amount</span>
-                        <input
-                          inputMode="decimal"
-                          placeholder="13500"
-                          value={dealDraft?.commission_amount || ""}
-                          onChange={(event) => updateCommissionAmount(event.target.value)}
-                        />
-                      </label>
-                      <label style={{ display: "grid", gap: 6 }}>
-                        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Close Date</span>
-                        <input
-                          type="date"
-                          value={dealDraft?.close_date || ""}
-                          onChange={(event) =>
-                            setDealDraft((previous) =>
-                              previous ? { ...previous, close_date: event.target.value } : previous
-                            )
-                          }
-                        />
-                      </label>
+                <div className="crm-detail-subsection">
+                  <div className="crm-detail-subsection__label">Lead Action Center</div>
+                  <div className="crm-detail-action-stack">
+                    <div className="crm-card crm-detail-action-card">
+                      <div className="crm-detail-action-label">Next Recommended Action</div>
+                      <div className="crm-detail-action-copy">{recommendedAction}</div>
                     </div>
-
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      <span className="crm-chip">
-                        Deal Value: {formatCurrency(parsePositiveDecimal(dealDraft?.deal_price || null))}
-                      </span>
-                      <span className="crm-chip">
-                        Commission Rate: {formatPercentLabel(parsePositiveDecimal(dealDraft?.commission_percent || null))}
-                      </span>
-                      <span
-                        className={
-                          dealDraft?.commissionAmountManuallyEdited ? "crm-chip crm-chip-info" : "crm-chip crm-chip-ok"
-                        }
-                      >
-                        {dealDraft?.commissionAmountManuallyEdited
-                          ? "Commission amount is manually set"
-                          : "Commission auto-calculates from price and %"}
-                      </span>
-                    </div>
-
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        className="crm-btn crm-btn-primary"
-                        onClick={() => void saveDealDetails()}
-                        disabled={dealSaving || !displayLead?.id}
-                      >
-                        {dealSaving ? "Saving..." : "Save Deal Details"}
-                      </button>
-                      {dealNotice ? <span className="crm-chip">{dealNotice}</span> : null}
-                    </div>
-
-                    {stageLabel.toLowerCase() !== "closed" ? (
-                      <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
-                        Avg Commission / Deal only counts leads in Closed stage.
-                      </div>
-                    ) : null}
-
-                    {!hasDealData ? (
-                      <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
-                        Add sale price and commission details to unlock revenue metrics.
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Follow-Ups</h2>
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    <MiniField label="Recommended next action" value={recommendedAction} />
-                    <MiniField
-                      label="Next step"
-                      value={firstNonEmpty(displayLead.next_step) || "Set a specific next action for this lead."}
-                    />
-                    <MiniField
-                      label="Contact preference"
-                      value={firstNonEmpty(displayLead.contact_preference) || "Not set yet"}
-                    />
-                  </div>
-                </section>
-
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Reminders</h2>
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    <MiniField label="Pending reminders" value={String(pendingReminders.length)} />
-                    <MiniField
-                      label="Next reminder"
-                      value={
-                        nextReminder
+                    <div className="crm-card crm-detail-action-card">
+                      <div className="crm-detail-action-label">Next Reminder</div>
+                      <div className="crm-detail-action-copy">
+                        {nextReminder
                           ? `${formatDateTime(nextReminder.due_at)}${nextReminder.note ? ` • ${nextReminder.note}` : ""}`
-                          : "No reminders scheduled."
-                      }
-                    />
-                  </div>
-                </section>
-
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Recent Activity</h2>
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    <MiniField label="Last message" value={lastActivityText || "No recent activity yet."} />
-                    <MiniField label="Last communication" value={lastCommunicationText || "No communication logged"} />
-                    <MiniField label="Profile updated" value={lastUpdatedText || "No timestamp available"} />
-                    <MiniField label="Lead created" value={createdAtText || "No timestamp available"} />
-                  </div>
-                </section>
-
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Merlyn Guidance</h2>
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    {merlynGuidance.map((item, index) => (
-                      <div key={`${index}-${item.slice(0, 20)}`} className="crm-card" style={{ padding: 10, fontSize: 13 }}>
-                        {item}
+                          : "No reminder scheduled"}
                       </div>
-                    ))}
+                    </div>
+                    <div className="crm-card crm-detail-action-card">
+                      <div className="crm-detail-action-label">Recent Activity</div>
+                      <div className="crm-detail-activity-list">
+                        <div>Lead created — {formatShortDate(displayLead.created_at) || "No timestamp"}</div>
+                        <div>Profile updated — {formatShortDate(displayLead.time_last_updated) || "No timestamp"}</div>
+                        <div>Last message — {firstNonEmpty(displayLead.last_message_preview) || "No recent message"}</div>
+                      </div>
+                    </div>
+                    <div className="crm-card crm-detail-action-card">
+                      <div className="crm-detail-action-label">Merlyn Insight</div>
+                      <div className="crm-detail-action-copy">{merlynGuidance[0] || "Keep follow-up tight and make the next step obvious."}</div>
+                    </div>
                   </div>
-                </section>
-              </div>
+                </div>
+
+                <div className="crm-detail-grid-2">
+                  <label className="crm-detail-field crm-detail-field-full">
+                    <span>Next Step</span>
+                    <textarea
+                      rows={3}
+                      value={draft?.next_step || ""}
+                      onChange={(event) => updateDraftField("next_step", event.target.value)}
+                      placeholder="Set the next move for this lead"
+                    />
+                  </label>
+                  <label className="crm-detail-field crm-detail-field-full">
+                    <span>Notes</span>
+                    <textarea
+                      rows={4}
+                      value={draft?.notes || ""}
+                      onChange={(event) => updateDraftField("notes", event.target.value)}
+                      placeholder="Add call context, objections, or personal details"
+                    />
+                  </label>
+                  <label className="crm-detail-field">
+                    <span>Reminder / Next Reminder</span>
+                    <input
+                      type="datetime-local"
+                      value={reminderDraft}
+                      onChange={(event) => setReminderDraft(event.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <div className="crm-detail-footer-actions">
+                  <button
+                    type="button"
+                    className="crm-btn crm-btn-primary"
+                    onClick={() => void saveChanges()}
+                    disabled={saving || !displayLead?.id || !draft || !dealDraft}
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </section>
+
+              <details className="crm-card-muted crm-detail-section crm-detail-deal-details">
+                <summary className="crm-detail-deal-summary">
+                  <div>
+                    <h2 className="crm-section-title">Deal Details</h2>
+                    <p className="crm-section-subtitle">Optional until this lead turns into active business.</p>
+                  </div>
+                  <span className="crm-chip">{hasDealData ? "Started" : "Optional"}</span>
+                </summary>
+
+                <div className="crm-detail-deal-body">
+                  <div className="crm-detail-grid-2">
+                    <label className="crm-detail-field">
+                      <span>Sale Price</span>
+                      <input
+                        inputMode="decimal"
+                        placeholder="$450,000"
+                        value={dealDraft?.deal_price || ""}
+                        onFocus={(event) => updateDealPrice(stripCurrencyFormatting(event.target.value))}
+                        onBlur={() => formatDealCurrencyField("deal_price")}
+                        onChange={(event) => updateDealPrice(event.target.value)}
+                      />
+                    </label>
+                    <label className="crm-detail-field">
+                      <span>Commission %</span>
+                      <input
+                        inputMode="decimal"
+                        placeholder="3"
+                        value={dealDraft?.commission_percent || ""}
+                        onChange={(event) => updateCommissionPercent(event.target.value)}
+                      />
+                    </label>
+                    <label className="crm-detail-field">
+                      <span>Commission Amount</span>
+                      <input
+                        inputMode="decimal"
+                        placeholder="$13,500"
+                        value={dealDraft?.commission_amount || ""}
+                        onFocus={(event) => updateCommissionAmount(stripCurrencyFormatting(event.target.value))}
+                        onBlur={() => formatDealCurrencyField("commission_amount")}
+                        onChange={(event) => updateCommissionAmount(event.target.value)}
+                      />
+                    </label>
+                    <label className="crm-detail-field">
+                      <span>Close Date</span>
+                      <input
+                        type="date"
+                        value={dealDraft?.close_date || ""}
+                        onChange={(event) =>
+                          setDealDraft((previous) =>
+                            previous ? { ...previous, close_date: event.target.value } : previous
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+
+                  <div className="crm-detail-chip-row">
+                    <span className="crm-chip">
+                      Sale Price: {formatCurrency(parsePositiveDecimal(dealDraft?.deal_price || null))}
+                    </span>
+                    <span className="crm-chip">
+                      Commission Amount: {formatCurrency(parsePositiveDecimal(dealDraft?.commission_amount || null))}
+                    </span>
+                    <span className="crm-chip">
+                      Commission Rate: {formatPercentLabel(parsePositiveDecimal(dealDraft?.commission_percent || null))}
+                    </span>
+                  </div>
+                </div>
+              </details>
             </div>
           ) : null}
         </div>
