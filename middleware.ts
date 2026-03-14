@@ -5,7 +5,6 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const pathname = req.nextUrl.pathname;
-  const isDebugRoute = pathname.startsWith("/_debug");
   const isPingRoute = pathname === "/ping";
   const isAppRoute = pathname.startsWith("/app");
   const isAuthRoute = pathname === "/auth";
@@ -20,7 +19,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (process.env.NODE_ENV === "production" && (isDebugRoute || isPingRoute)) {
+  if (process.env.NODE_ENV === "production" && isPingRoute) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
@@ -74,5 +73,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/auth", "/app/:path*", "/ping", "/_debug/:path*"],
+  matcher: ["/", "/auth", "/app/:path*", "/ping"],
 };

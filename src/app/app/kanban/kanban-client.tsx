@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import EmptyState from "@/components/ui/empty-state";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import {
+  asInputDate,
+  asInputNumber,
+  calculateCommissionAmount,
+  formatCurrency,
+  formatPercentLabel,
+  parsePositiveDecimal,
+} from "@/lib/deal-metrics";
 
 const STAGES = ["New", "Contacted", "Qualified", "Closed"] as const;
 const LEAD_TEMPS = ["Cold", "Warm", "Hot"] as const;
@@ -24,6 +33,10 @@ type Lead = {
   source: string | null;
   stage: string | null;
   notes: string | null;
+  deal_price: number | string | null;
+  commission_percent: number | string | null;
+  commission_amount: number | string | null;
+  close_date: string | null;
   time_last_updated: string | null;
 };
 
@@ -34,6 +47,11 @@ type LeadDraft = {
   timeline: string;
   source: string;
   notes: string;
+  deal_price: string;
+  commission_percent: string;
+  commission_amount: string;
+  close_date: string;
+  commissionAmountManuallyEdited: boolean;
 };
 
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
@@ -83,7 +101,7 @@ function leadDisplayName(lead: Lead): string {
   if (email) return email;
 
   const phone = firstNonEmpty(lead.canonical_phone);
-  if (phone) return phone;
+  if (phone) return formatPhoneDisplay(phone) || phone;
 
   if (lead.ig_username && !isSyntheticHandle(lead.ig_username)) {
     return `@${lead.ig_username}`;
@@ -92,18 +110,46 @@ function leadDisplayName(lead: Lead): string {
   return "Unnamed lead";
 }
 
-function leadIdentityLine(lead: Lead): string {
-  const bits: string[] = [];
-  const email = firstNonEmpty(lead.canonical_email);
-  const phone = firstNonEmpty(lead.canonical_phone);
+function formatPhoneDisplay(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
 
-  if (email) bits.push(email);
-  if (phone) bits.push(phone);
+  const digits = trimmed.replace(/\D/g, "");
+  const normalized = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (normalized.length !== 10) return trimmed;
+
+  return `(${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`;
+}
+
+function leadSecondaryLine(lead: Lead): string {
+  const email = firstNonEmpty(lead.canonical_email);
+  if (email) return email;
+
+  const phone = formatPhoneDisplay(lead.canonical_phone);
+  if (phone) return phone;
+
   if (lead.ig_username && !isSyntheticHandle(lead.ig_username)) {
-    bits.push(`@${lead.ig_username}`);
+    return `@${lead.ig_username}`;
   }
 
-  return bits.length > 0 ? bits.join(" • ") : "No contact details yet.";
+  const intent = firstNonEmpty(lead.intent);
+  const timeline = firstNonEmpty(lead.timeline);
+  if (intent && timeline) return `${intent} • ${timeline}`;
+  if (intent) return intent;
+  if (timeline) return timeline;
+
+  const source = firstNonEmpty(lead.source);
+  if (source) return source;
+
+  return "No contact details yet";
+}
+
+function leadBadgeClass(leadTemp: string | null): string {
+  const normalized = normalizeLeadTemp(leadTemp);
+  if (normalized === "Hot") return "crm-chip crm-chip-danger";
+  if (normalized === "Warm") return "crm-chip crm-chip-warn";
+  return "crm-chip";
 }
 
 function formatDate(value: string | null): string {
@@ -114,6 +160,20 @@ function formatDate(value: string | null): string {
 }
 
 function draftFromLead(lead: Lead): LeadDraft {
+  const price = parsePositiveDecimal(lead.deal_price);
+  const percent = parsePositiveDecimal(lead.commission_percent);
+  const storedCommission = parsePositiveDecimal(lead.commission_amount);
+  const calculatedCommission = calculateCommissionAmount(price, percent);
+
+  let commissionAmountManuallyEdited = false;
+  if (storedCommission !== null) {
+    if (calculatedCommission === null) {
+      commissionAmountManuallyEdited = true;
+    } else {
+      commissionAmountManuallyEdited = Math.abs(storedCommission - calculatedCommission) > 0.01;
+    }
+  }
+
   return {
     stage: normalizeStage(lead.stage),
     lead_temp: normalizeLeadTemp(lead.lead_temp),
@@ -121,6 +181,12 @@ function draftFromLead(lead: Lead): LeadDraft {
     timeline: lead.timeline || "",
     source: lead.source || "",
     notes: lead.notes || "",
+    deal_price: asInputNumber(price),
+    commission_percent: asInputNumber(percent, 3),
+    commission_amount:
+      asInputNumber(storedCommission ?? (commissionAmountManuallyEdited ? null : calculatedCommission)),
+    close_date: asInputDate(lead.close_date),
+    commissionAmountManuallyEdited,
   };
 }
 
@@ -139,27 +205,57 @@ export default function KanbanClient() {
 
   useEffect(() => {
     async function loadLeads() {
-      const { data, error } = await supabase
-        .from("leads")
-        .select(
-          "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,lead_temp,intent,timeline,source,stage,notes,time_last_updated"
-        )
-        .order("time_last_updated", { ascending: false });
+      const selections = [
+        "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,lead_temp,intent,timeline,source,stage,notes,deal_price,commission_percent,commission_amount,close_date,time_last_updated",
+        "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,lead_temp,intent,timeline,source,stage,notes,time_last_updated",
+      ];
 
-      if (error) {
-        setStatus("Could not load leads.");
-        setLeads([]);
-        setLoading(false);
-        return;
+      let loaded = false;
+      for (const select of selections) {
+        const { data, error } = await supabase
+          .from("leads")
+          .select(select)
+          .order("time_last_updated", { ascending: false });
+
+        if (error) continue;
+
+        const rawRows: unknown[] = Array.isArray(data) ? (data as unknown[]) : [];
+        const rows = rawRows
+          .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
+          .map((row) => {
+            const lead = row as Partial<Lead>;
+            return {
+              id: String(lead.id || ""),
+              ig_username: (lead.ig_username as string | null) ?? null,
+              full_name: (lead.full_name as string | null) ?? null,
+              first_name: (lead.first_name as string | null) ?? null,
+              last_name: (lead.last_name as string | null) ?? null,
+              canonical_email: (lead.canonical_email as string | null) ?? null,
+              canonical_phone: (lead.canonical_phone as string | null) ?? null,
+              lead_temp: normalizeLeadTemp((lead.lead_temp as string | null) ?? null),
+              intent: (lead.intent as string | null) ?? null,
+              timeline: (lead.timeline as string | null) ?? null,
+              source: (lead.source as string | null) ?? null,
+              stage: normalizeStage((lead.stage as string | null) ?? null),
+              notes: (lead.notes as string | null) ?? null,
+              deal_price: (lead.deal_price as number | string | null) ?? null,
+              commission_percent: (lead.commission_percent as number | string | null) ?? null,
+              commission_amount: (lead.commission_amount as number | string | null) ?? null,
+              close_date: (lead.close_date as string | null) ?? null,
+              time_last_updated: (lead.time_last_updated as string | null) ?? null,
+            } satisfies Lead;
+          })
+          .filter((lead) => lead.id.length > 0);
+
+        setLeads(rows);
+        loaded = true;
+        break;
       }
 
-      const rows = ((data || []) as Lead[]).map((lead) => ({
-        ...lead,
-        stage: normalizeStage(lead.stage),
-        lead_temp: normalizeLeadTemp(lead.lead_temp),
-      }));
-
-      setLeads(rows);
+      if (!loaded) {
+        setStatus("Could not load leads.");
+        setLeads([]);
+      }
       setLoading(false);
     }
 
@@ -202,6 +298,63 @@ export default function KanbanClient() {
         .sort((a, b) => (b.time_last_updated || "").localeCompare(a.time_last_updated || "")),
     }));
   }, [leads]);
+  const hotLeadCount = useMemo(
+    () => leads.filter((lead) => normalizeLeadTemp(lead.lead_temp) === "Hot").length,
+    [leads]
+  );
+
+  function autoCommissionAmountValue(dealPriceInput: string, commissionPercentInput: string): string {
+    const amount = calculateCommissionAmount(
+      parsePositiveDecimal(dealPriceInput),
+      parsePositiveDecimal(commissionPercentInput)
+    );
+    return asInputNumber(amount);
+  }
+
+  function updateDealPrice(value: string) {
+    setDraft((previous) => {
+      if (!previous) return previous;
+      const next = { ...previous, deal_price: value };
+      if (!next.commissionAmountManuallyEdited) {
+        next.commission_amount = autoCommissionAmountValue(next.deal_price, next.commission_percent);
+      }
+      return next;
+    });
+    setDraftDirty(true);
+  }
+
+  function updateCommissionPercent(value: string) {
+    setDraft((previous) => {
+      if (!previous) return previous;
+      const next = { ...previous, commission_percent: value };
+      if (!next.commissionAmountManuallyEdited) {
+        next.commission_amount = autoCommissionAmountValue(next.deal_price, next.commission_percent);
+      }
+      return next;
+    });
+    setDraftDirty(true);
+  }
+
+  function updateCommissionAmount(value: string) {
+    setDraft((previous) => {
+      if (!previous) return previous;
+
+      const trimmed = value.trim();
+      if (!trimmed) {
+        const next = { ...previous };
+        next.commissionAmountManuallyEdited = false;
+        next.commission_amount = autoCommissionAmountValue(next.deal_price, next.commission_percent);
+        return next;
+      }
+
+      return {
+        ...previous,
+        commission_amount: value,
+        commissionAmountManuallyEdited: true,
+      };
+    });
+    setDraftDirty(true);
+  }
 
   function patchLeadLocal(leadId: string, patch: Partial<Lead>) {
     setLeads((previous) =>
@@ -247,7 +400,14 @@ export default function KanbanClient() {
     void persistLeadPatch(leadId, { stage: targetStage });
 
     if (selectedLeadId === leadId) {
-      setDraft((previous) => (previous ? { ...previous, stage: targetStage } : previous));
+      setDraft((previous) => {
+        if (!previous) return previous;
+        const next = { ...previous, stage: targetStage };
+        if (targetStage === "Closed" && !next.close_date) {
+          next.close_date = new Date().toISOString().slice(0, 10);
+        }
+        return next;
+      });
       setDraftDirty(true);
     }
   }
@@ -255,16 +415,49 @@ export default function KanbanClient() {
   async function saveLeadDraft() {
     if (!selectedLead || !draft) return;
 
+    const dealPrice = parsePositiveDecimal(draft.deal_price);
+    const commissionPercent = parsePositiveDecimal(draft.commission_percent);
+    let commissionAmount = parsePositiveDecimal(draft.commission_amount);
+    if (!draft.commissionAmountManuallyEdited && commissionAmount === null) {
+      commissionAmount = calculateCommissionAmount(dealPrice, commissionPercent);
+    }
+
+    let closeDate: string | null = null;
+    if (draft.close_date.trim()) {
+      const date = new Date(draft.close_date);
+      if (Number.isNaN(date.getTime())) {
+        setStatus("Close date must be a valid date.");
+        return;
+      }
+      closeDate = date.toISOString().slice(0, 10);
+    }
+
     setSavingDraft(true);
 
-    const ok = await persistLeadPatch(selectedLead.id, {
+    const patch: Partial<Lead> = {
       stage: draft.stage,
       lead_temp: draft.lead_temp,
       intent: draft.intent || null,
       timeline: draft.timeline || null,
       source: draft.source || null,
       notes: draft.notes || null,
-    });
+    };
+
+    const hasDealInputs =
+      draft.stage === "Closed" ||
+      draft.deal_price.trim().length > 0 ||
+      draft.commission_percent.trim().length > 0 ||
+      draft.commission_amount.trim().length > 0 ||
+      draft.close_date.trim().length > 0;
+
+    if (hasDealInputs) {
+      patch.deal_price = dealPrice;
+      patch.commission_percent = commissionPercent;
+      patch.commission_amount = commissionAmount;
+      patch.close_date = closeDate;
+    }
+
+    const ok = await persistLeadPatch(selectedLead.id, patch);
 
     setSavingDraft(false);
     if (ok) {
@@ -276,9 +469,9 @@ export default function KanbanClient() {
   if (loading) {
     return (
       <main className="crm-page">
-        <div className="crm-card" style={{ padding: 16, color: "var(--ink-muted)" }}>
-          Loading pipeline...
-        </div>
+        <section className="crm-card crm-section-card">
+          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading pipeline...</div>
+        </section>
       </main>
     );
   }
@@ -286,26 +479,30 @@ export default function KanbanClient() {
   if (leads.length === 0) {
     return (
       <main className="crm-page" style={{ maxWidth: 840 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ margin: 0 }}>Pipeline</h1>
-            <p style={{ marginTop: 6, fontSize: 13, color: "var(--ink-muted)" }}>
-              Leads will appear here once intake submissions or imports start coming in.
-            </p>
+        <section className="crm-card crm-section-card">
+          <div className="crm-page-header">
+            <div className="crm-page-header-main">
+              <h1 className="crm-page-title">Pipeline</h1>
+              <p className="crm-page-subtitle">
+                Leads will appear here once your intake form or imports start feeding Merlyn.
+              </p>
+            </div>
+            <div className="crm-page-actions">
+              <Link href="/app/intake" className="crm-btn crm-btn-primary">Open intake</Link>
+            </div>
           </div>
-          <Link href="/app" className="crm-btn crm-btn-secondary">Dashboard</Link>
-        </div>
+        </section>
 
-        <div className="crm-card" style={{ marginTop: 14, padding: 18, display: "grid", gap: 10 }}>
-          <div style={{ fontWeight: 700 }}>No leads yet</div>
-          <div style={{ fontSize: 14, color: "var(--ink-muted)" }}>
-            Configure your questionnaire and run your first CSV import.
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href="/app/intake" className="crm-btn crm-btn-primary">Open Lead Intake</Link>
-            <Link href="/app/intake/import" className="crm-btn crm-btn-secondary">Open CSV Import</Link>
-          </div>
-        </div>
+        <EmptyState
+          title="No leads in the pipeline yet"
+          body="Share your intake link or import an existing list so Merlyn has real inquiries to organize."
+          action={
+            <div className="crm-inline-actions">
+              <Link href="/app/intake" className="crm-btn crm-btn-primary">Open intake</Link>
+              <Link href="/app/intake/import" className="crm-btn crm-btn-secondary">Open CSV import</Link>
+            </div>
+          }
+        />
       </main>
     );
   }
@@ -316,36 +513,61 @@ export default function KanbanClient() {
   }
 
   return (
-    <main className="crm-page" style={{ maxWidth: 1260 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Pipeline</h1>
-          <p style={{ marginTop: 6, fontSize: 13, color: "var(--ink-muted)" }}>
-            Move leads across stages and keep profile details current.
-          </p>
+    <main className="crm-page crm-page-wide crm-stack-12">
+      <section className="crm-card crm-section-card">
+        <div className="crm-page-header">
+          <div className="crm-page-header-main">
+            <h1 className="crm-page-title">Pipeline</h1>
+            <p className="crm-page-subtitle">
+              Move serious inquiries forward and keep stage, urgency, and notes current.
+            </p>
+          </div>
+          <div className="crm-page-actions">
+            <Link href="/app/list" className="crm-btn crm-btn-secondary">Open leads</Link>
+            <Link href="/app/intake" className="crm-btn crm-btn-secondary">Open intake</Link>
+          </div>
         </div>
+      </section>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link href="/app/list" className="crm-btn crm-btn-secondary">Lead List</Link>
-          <Link href="/app" className="crm-btn crm-btn-secondary">Dashboard</Link>
-        </div>
-      </div>
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 10,
+        }}
+      >
+        <article className="crm-card crm-section-card">
+          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Total leads</div>
+          <div style={{ marginTop: 4, fontSize: 28, fontWeight: 700 }}>{leads.length}</div>
+        </article>
+        <article className="crm-card crm-section-card">
+          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>New</div>
+          <div style={{ marginTop: 4, fontSize: 28, fontWeight: 700 }}>{grouped.find((column) => column.stage === "New")?.leads.length || 0}</div>
+        </article>
+        <article className="crm-card crm-section-card">
+          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Qualified</div>
+          <div style={{ marginTop: 4, fontSize: 28, fontWeight: 700 }}>{grouped.find((column) => column.stage === "Qualified")?.leads.length || 0}</div>
+        </article>
+        <article className="crm-card crm-section-card">
+          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Hot leads</div>
+          <div style={{ marginTop: 4, fontSize: 28, fontWeight: 700 }}>{hotLeadCount}</div>
+        </article>
+      </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, alignItems: "start", marginTop: 16 }}>
+      <section className="crm-kanban-board">
         {grouped.map((column) => (
-          <section
+          <article
             key={column.stage}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => void handleDrop(column.stage, event)}
-            className="crm-card"
-            style={{ padding: 10, minHeight: 260 }}
+            className="crm-card crm-section-card crm-kanban-column"
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <strong>{column.stage}</strong>
+            <div className="crm-section-head">
+              <h2 className="crm-section-title">{column.stage}</h2>
               <span className="crm-chip">{column.leads.length}</span>
             </div>
 
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+            <div className="crm-stack-8">
               {column.leads.map((lead) => (
                 <button
                   key={lead.id}
@@ -357,148 +579,253 @@ export default function KanbanClient() {
                     event.dataTransfer.setData("text/plain", id);
                   }}
                   onClick={() => openLeadDetail(lead.id)}
-                  className="crm-card-muted"
-                  style={{
-                    textAlign: "left",
-                    padding: 10,
-                    border: selectedLeadId === lead.id && isDetailOpen ? "1px solid var(--accent)" : "1px solid var(--line)",
-                    color: "var(--foreground)",
-                    cursor: "pointer",
-                  }}
+                  className={`crm-card-muted crm-kanban-card${
+                    selectedLeadId === lead.id && isDetailOpen ? " crm-kanban-card-selected" : ""
+                  }`}
                 >
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{leadDisplayName(lead)}</div>
-                  <div style={{ marginTop: 3, fontSize: 12, color: "var(--ink-muted)" }}>{leadIdentityLine(lead)}</div>
-                  <div style={{ marginTop: 6, display: "inline-flex", fontSize: 11 }} className={`crm-chip ${normalizeLeadTemp(lead.lead_temp) === "Hot" ? "crm-chip-danger" : normalizeLeadTemp(lead.lead_temp) === "Warm" ? "crm-chip-warn" : "crm-chip"}`}>
-                    {normalizeLeadTemp(lead.lead_temp)}
+                  <div className="crm-kanban-card-head">
+                    <div className="crm-kanban-card-copy">
+                      <div className="crm-kanban-card-name">{leadDisplayName(lead)}</div>
+                      <div className="crm-kanban-card-context">{leadSecondaryLine(lead)}</div>
+                    </div>
+                    <span className={leadBadgeClass(lead.lead_temp)}>{normalizeLeadTemp(lead.lead_temp)}</span>
                   </div>
                 </button>
               ))}
             </div>
-          </section>
+          </article>
         ))}
-      </div>
+      </section>
 
       {isDetailOpen && selectedLead && draft ? (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 60,
-            background: "rgba(4, 10, 22, 0.72)",
-            backdropFilter: "blur(2px)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
+          className="crm-kanban-editor-overlay"
           onClick={() => setIsDetailOpen(false)}
         >
           <section
-            className="crm-card"
-            style={{
-              width: "min(680px, 100%)",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              padding: 14,
-              display: "grid",
-              gap: 10,
-            }}
+            className="crm-card crm-kanban-editor-panel"
             onClick={(event) => event.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <strong>Lead Details</strong>
+            <div className="crm-kanban-editor-header">
+              <div>
+                <div className="crm-lead-command-kicker">Pipeline quick edit</div>
+                <strong className="crm-section-title">Quick Edit</strong>
+              </div>
               <div style={{ display: "flex", gap: 8 }}>
+                <Link href={`/app/leads/${selectedLead.id}`} className="crm-btn crm-btn-secondary" style={{ padding: "6px 8px", fontSize: 12 }}>
+                  Open full workspace
+                </Link>
                 <button type="button" className="crm-btn crm-btn-secondary" style={{ padding: "6px 8px", fontSize: 12 }} onClick={() => setIsDetailOpen(false)}>
                   Close
                 </button>
               </div>
             </div>
 
-            <div className="crm-card-muted" style={{ padding: 10 }}>
+            <div className="crm-kanban-editor-scroll">
+            <div className="crm-card-muted crm-kanban-editor-summary">
               <div style={{ fontWeight: 700 }}>{leadDisplayName(selectedLead)}</div>
-              <div style={{ marginTop: 4, fontSize: 12, color: "var(--ink-muted)" }}>{leadIdentityLine(selectedLead)}</div>
+              <div style={{ marginTop: 4, fontSize: 12, color: "var(--ink-muted)" }}>{leadSecondaryLine(selectedLead)}</div>
+              <div className="crm-kanban-editor-summary-badges">
+                <span className="crm-chip">{normalizeStage(selectedLead.stage)}</span>
+                <span className={leadBadgeClass(selectedLead.lead_temp)}>{normalizeLeadTemp(selectedLead.lead_temp)}</span>
+              </div>
               <div style={{ marginTop: 4, fontSize: 12, color: "var(--ink-muted)" }}>
                 Last updated: {formatDate(selectedLead.time_last_updated)}
               </div>
             </div>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Stage</span>
-              <select
-                value={draft.stage}
-                onChange={(event) => {
-                  setDraft((previous) => (previous ? { ...previous, stage: event.target.value as Stage } : previous));
-                  setDraftDirty(true);
-                }}
-              >
-                {STAGES.map((stage) => (
-                  <option key={stage} value={stage}>
-                    {stage}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <section className="crm-card-muted crm-kanban-editor-section">
+              <div className="crm-section-head">
+                <div>
+                  <strong className="crm-section-title">Lead basics</strong>
+                  <div className="crm-section-subtitle">Keep stage, source, and urgency current.</div>
+                </div>
+              </div>
+              <div className="crm-kanban-editor-grid">
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Stage</span>
+                  <select
+                    value={draft.stage}
+                    onChange={(event) => {
+                      const nextStage = event.target.value as Stage;
+                      setDraft((previous) => {
+                        if (!previous) return previous;
+                        const next = { ...previous, stage: nextStage };
+                        if (nextStage === "Closed" && !next.close_date) {
+                          next.close_date = new Date().toISOString().slice(0, 10);
+                        }
+                        return next;
+                      });
+                      setDraftDirty(true);
+                    }}
+                  >
+                    {STAGES.map((stage) => (
+                      <option key={stage} value={stage}>
+                        {stage}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Temperature</span>
-              <select
-                value={draft.lead_temp}
-                onChange={(event) => {
-                  setDraft((previous) => (previous ? { ...previous, lead_temp: event.target.value as LeadTemp } : previous));
-                  setDraftDirty(true);
-                }}
-              >
-                {LEAD_TEMPS.map((temp) => (
-                  <option key={temp} value={temp}>
-                    {temp}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Temperature</span>
+                  <select
+                    value={draft.lead_temp}
+                    onChange={(event) => {
+                      setDraft((previous) => (previous ? { ...previous, lead_temp: event.target.value as LeadTemp } : previous));
+                      setDraftDirty(true);
+                    }}
+                  >
+                    {LEAD_TEMPS.map((temp) => (
+                      <option key={temp} value={temp}>
+                        {temp}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Intent</span>
-              <input
-                value={draft.intent}
-                onChange={(event) => {
-                  setDraft((previous) => (previous ? { ...previous, intent: event.target.value } : previous));
-                  setDraftDirty(true);
-                }}
-              />
-            </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Source</span>
+                  <input
+                    value={draft.source}
+                    onChange={(event) => {
+                      setDraft((previous) => (previous ? { ...previous, source: event.target.value } : previous));
+                      setDraftDirty(true);
+                    }}
+                  />
+                </label>
+              </div>
+            </section>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Timeline</span>
-              <input
-                value={draft.timeline}
-                onChange={(event) => {
-                  setDraft((previous) => (previous ? { ...previous, timeline: event.target.value } : previous));
-                  setDraftDirty(true);
-                }}
-              />
-            </label>
+            <section className="crm-card-muted crm-kanban-editor-section">
+              <div className="crm-section-head">
+                <div>
+                  <strong className="crm-section-title">Qualification</strong>
+                  <div className="crm-section-subtitle">Capture the context you need to move the lead forward.</div>
+                </div>
+              </div>
+              <div className="crm-kanban-editor-grid">
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Intent</span>
+                  <input
+                    value={draft.intent}
+                    onChange={(event) => {
+                      setDraft((previous) => (previous ? { ...previous, intent: event.target.value } : previous));
+                      setDraftDirty(true);
+                    }}
+                  />
+                </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Source</span>
-              <input
-                value={draft.source}
-                onChange={(event) => {
-                  setDraft((previous) => (previous ? { ...previous, source: event.target.value } : previous));
-                  setDraftDirty(true);
-                }}
-              />
-            </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Timeline</span>
+                  <input
+                    value={draft.timeline}
+                    onChange={(event) => {
+                      setDraft((previous) => (previous ? { ...previous, timeline: event.target.value } : previous));
+                      setDraftDirty(true);
+                    }}
+                  />
+                </label>
+              </div>
+            </section>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Notes</span>
-              <textarea
-                rows={5}
-                value={draft.notes}
-                onChange={(event) => {
-                  setDraft((previous) => (previous ? { ...previous, notes: event.target.value } : previous));
-                  setDraftDirty(true);
-                }}
-              />
-            </label>
+            <section className="crm-card-muted crm-kanban-editor-section">
+              <div className="crm-section-head">
+                <div>
+                  <strong className="crm-section-title">Notes</strong>
+                  <div className="crm-section-subtitle">Keep enough context here for the next touchpoint.</div>
+                </div>
+              </div>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Notes</span>
+                <textarea
+                  rows={5}
+                  value={draft.notes}
+                  onChange={(event) => {
+                    setDraft((previous) => (previous ? { ...previous, notes: event.target.value } : previous));
+                    setDraftDirty(true);
+                  }}
+                />
+              </label>
+            </section>
+
+            {draft.stage === "Closed" ? (
+              <section className="crm-card-muted crm-kanban-editor-section" style={{ display: "grid", gap: 10 }}>
+                <div className="crm-section-head">
+                  <div>
+                    <strong className="crm-section-title">Deal details</strong>
+                    <div className="crm-section-subtitle">Keep revenue details here once the lead is actual business.</div>
+                  </div>
+                  <span className="crm-chip crm-chip-ok">Closed Lead</span>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                    gap: 8,
+                  }}
+                >
+                  <label style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Sale Price</span>
+                    <input
+                      inputMode="decimal"
+                      placeholder="450000"
+                      value={draft.deal_price}
+                      onChange={(event) => updateDealPrice(event.target.value)}
+                    />
+                  </label>
+
+                  <label style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Commission %</span>
+                    <input
+                      inputMode="decimal"
+                      placeholder="3"
+                      value={draft.commission_percent}
+                      onChange={(event) => updateCommissionPercent(event.target.value)}
+                    />
+                  </label>
+
+                  <label style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Commission Amount</span>
+                    <input
+                      inputMode="decimal"
+                      placeholder="13500"
+                      value={draft.commission_amount}
+                      onChange={(event) => updateCommissionAmount(event.target.value)}
+                    />
+                  </label>
+
+                  <label style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Close Date</span>
+                    <input
+                      type="date"
+                      value={draft.close_date}
+                      onChange={(event) => {
+                        setDraft((previous) => (previous ? { ...previous, close_date: event.target.value } : previous));
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <span className="crm-chip">
+                    Deal Value: {formatCurrency(parsePositiveDecimal(draft.deal_price))}
+                  </span>
+                  <span className="crm-chip">
+                    Commission Rate: {formatPercentLabel(parsePositiveDecimal(draft.commission_percent))}
+                  </span>
+                  <span className={draft.commissionAmountManuallyEdited ? "crm-chip crm-chip-info" : "crm-chip crm-chip-ok"}>
+                    {draft.commissionAmountManuallyEdited ? "Commission amount is manually set" : "Commission auto-calculated from price and %"}
+                  </span>
+                </div>
+              </section>
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                Deal details appear when the lead stage is set to Closed.
+              </div>
+            )}
 
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <button
@@ -511,11 +838,12 @@ export default function KanbanClient() {
               </button>
               {draftDirty ? <span className="crm-chip crm-chip-warn">Unsaved changes</span> : <span className="crm-chip crm-chip-ok">Saved</span>}
             </div>
+            </div>
           </section>
         </div>
       ) : null}
 
-      {status ? <div style={{ marginTop: 10, color: status.includes("Could not") ? "var(--danger)" : "var(--ok)", fontSize: 13 }}>{status}</div> : null}
+      {status ? <div style={{ color: status.includes("Could not") ? "var(--danger)" : "var(--ok)", fontSize: 13 }}>{status}</div> : null}
     </main>
   );
 }

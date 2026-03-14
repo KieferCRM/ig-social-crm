@@ -133,14 +133,16 @@ export default function MergeTool({ leads }: { leads: LeadOption[] }) {
   }
 
   return (
-    <section className="crm-card" style={{ marginTop: 14, padding: 12 }}>
-      <div style={{ fontWeight: 700 }}>Lead Merge Tool</div>
-      <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>
+    <section className="crm-card crm-section-card crm-stack-10">
+      <div className="crm-section-head">
+        <h2 className="crm-section-title">Lead Merge Tool</h2>
+      </div>
+      <div className="crm-section-subtitle">
         Merge duplicate leads into one clean record. Choose the duplicate lead to remove and the lead you want to keep.
         Reminders and useful details should move into the kept record.
       </div>
 
-      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(2, minmax(240px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
         <label style={{ display: "grid", gap: 6 }}>
           <span style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 700 }}>
             Duplicate Lead (will be removed)
@@ -194,12 +196,12 @@ export default function MergeTool({ leads }: { leads: LeadOption[] }) {
 
       {readyToConfirm && sourceLead && targetLead ? (
         <>
-          <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(2, minmax(240px, 1fr))", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
             <LeadPreviewCard title="Duplicate Preview" lead={sourceLead} />
             <LeadPreviewCard title="Primary Preview" lead={targetLead} />
           </div>
 
-          <div className="crm-card-muted" style={{ marginTop: 10, padding: 10, border: "1px solid var(--danger)" }}>
+          <div className="crm-card-muted" style={{ padding: 10, border: "1px solid var(--danger)" }}>
             <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
               This will remove the duplicate lead and keep the primary lead. This action should only be used for true duplicates.
             </div>
@@ -215,7 +217,7 @@ export default function MergeTool({ leads }: { leads: LeadOption[] }) {
         </>
       ) : null}
 
-      <div style={{ marginTop: 10 }}>
+      <div>
         <button
           type="button"
           onClick={() => void merge()}

@@ -32,7 +32,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     },
     {
       href: "/app/settings/receptionist",
-      label: "Receptionist",
+      label: "Concierge",
       active: pathname.startsWith("/app/settings/receptionist"),
     },
     {
@@ -67,12 +67,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         subtitle: "Get your intake link live and make sure the first lead lands in the right place.",
       };
     }
-    if (pathname.startsWith("/app/performance")) {
-      return {
-        title: "Performance",
-        subtitle: "This legacy page is secondary. Use Dashboard, Leads, and Deals for daily work.",
-      };
-    }
     if (pathname.startsWith("/app/intake") || pathname.startsWith("/app/ingestion") || pathname.startsWith("/app/import")) {
       return {
         title: "Lead Intake",
@@ -81,8 +75,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
     if (pathname.startsWith("/app/settings/receptionist")) {
       return {
-        title: "Receptionist",
-        subtitle: "Set up missed-call text-back and call routing so inbound opportunities do not go cold.",
+        title: "Concierge",
+        subtitle: "Set up missed-call text-back and direct calling or texting unlocks so inbound opportunities do not go cold.",
       };
     }
     if (pathname.startsWith("/app/settings")) {

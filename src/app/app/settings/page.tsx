@@ -2,47 +2,74 @@ import Link from "next/link";
 
 export default function SettingsPage() {
   return (
-    <main className="crm-page" style={{ maxWidth: 980 }}>
-      <h1 style={{ margin: 0 }}>Workspace Settings</h1>
-      <p style={{ marginTop: 8, color: "var(--ink-muted)" }}>
-        Keep legal pages and workspace-level configuration tidy here. Lead intake workflows now live in the Lead Intake section.
-      </p>
+    <main className="crm-page crm-stack-12" style={{ maxWidth: 980 }}>
+      <section className="crm-card crm-section-card">
+        <div className="crm-page-header">
+          <div className="crm-page-header-main">
+            <h1 className="crm-page-title">Settings</h1>
+            <p className="crm-page-subtitle">
+              Keep the workspace clean, compliant, and easy to operate. Most teams only need the areas below.
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
-        <section className="crm-card" style={{ padding: 16, display: "grid", gap: 10 }}>
-          <div style={{ fontWeight: 700 }}>Lead Intake System</div>
+      <div className="crm-grid-cards-3">
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div style={{ fontWeight: 700 }}>Lead intake</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-            Build funnels, run imports, and monitor ingestion quality from one centralized hub.
+            Manage your form, review submissions, and import existing leads from one place.
           </p>
           <div>
             <Link href="/app/intake" className="crm-btn crm-btn-primary">
-              Open Lead Intake
+              Open intake
             </Link>
           </div>
         </section>
 
-        <section className="crm-card" style={{ padding: 16, display: "grid", gap: 10 }}>
-          <div style={{ fontWeight: 700 }}>Workspace Legal</div>
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div style={{ fontWeight: 700 }}>Concierge</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-            Review customer-facing legal documents before launch updates.
+            Unlock missed-call follow-up, direct calling and texting in supported workspaces, and cleaner communication workflows.
           </p>
           <div>
-            <Link href="/privacy" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Privacy Policy</Link>
+            <Link href="/app/settings/receptionist" className="crm-btn crm-btn-primary">
+              Open Concierge
+            </Link>
+          </div>
+        </section>
+
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div style={{ fontWeight: 700 }}>Legal pages</div>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+            Review the customer-facing privacy and terms pages before sharing Merlyn publicly.
+          </p>
+          <div className="crm-inline-actions">
+            <Link href="/privacy" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Privacy</Link>
+            <Link href="/terms" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Terms</Link>
           </div>
         </section>
       </div>
 
-      <section className="crm-card" style={{ marginTop: 16, padding: 16, display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 700 }}>Legal Pages</div>
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div className="crm-section-head">
+          <h2 className="crm-section-title">Need a quick check?</h2>
+        </div>
         <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-          Keep these pages accessible before launch.
+          If you are getting ready to launch or share the product more widely, start with intake, receptionist, and legal.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link href="/app/intake" className="crm-btn crm-btn-secondary">
+            Intake
+          </Link>
+          <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary">
+            Concierge
+          </Link>
           <Link href="/privacy" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
-            Privacy Policy
+            Privacy
           </Link>
           <Link href="/terms" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
-            Terms of Service
+            Terms
           </Link>
         </div>
       </section>
