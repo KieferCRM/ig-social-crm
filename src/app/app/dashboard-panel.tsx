@@ -77,6 +77,14 @@ function isSyntheticHandle(handle: string | null): boolean {
   return false;
 }
 
+function formatPhoneDisplay(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, "");
+  const localDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (localDigits.length !== 10) return value;
+  return `(${localDigits.slice(0, 3)}) ${localDigits.slice(3, 6)}-${localDigits.slice(6)}`;
+}
+
 function leadDisplayName(lead: LeadPreview): string {
   const full = firstNonEmpty(lead.full_name);
   if (full) return full;
@@ -90,7 +98,7 @@ function leadDisplayName(lead: LeadPreview): string {
   if (email) return email;
 
   const phone = firstNonEmpty(lead.canonical_phone);
-  if (phone) return phone;
+  if (phone) return formatPhoneDisplay(phone) || phone;
 
   if (lead.ig_username && !isSyntheticHandle(lead.ig_username)) {
     return `@${lead.ig_username}`;
@@ -106,7 +114,7 @@ function leadIdentityLine(lead: LeadPreview): string {
   if (email) parts.push(email);
 
   const phone = firstNonEmpty(lead.canonical_phone);
-  if (phone) parts.push(phone);
+  if (phone) parts.push(formatPhoneDisplay(phone) || phone);
 
   if (lead.ig_username && !isSyntheticHandle(lead.ig_username)) {
     parts.push(`@${lead.ig_username}`);
@@ -276,49 +284,40 @@ export default function DashboardPanel({
             ) : (
               <>
                 {newLeadQueue.slice(0, 4).map((lead) => (
-                  <div
+                  <button
                     key={`new-${lead.id}`}
+                    type="button"
+                    onClick={() => openLeadPanel(lead.id, lead)}
                     className={`crm-card-muted crm-focus-row${focusCount > 0 ? " crm-focus-row-alert" : ""}${hasNewQueue && newLeadQueue[0]?.id === lead.id ? " crm-focus-row-primary" : ""}`}
                     style={{ padding: 8 }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <div style={{ minWidth: 0 }}>
-                        <button
-                          type="button"
-                          onClick={() => openLeadPanel(lead.id, lead)}
-                          className="crm-focus-link"
-                        >
+                        <span className="crm-focus-link">
                           {leadDisplayName(lead)}
-                        </button>
+                        </span>
                         <div className="crm-focus-meta">{leadIdentityLine(lead)}</div>
                       </div>
                       <StatusBadge label="New" tone="warn" />
                     </div>
-                    <div className="crm-card-actions" style={{ marginTop: 6 }}>
-                      <Link href="/app/kanban" className="crm-btn crm-btn-secondary" style={{ padding: "5px 8px", fontSize: 11 }}>
-                        Pipeline
-                      </Link>
-                    </div>
-                  </div>
+                  </button>
                 ))}
 
                 {staleHotQueue.slice(0, 2).map((lead) => {
                   const staleDays = Math.round(daysSince(lead.time_last_updated));
                   return (
-                    <div
+                    <button
                       key={`hot-${lead.id}`}
+                      type="button"
+                      onClick={() => openLeadPanel(lead.id, lead)}
                       className={`crm-card-muted crm-focus-row crm-focus-row-hot${focusCount > 0 ? " crm-focus-row-alert" : ""}${!hasNewQueue && hasHotQueue && staleHotQueue[0]?.id === lead.id ? " crm-focus-row-primary" : ""}`}
                       style={{ padding: 8 }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <div style={{ minWidth: 0 }}>
-                          <button
-                            type="button"
-                            onClick={() => openLeadPanel(lead.id, lead)}
-                            className="crm-focus-link"
-                          >
+                          <span className="crm-focus-link">
                             {leadDisplayName(lead)}
-                          </button>
+                          </span>
                           <div className="crm-focus-meta">{leadIdentityLine(lead)}</div>
                           <div className="crm-focus-alert">
                             No activity for {staleDays} day{staleDays === 1 ? "" : "s"}
@@ -326,7 +325,7 @@ export default function DashboardPanel({
                         </div>
                         <span className="crm-chip crm-chip-hot">Hot</span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
 

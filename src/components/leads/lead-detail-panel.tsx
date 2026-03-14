@@ -512,10 +512,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const hasDealData = dealPrice !== null || commissionPercent !== null || commissionAmount !== null || Boolean(closeDateText);
   const pendingReminders = reminders.filter((item) => item.status === "pending");
   const nextReminder = pendingReminders[0] || null;
-  const actionPhoneValue = normalizePhoneValue(draft?.canonical_phone || phoneValue);
   const actionEmailValue = normalizeEmailValue(draft?.canonical_email || emailValue);
-  const telHref = actionPhoneValue ? `tel:${actionPhoneValue}` : null;
-  const smsHref = actionPhoneValue ? `sms:${actionPhoneValue}` : null;
   const emailHref = actionEmailValue ? `mailto:${encodeURIComponent(actionEmailValue)}` : null;
 
   useEffect(() => {
@@ -835,20 +832,10 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                 <div className="crm-section-head">
                   <div>
                     <h2 className="crm-section-title">Quick Actions</h2>
-                    <p className="crm-section-subtitle">Reach out or open the full lead record without leaving the dashboard.</p>
+                    <p className="crm-section-subtitle">Open the full record or send an email without leaving the dashboard.</p>
                   </div>
                 </div>
                 <div className="crm-detail-quick-actions">
-                  {telHref ? (
-                    <a className="crm-btn crm-btn-secondary" href={telHref}>Call</a>
-                  ) : (
-                    <button type="button" className="crm-btn crm-btn-secondary" disabled>Call</button>
-                  )}
-                  {smsHref ? (
-                    <a className="crm-btn crm-btn-secondary" href={smsHref}>Text</a>
-                  ) : (
-                    <button type="button" className="crm-btn crm-btn-secondary" disabled>Text</button>
-                  )}
                   {emailHref ? (
                     <a className="crm-btn crm-btn-secondary" href={emailHref}>Email</a>
                   ) : (
