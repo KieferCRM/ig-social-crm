@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
   calculateCommissionAmount,
   formatCurrency,
@@ -49,53 +49,6 @@ export type ReminderPreview = {
   due_at: string;
   status: string;
   note: string | null;
-};
-
-type LeadInteraction = {
-  id: string;
-  channel: "sms" | "missed_call_textback" | "call_outbound" | "call_inbound" | "system" | "voice";
-  direction: "in" | "out" | "system";
-  interaction_type: string;
-  status: "queued" | "sent" | "delivered" | "received" | "missed" | "completed" | "failed" | "logged";
-  raw_transcript: string | null;
-  raw_message_body: string | null;
-  summary: string | null;
-  provider_message_id: string | null;
-  provider_call_id: string | null;
-  created_at: string;
-};
-
-type ReceptionistAlert = {
-  id: string;
-  severity: "info" | "high" | "urgent";
-  title: string;
-  message: string;
-};
-
-type LeadThreadResponse = {
-  thread?: {
-    interactions?: LeadInteraction[];
-    alerts?: ReceptionistAlert[];
-    lead?: {
-      urgency_level?: string | null;
-      urgency_score?: number | null;
-    };
-  };
-  channel?: {
-    receptionist_enabled?: boolean;
-    communications_enabled?: boolean;
-    business_phone_number?: string | null;
-  };
-  error?: string;
-};
-
-type MessageResponse = {
-  interaction?: LeadInteraction;
-  delivery?: {
-    ok?: boolean;
-    error?: string;
-  };
-  error?: string;
 };
 
 type LeadCommandWorkspaceProps = {
@@ -224,39 +177,6 @@ function recordRows(record: Record<string, unknown> | null): Array<{ key: string
     .slice(0, 24);
 }
 
-function interactionStatusChipClass(status: LeadInteraction["status"]): string {
-  if (status === "failed" || status === "missed") return "crm-chip crm-chip-danger";
-  if (status === "queued" || status === "sent") return "crm-chip crm-chip-warn";
-  if (status === "delivered" || status === "received" || status === "completed") return "crm-chip crm-chip-ok";
-  return "crm-chip";
-}
-
-function interactionChannelLabel(channel: LeadInteraction["channel"]): string {
-  if (channel === "sms") return "SMS";
-  if (channel === "missed_call_textback") return "Missed Call Text-Back";
-  if (channel === "call_outbound") return "Outbound Call";
-  if (channel === "call_inbound") return "Inbound Call";
-  if (channel === "voice") return "Voice";
-  return "System";
-}
-
-function interactionDirectionLabel(direction: LeadInteraction["direction"]): string {
-  if (direction === "in") return "Inbound";
-  if (direction === "out") return "Outbound";
-  return "System";
-}
-
-function sortedInteractions(items: LeadInteraction[]): LeadInteraction[] {
-  return [...items].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
-}
-
-function upsertInteraction(items: LeadInteraction[], next: LeadInteraction): LeadInteraction[] {
-  const map = new Map<string, LeadInteraction>();
-  for (const item of items) map.set(item.id, item);
-  map.set(next.id, next);
-  return sortedInteractions(Array.from(map.values()));
-}
-
 function MetricField({ label, value }: { label: string; value: string }) {
   return (
     <div className="crm-card-muted crm-lead-command-mini">
@@ -267,59 +187,7 @@ function MetricField({ label, value }: { label: string; value: string }) {
 }
 
 export default function LeadCommandWorkspace({ lead: initialLead, reminders }: LeadCommandWorkspaceProps) {
-  const [lead, setLead] = useState(initialLead);
-  const [interactions, setInteractions] = useState<LeadInteraction[]>([]);
-  const [receptionistAlerts, setReceptionistAlerts] = useState<ReceptionistAlert[]>([]);
-  const [threadLoading, setThreadLoading] = useState(true);
-  const [threadError, setThreadError] = useState("");
-  const [threadChannel, setThreadChannel] = useState<LeadThreadResponse["channel"] | null>(null);
-  const [smsDraft, setSmsDraft] = useState("");
-  const [smsSending, setSmsSending] = useState(false);
-  const [commNotice, setCommNotice] = useState("");
-  const composerRef = useRef<HTMLTextAreaElement | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadThread() {
-      setThreadLoading(true);
-      try {
-        const response = await fetch(`/api/receptionist/threads/${encodeURIComponent(initialLead.id)}`, {
-          cache: "no-store",
-        });
-        const data = (await response.json()) as LeadThreadResponse;
-
-        if (!response.ok) {
-          if (!cancelled) setThreadError(data.error || "Communication history is unavailable.");
-          return;
-        }
-
-        if (cancelled) return;
-        setThreadError("");
-        setInteractions(sortedInteractions(data.thread?.interactions || []));
-        setReceptionistAlerts(data.thread?.alerts || []);
-        setThreadChannel(data.channel || null);
-        setLead((previous) => ({
-          ...previous,
-          urgency_level: data.thread?.lead?.urgency_level ?? previous.urgency_level ?? null,
-          urgency_score:
-            typeof data.thread?.lead?.urgency_score === "number"
-              ? data.thread.lead.urgency_score
-              : previous.urgency_score ?? null,
-        }));
-      } catch {
-        if (!cancelled) setThreadError("Communication history is unavailable.");
-      } finally {
-        if (!cancelled) setThreadLoading(false);
-      }
-    }
-
-    void loadThread();
-    return () => {
-      cancelled = true;
-    };
-  }, [initialLead.id]);
-
+  const lead = initialLead;
   const displayName = useMemo(() => leadDisplayName(lead), [lead]);
   const phoneValue = firstNonEmpty(lead.canonical_phone);
   const phoneActionValue = toPhoneActionValue(phoneValue);
@@ -338,18 +206,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
   const lastCommunicationText = formatDateTime(lead.last_communication_at);
   const lastUpdatedText = formatDateTime(lead.time_last_updated);
   const createdAtText = formatDateTime(lead.created_at);
-  const communicationsEnabled = threadChannel
-    ? Boolean(threadChannel.receptionist_enabled && threadChannel.communications_enabled)
-    : true;
-  const businessPhone = firstNonEmpty(threadChannel?.business_phone_number || null);
-  const communicationBlocker = !phoneActionValue
-    ? "No phone number is stored for this lead yet."
-    : !communicationsEnabled
-      ? "Receptionist communications are disabled in settings."
-      : !businessPhone
-        ? "Add a business phone number in Receptionist Settings."
-        : null;
-  const canSendText = !communicationBlocker;
   const sourceDetailRows = useMemo(() => recordRows(asRecord(lead.source_detail)), [lead.source_detail]);
   const customFieldRows = useMemo(() => recordRows(asRecord(lead.custom_fields)), [lead.custom_fields]);
   const tagsText =
@@ -373,7 +229,7 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
     const temp = (lead.lead_temp || "").trim().toLowerCase();
 
     if (stage === "new") {
-      items.push("No communication logged yet. A same-day call or text gives this lead the best chance to convert.");
+      items.push("Make first contact quickly. Fast response gives new inquiries the best chance to convert.");
     }
     if (temp === "hot") {
       items.push("This lead has urgency. Anchor the conversation around timing and the next scheduled step.");
@@ -397,39 +253,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
     parsePositiveDecimal(lead.commission_amount) ?? calculateCommissionAmount(dealPrice, commissionPercent);
   const hasDealDetails =
     dealPrice !== null || commissionPercent !== null || commissionAmount !== null || Boolean(firstNonEmpty(lead.close_date));
-
-  async function sendSmsMessage() {
-    const text = smsDraft.trim();
-    if (!text) return;
-    if (communicationBlocker) {
-      setCommNotice(communicationBlocker);
-      return;
-    }
-
-    setSmsSending(true);
-    setCommNotice("");
-    try {
-      const response = await fetch(`/api/receptionist/threads/${encodeURIComponent(lead.id)}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      const data = (await response.json()) as MessageResponse;
-
-      if (!response.ok || !data.interaction) {
-        setCommNotice(data.error || "Could not send text.");
-        return;
-      }
-
-      setSmsDraft("");
-      setInteractions((previous) => upsertInteraction(previous, data.interaction as LeadInteraction));
-      setCommNotice(data.delivery?.ok ? "Text sent from your Merlyn business number." : data.delivery?.error || "Message logged, but external delivery failed.");
-    } catch {
-      setCommNotice("Could not send text.");
-    } finally {
-      setSmsSending(false);
-    }
-  }
 
   return (
     <main className="crm-page crm-page-wide crm-lead-command-page">
@@ -465,13 +288,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
                 Call
               </button>
             )}
-            <button
-              type="button"
-              className="crm-btn crm-btn-primary"
-              onClick={() => composerRef.current?.focus()}
-            >
-              Text
-            </button>
             {emailValue ? (
               <a href={`mailto:${encodeURIComponent(emailValue)}`} className="crm-btn crm-btn-primary">
                 Email
@@ -508,9 +324,11 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
               Call Now
             </a>
           ) : null}
-          <button type="button" className="crm-btn crm-btn-secondary" onClick={() => composerRef.current?.focus()}>
-            Draft Text
-          </button>
+          {emailValue ? (
+            <a href={`mailto:${encodeURIComponent(emailValue)}`} className="crm-btn crm-btn-secondary">
+              Email Lead
+            </a>
+          ) : null}
           <Link href="/app/kanban" className="crm-btn crm-btn-secondary">
             Update Stage
           </Link>
@@ -531,9 +349,9 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
           <section className="crm-card crm-section-card">
             <div className="crm-section-head">
               <div>
-                <h2 className="crm-section-title">Contact and Communication</h2>
+                <h2 className="crm-section-title">Contact and Lead Details</h2>
                 <p className="crm-section-subtitle">
-                  Keep the relationship context, outreach, and response history together.
+                  The core information you need before making contact or moving the lead forward.
                 </p>
               </div>
             </div>
@@ -545,99 +363,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
               <MetricField label="Timeline" value={firstNonEmpty(lead.timeline) || "Not captured yet"} />
               <MetricField label="Area" value={firstNonEmpty(lead.location_area) || "Not captured yet"} />
               <MetricField label="Budget" value={firstNonEmpty(lead.budget_range) || "Not captured yet"} />
-            </div>
-
-            <div id="lead-communications" className="crm-lead-command-communications">
-              <div className="crm-section-head">
-                <h3 className="crm-section-title">Communication Timeline</h3>
-                <span className="crm-chip">{interactions.length} interaction(s)</span>
-              </div>
-
-              {threadLoading ? <div className="crm-lead-command-inline-note">Loading communication history...</div> : null}
-              {threadError ? <div className="crm-lead-command-inline-note crm-lead-command-inline-note-warn">{threadError}</div> : null}
-              {commNotice ? <div className="crm-lead-command-inline-note">{commNotice}</div> : null}
-
-              <div className="crm-lead-command-alert-row">
-                <span className="crm-chip">Source: {sourceLabel}</span>
-                {businessPhone ? <span className="crm-chip">Business #: {businessPhone}</span> : null}
-                {communicationBlocker ? <span className="crm-chip crm-chip-warn">{communicationBlocker}</span> : null}
-                <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary">
-                  Receptionist Settings
-                </Link>
-              </div>
-
-              {receptionistAlerts.length > 0 ? (
-                <div className="crm-lead-command-alert-list">
-                  {receptionistAlerts.slice(0, 3).map((alert) => (
-                    <div key={alert.id} className="crm-card crm-lead-command-alert-card">
-                      <div className="crm-lead-command-alert-head">
-                        <strong>{alert.title}</strong>
-                        <span className={alert.severity === "urgent" ? "crm-chip crm-chip-danger" : "crm-chip crm-chip-warn"}>
-                          {prettyLabel(alert.severity)}
-                        </span>
-                      </div>
-                      <div className="crm-lead-command-alert-body">{alert.message}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="crm-lead-command-timeline">
-                {interactions.length === 0 ? (
-                  <div className="crm-lead-command-empty">
-                    No communication logged yet. Your first call or text will appear here.
-                  </div>
-                ) : (
-                  interactions.map((interaction) => (
-                    <article key={interaction.id} className="crm-card crm-lead-command-timeline-item">
-                      <div className="crm-lead-command-timeline-head">
-                        <div className="crm-lead-command-timeline-meta">
-                          {interactionChannelLabel(interaction.channel)} • {interactionDirectionLabel(interaction.direction)} • {prettyLabel(interaction.interaction_type)}
-                        </div>
-                        <span className={interactionStatusChipClass(interaction.status)}>{prettyLabel(interaction.status)}</span>
-                      </div>
-                      <div className="crm-lead-command-timeline-body">
-                        {interaction.raw_message_body || interaction.summary || "No message body available."}
-                      </div>
-                      <div className="crm-lead-command-timeline-foot">
-                        {formatDateTime(interaction.created_at)}
-                      </div>
-                    </article>
-                  ))
-                )}
-              </div>
-
-              <div className="crm-lead-command-composer">
-                <label className="crm-lead-command-composer-label" htmlFor="lead-command-sms">
-                  Send a text
-                </label>
-                <textarea
-                  id="lead-command-sms"
-                  ref={composerRef}
-                  value={smsDraft}
-                  onChange={(event) => setSmsDraft(event.target.value)}
-                  placeholder="Draft a quick follow-up from your Merlyn business number..."
-                  rows={4}
-                />
-                <div className="crm-lead-command-composer-actions">
-                  <button
-                    type="button"
-                    className="crm-btn crm-btn-primary"
-                    onClick={sendSmsMessage}
-                    disabled={!smsDraft.trim() || smsSending || !canSendText}
-                  >
-                    {smsSending ? "Sending..." : "Send Text"}
-                  </button>
-                  <button
-                    type="button"
-                    className="crm-btn crm-btn-secondary"
-                    onClick={() => setSmsDraft("")}
-                    disabled={!smsDraft.trim() || smsSending}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
             </div>
           </section>
 
@@ -663,6 +388,35 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
         </div>
 
         <div className="crm-lead-command-side-column">
+          <section className="crm-card crm-section-card">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">Deal Details</h2>
+                <p className="crm-section-subtitle">
+                  Revenue context stays near the top once this lead becomes active business.
+                </p>
+              </div>
+              {stageLabel ? (
+                <span className={stageLabel.toLowerCase() === "closed" ? "crm-chip crm-chip-ok" : "crm-chip"}>
+                  {stageLabel}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="crm-lead-command-fact-grid">
+              <MetricField label="Sale price" value={formatCurrency(dealPrice)} />
+              <MetricField label="Commission %" value={formatPercentLabel(commissionPercent)} />
+              <MetricField label="Commission amount" value={formatCurrency(commissionAmount)} />
+              <MetricField label="Close date" value={firstNonEmpty(lead.close_date) || "Not scheduled yet"} />
+            </div>
+
+            <div className="crm-lead-command-inline-note">
+              {hasDealDetails
+                ? "Revenue details are tracked here once the lead becomes active business."
+                : "Deal details can be added once this inquiry becomes active business."}
+            </div>
+          </section>
+
           <section className="crm-card crm-section-card">
             <div className="crm-section-head">
               <div>
@@ -731,35 +485,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
           </section>
         </div>
       </div>
-
-      <section className="crm-card crm-section-card">
-        <div className="crm-section-head">
-          <div>
-            <h2 className="crm-section-title">Deal Details</h2>
-            <p className="crm-section-subtitle">
-              Keep revenue context close, but after contact and follow-up information.
-            </p>
-          </div>
-          {stageLabel ? (
-            <span className={stageLabel.toLowerCase() === "closed" ? "crm-chip crm-chip-ok" : "crm-chip"}>
-              {stageLabel}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="crm-lead-command-fact-grid">
-          <MetricField label="Sale price" value={formatCurrency(dealPrice)} />
-          <MetricField label="Commission %" value={formatPercentLabel(commissionPercent)} />
-          <MetricField label="Commission amount" value={formatCurrency(commissionAmount)} />
-          <MetricField label="Close date" value={firstNonEmpty(lead.close_date) || "Not scheduled yet"} />
-        </div>
-
-        <div className="crm-lead-command-inline-note">
-          {hasDealDetails
-            ? "Revenue details are tracked here once the lead becomes active business."
-            : "Deal details will matter once contact is made, the lead is qualified, and active business begins."}
-        </div>
-      </section>
 
       <details className="crm-card crm-section-card crm-lead-command-advanced">
         <summary className="crm-lead-command-advanced-summary">Advanced Data</summary>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   asInputDate,
   asInputNumber,
@@ -49,49 +49,6 @@ type LeadDetail = {
   created_at?: string | null;
   source_detail: Record<string, unknown> | null;
   custom_fields: Record<string, unknown> | null;
-};
-
-type LeadInteraction = {
-  id: string;
-  channel: "sms" | "missed_call_textback" | "call_outbound" | "call_inbound" | "system" | "voice";
-  direction: "in" | "out" | "system";
-  interaction_type: string;
-  status: "queued" | "sent" | "delivered" | "received" | "missed" | "completed" | "failed" | "logged";
-  raw_transcript: string | null;
-  raw_message_body: string | null;
-  summary: string | null;
-  structured_payload: Record<string, unknown>;
-  provider_message_id: string | null;
-  provider_call_id: string | null;
-  created_at: string;
-};
-
-type ReceptionistAlert = {
-  id: string;
-  alert_type: string;
-  severity: "info" | "high" | "urgent";
-  title: string;
-  message: string;
-  status: "open" | "acknowledged" | "resolved";
-  metadata: Record<string, unknown>;
-  created_at: string;
-};
-
-type LeadThreadResponse = {
-  thread?: {
-    lead?: {
-      urgency_level?: string | null;
-      urgency_score?: number | null;
-    };
-    interactions?: LeadInteraction[];
-    alerts?: ReceptionistAlert[];
-  };
-  channel?: {
-    receptionist_enabled?: boolean;
-    communications_enabled?: boolean;
-    business_phone_number?: string;
-  };
-  error?: string;
 };
 
 type LeadDetailResponse = {
@@ -470,56 +427,14 @@ function MiniField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function interactionStatusChipClass(status: LeadInteraction["status"]): string {
-  if (status === "failed" || status === "missed") return "crm-chip crm-chip-danger";
-  if (status === "queued" || status === "sent") return "crm-chip crm-chip-warn";
-  if (status === "delivered" || status === "received" || status === "completed") return "crm-chip crm-chip-ok";
-  return "crm-chip";
-}
-
-function interactionChannelLabel(channel: LeadInteraction["channel"]): string {
-  if (channel === "sms") return "SMS";
-  if (channel === "missed_call_textback") return "Missed Call Text-Back";
-  if (channel === "call_outbound") return "Outbound Call";
-  if (channel === "call_inbound") return "Inbound Call";
-  if (channel === "voice") return "Voice";
-  return "System";
-}
-
-function interactionDirectionLabel(direction: LeadInteraction["direction"]): string {
-  if (direction === "in") return "Inbound";
-  if (direction === "out") return "Outbound";
-  return "System";
-}
-
-function sortedInteractions(items: LeadInteraction[]): LeadInteraction[] {
-  return [...items].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
-}
-
-function upsertInteraction(items: LeadInteraction[], next: LeadInteraction): LeadInteraction[] {
-  const map = new Map<string, LeadInteraction>();
-  for (const item of items) map.set(item.id, item);
-  map.set(next.id, next);
-  return sortedInteractions(Array.from(map.values()));
-}
-
 export default function LeadDetailPanel({ leadId, open, initialLead = null, onClose }: LeadDetailPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [reminders, setReminders] = useState<ReminderPreview[]>([]);
-  const [interactions, setInteractions] = useState<LeadInteraction[]>([]);
-  const [receptionistAlerts, setReceptionistAlerts] = useState<ReceptionistAlert[]>([]);
-  const [threadLoading, setThreadLoading] = useState(false);
-  const [threadError, setThreadError] = useState("");
-  const [smsDraft, setSmsDraft] = useState("");
-  const [smsSending, setSmsSending] = useState(false);
-  const [commNotice, setCommNotice] = useState("");
   const [dealDraft, setDealDraft] = useState<DealDraft | null>(null);
   const [dealSaving, setDealSaving] = useState(false);
   const [dealNotice, setDealNotice] = useState("");
-  const communicationSectionRef = useRef<HTMLElement | null>(null);
-  const smsComposerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const seededLead = useMemo<LeadDetail | null>(() => {
     if (!initialLead) return null;
@@ -572,12 +487,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     if (!open || !leadId) return;
     setLead(seededLead);
     setReminders([]);
-    setInteractions([]);
-    setReceptionistAlerts([]);
     setError("");
-    setThreadError("");
-    setCommNotice("");
-    setSmsDraft("");
     setDealNotice("");
   }, [leadId, open, seededLead]);
 
@@ -623,56 +533,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   }, [leadId, open]);
 
   useEffect(() => {
-    const selectedLeadId = leadId;
-    if (!open || !selectedLeadId) return;
-    let cancelled = false;
-
-    async function loadThread(currentLeadId: string) {
-      setThreadLoading(true);
-      try {
-        const response = await fetch(`/api/receptionist/threads/${encodeURIComponent(currentLeadId)}`, {
-          cache: "no-store",
-        });
-        const data = (await response.json()) as LeadThreadResponse;
-
-        if (!response.ok || !data.thread) {
-          if (!cancelled) setThreadError(data.error || "Communication history is unavailable.");
-          return;
-        }
-
-        if (!cancelled) {
-          setThreadError("");
-          setInteractions(sortedInteractions(data.thread.interactions || []));
-          setReceptionistAlerts(data.thread.alerts || []);
-          const urgencyLevel = data.thread.lead?.urgency_level ?? null;
-          const urgencyScore =
-            typeof data.thread.lead?.urgency_score === "number"
-              ? data.thread.lead.urgency_score
-              : null;
-          setLead((previous) =>
-            previous
-              ? {
-                  ...previous,
-                  urgency_level: urgencyLevel,
-                  urgency_score: urgencyScore,
-                }
-              : previous
-          );
-        }
-      } catch {
-        if (!cancelled) setThreadError("Communication history is unavailable.");
-      } finally {
-        if (!cancelled) setThreadLoading(false);
-      }
-    }
-
-    void loadThread(selectedLeadId);
-    return () => {
-      cancelled = true;
-    };
-  }, [leadId, open]);
-
-  useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -698,13 +558,9 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const phoneValue = firstNonEmpty(displayLead?.canonical_phone || null);
   const nameValue = displayLead ? leadContactName(displayLead) : "Not provided";
   const phoneActionValue = toPhoneActionValue(phoneValue);
+  const phoneHref = phoneActionValue ? `tel:${phoneActionValue}` : null;
   const emailHref = emailValue ? `mailto:${encodeURIComponent(emailValue)}` : null;
   const externalAction = displayLead ? externalActionForLead(displayLead, handleValue) : null;
-
-  const communicationBlocker = !phoneActionValue
-    ? "No phone number is stored for this lead."
-    : null;
-  const canRunCommunications = !communicationBlocker;
   const urgencyLabel = prettyLabel(displayLead?.urgency_level);
   const urgencyScore =
     typeof displayLead?.urgency_score === "number" && Number.isFinite(displayLead.urgency_score)
@@ -772,7 +628,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
       items.push("New leads convert best with rapid response. Make first contact as soon as possible.");
     }
     if (temp === "hot" && staleDays !== null && staleDays >= 1) {
-      items.push("Hot lead has gone quiet. Prioritize a same-day call or SMS re-engagement.");
+      items.push("Hot lead has gone quiet. Prioritize a same-day call or email re-engagement.");
     }
     if (pendingReminders.length > 0) {
       items.push(
@@ -791,51 +647,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
 
     return items.slice(0, 4);
   }, [displayLead, pendingReminders.length]);
-
-  function focusTextComposer() {
-    communicationSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => smsComposerRef.current?.focus(), 120);
-  }
-
-  async function sendSmsMessage() {
-    const text = smsDraft.trim();
-    if (!text || !displayLead?.id) return;
-    if (communicationBlocker) {
-      setCommNotice(communicationBlocker);
-      return;
-    }
-    setSmsSending(true);
-    setCommNotice("");
-    try {
-      const response = await fetch(`/api/receptionist/threads/${encodeURIComponent(displayLead.id)}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      const data = (await response.json()) as {
-        interaction?: LeadInteraction;
-        delivery?: { ok?: boolean; status?: string; error?: string };
-        error?: string;
-      };
-
-      if (!response.ok || !data.interaction) {
-        setCommNotice(data.error || "Could not send text.");
-        return;
-      }
-
-      setSmsDraft("");
-      setInteractions((previous) => upsertInteraction(previous, data.interaction as LeadInteraction));
-      if (data.delivery?.ok) {
-        setCommNotice("Text sent from your Merlyn business number.");
-      } else {
-        setCommNotice(data.delivery?.error || "Message logged, but external delivery failed.");
-      }
-    } catch {
-      setCommNotice("Could not send text.");
-    } finally {
-      setSmsSending(false);
-    }
-  }
 
   function updateDealPrice(value: string) {
     setDealDraft((previous) => {
@@ -1018,14 +829,11 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                       gap: 8,
                     }}
                   >
-                    <button
-                      type="button"
-                      className="crm-btn crm-btn-secondary"
-                      onClick={focusTextComposer}
-                      disabled={!canRunCommunications}
-                    >
-                      Text
-                    </button>
+                    {phoneHref ? (
+                      <a className="crm-btn crm-btn-secondary" href={phoneHref}>Call</a>
+                    ) : (
+                      <button type="button" className="crm-btn crm-btn-secondary" disabled>Call</button>
+                    )}
                     {emailHref ? (
                       <a className="crm-btn crm-btn-secondary" href={emailHref}>Email</a>
                     ) : (
@@ -1040,103 +848,11 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                     )}
                   </div>
 
-                  {communicationBlocker ? (
+                  {!phoneHref ? (
                     <div style={{ marginTop: 8, fontSize: 12, color: "var(--ink-muted)" }}>
-                      {communicationBlocker}
+                      No phone number is stored for this lead.
                     </div>
                   ) : null}
-                </section>
-
-                <section ref={communicationSectionRef} className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Communications</h2>
-                    <span className="crm-chip">{interactions.length} interaction(s)</span>
-                  </div>
-
-                  {threadLoading ? (
-                    <div style={{ marginTop: 8, fontSize: 13, color: "var(--ink-muted)" }}>Loading communication history...</div>
-                  ) : null}
-                  {threadError ? (
-                    <div style={{ marginTop: 8, fontSize: 13, color: "var(--warn)" }}>{threadError}</div>
-                  ) : null}
-                  {commNotice ? (
-                    <div style={{ marginTop: 8, fontSize: 13, color: "var(--ink-muted)" }}>{commNotice}</div>
-                  ) : null}
-
-                  {receptionistAlerts.length > 0 ? (
-                    <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                      {receptionistAlerts.slice(0, 3).map((alert) => (
-                        <div key={alert.id} className="crm-card" style={{ padding: 10 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                            <strong style={{ fontSize: 13 }}>{alert.title}</strong>
-                            <span className={alert.severity === "urgent" ? "crm-chip crm-chip-danger" : "crm-chip crm-chip-warn"}>
-                              {prettyLabel(alert.severity)}
-                            </span>
-                          </div>
-                          <div style={{ marginTop: 6, fontSize: 13, color: "var(--ink-muted)" }}>{alert.message}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <div style={{ marginTop: 10, display: "grid", gap: 8, maxHeight: 300, overflowY: "auto" }}>
-                    {interactions.length === 0 ? (
-                      <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>No call or text history yet.</div>
-                    ) : (
-                      interactions.map((interaction) => (
-                        <article key={interaction.id} className="crm-card" style={{ padding: 10 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
-                              {interactionChannelLabel(interaction.channel)} • {interactionDirectionLabel(interaction.direction)} • {prettyLabel(interaction.interaction_type)}
-                            </div>
-                            <span className={interactionStatusChipClass(interaction.status)}>{prettyLabel(interaction.status)}</span>
-                          </div>
-                          <div style={{ marginTop: 6, fontSize: 13, whiteSpace: "pre-wrap" }}>
-                            {interaction.raw_message_body || interaction.summary || "No content available."}
-                          </div>
-                          {interaction.raw_transcript ? (
-                            <details style={{ marginTop: 8 }}>
-                              <summary style={{ fontSize: 12, color: "var(--ink-muted)", cursor: "pointer" }}>View transcript</summary>
-                              <div style={{ marginTop: 6, fontSize: 12, whiteSpace: "pre-wrap" }}>{interaction.raw_transcript}</div>
-                            </details>
-                          ) : null}
-                          <div style={{ marginTop: 6, fontSize: 11, color: "var(--ink-muted)" }}>
-                            {formatDateTime(interaction.created_at)}
-                            {interaction.provider_message_id ? ` • msg:${interaction.provider_message_id}` : ""}
-                            {interaction.provider_call_id ? ` • call:${interaction.provider_call_id}` : ""}
-                          </div>
-                        </article>
-                      ))
-                    )}
-                  </div>
-
-                  <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                    <textarea
-                      ref={smsComposerRef}
-                      value={smsDraft}
-                      onChange={(event) => setSmsDraft(event.target.value)}
-                      placeholder="Send a text from your Merlyn business number..."
-                      rows={3}
-                    />
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        className="crm-btn crm-btn-primary"
-                        onClick={sendSmsMessage}
-                        disabled={!smsDraft.trim() || smsSending || !canRunCommunications}
-                      >
-                        {smsSending ? "Sending..." : "Send Text"}
-                      </button>
-                      <button
-                        type="button"
-                        className="crm-btn crm-btn-secondary"
-                        onClick={() => setSmsDraft("")}
-                        disabled={!smsDraft.trim() || smsSending}
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
                 </section>
 
                 <section className="crm-card-muted" style={{ padding: 12 }}>
@@ -1174,52 +890,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
               </div>
 
               <div style={{ display: "grid", gap: 12 }}>
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Follow-Ups</h2>
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    <MiniField label="Recommended next action" value={recommendedAction} />
-                    <MiniField
-                      label="Next step"
-                      value={firstNonEmpty(displayLead.next_step) || "Set a specific next action for this lead."}
-                    />
-                    <MiniField
-                      label="Contact preference"
-                      value={firstNonEmpty(displayLead.contact_preference) || "Not set yet"}
-                    />
-                  </div>
-                </section>
-
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Reminders</h2>
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    <MiniField label="Pending reminders" value={String(pendingReminders.length)} />
-                    <MiniField
-                      label="Next reminder"
-                      value={
-                        nextReminder
-                          ? `${formatDateTime(nextReminder.due_at)}${nextReminder.note ? ` • ${nextReminder.note}` : ""}`
-                          : "No reminders scheduled."
-                      }
-                    />
-                  </div>
-                </section>
-
-                <section className="crm-card-muted" style={{ padding: 12 }}>
-                  <div className="crm-section-head">
-                    <h2 className="crm-section-title">Recent Activity</h2>
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    <MiniField label="Last message" value={lastActivityText || "No recent activity yet."} />
-                    <MiniField label="Last communication" value={lastCommunicationText || "No communication logged"} />
-                    <MiniField label="Profile updated" value={lastUpdatedText || "No timestamp available"} />
-                    <MiniField label="Lead created" value={createdAtText || "No timestamp available"} />
-                  </div>
-                </section>
-
                 <section className="crm-card-muted" style={{ padding: 12 }}>
                   <div className="crm-section-head">
                     <h2 className="crm-section-title">Deal Details</h2>
@@ -1320,6 +990,52 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                         Add sale price and commission details to unlock revenue metrics.
                       </div>
                     ) : null}
+                  </div>
+                </section>
+
+                <section className="crm-card-muted" style={{ padding: 12 }}>
+                  <div className="crm-section-head">
+                    <h2 className="crm-section-title">Follow-Ups</h2>
+                  </div>
+                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                    <MiniField label="Recommended next action" value={recommendedAction} />
+                    <MiniField
+                      label="Next step"
+                      value={firstNonEmpty(displayLead.next_step) || "Set a specific next action for this lead."}
+                    />
+                    <MiniField
+                      label="Contact preference"
+                      value={firstNonEmpty(displayLead.contact_preference) || "Not set yet"}
+                    />
+                  </div>
+                </section>
+
+                <section className="crm-card-muted" style={{ padding: 12 }}>
+                  <div className="crm-section-head">
+                    <h2 className="crm-section-title">Reminders</h2>
+                  </div>
+                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                    <MiniField label="Pending reminders" value={String(pendingReminders.length)} />
+                    <MiniField
+                      label="Next reminder"
+                      value={
+                        nextReminder
+                          ? `${formatDateTime(nextReminder.due_at)}${nextReminder.note ? ` • ${nextReminder.note}` : ""}`
+                          : "No reminders scheduled."
+                      }
+                    />
+                  </div>
+                </section>
+
+                <section className="crm-card-muted" style={{ padding: 12 }}>
+                  <div className="crm-section-head">
+                    <h2 className="crm-section-title">Recent Activity</h2>
+                  </div>
+                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                    <MiniField label="Last message" value={lastActivityText || "No recent activity yet."} />
+                    <MiniField label="Last communication" value={lastCommunicationText || "No communication logged"} />
+                    <MiniField label="Profile updated" value={lastUpdatedText || "No timestamp available"} />
+                    <MiniField label="Lead created" value={createdAtText || "No timestamp available"} />
                   </div>
                 </section>
 
