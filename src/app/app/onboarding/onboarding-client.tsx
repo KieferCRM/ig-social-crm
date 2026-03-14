@@ -150,7 +150,17 @@ export default function OnboardingClient({
               <div className="crm-onboarding-brand-subtitle">Inbound lead CRM for solo agents</div>
             </div>
           </div>
-          <span className="crm-chip crm-chip-ok">First-time setup</span>
+          <div className="crm-onboarding-header-actions">
+            <span className="crm-chip crm-chip-ok">First-time setup</span>
+            <button
+              type="button"
+              className="crm-btn crm-btn-secondary"
+              onClick={completeOnboarding}
+              disabled={isCompleting}
+            >
+              {isCompleting ? "Opening..." : "Go To My CRM"}
+            </button>
+          </div>
         </header>
 
         <section className="crm-onboarding-hero crm-onboarding-hero-compact">

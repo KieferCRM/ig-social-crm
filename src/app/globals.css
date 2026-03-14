@@ -4460,6 +4460,14 @@ input:focus, textarea:focus, select:focus {
   gap: 16px;
 }
 
+.crm-onboarding-header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .crm-onboarding-brand {
   display: inline-flex;
   align-items: center;
@@ -5116,6 +5124,11 @@ input:focus, textarea:focus, select:focus {
     align-items: flex-start;
   }
 
+  .crm-onboarding-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .crm-onboarding-hero,
   .crm-onboarding-card {
     padding: 18px;
@@ -5141,6 +5154,7 @@ input:focus, textarea:focus, select:focus {
   .crm-onboarding-link-actions .crm-btn,
   .crm-onboarding-qr-actions .crm-btn,
   .crm-onboarding-success-actions .crm-btn,
+  .crm-onboarding-header-actions .crm-btn,
   .crm-onboarding-simulate-btn {
     width: 100%;
   }
