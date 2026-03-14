@@ -135,12 +135,6 @@ function leadTempChipClass(leadTemp: string | null): string {
   return "crm-chip";
 }
 
-function toPhoneActionValue(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const normalized = value.replace(/[^\d+]/g, "").trim();
-  return normalized || null;
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -190,7 +184,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
   const lead = initialLead;
   const displayName = useMemo(() => leadDisplayName(lead), [lead]);
   const phoneValue = firstNonEmpty(lead.canonical_phone);
-  const phoneActionValue = toPhoneActionValue(phoneValue);
   const emailValue = firstNonEmpty(lead.canonical_email);
   const handleValue = cleanHandle(lead.ig_username);
   const sourceLabel = sourceDisplayLabel(lead.source) || "Unspecified source";
@@ -278,26 +271,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
         </div>
 
         <div className="crm-lead-command-hero-actions">
-          <div className="crm-lead-command-primary-actions">
-            {phoneActionValue ? (
-              <a href={`tel:${phoneActionValue}`} className="crm-btn crm-btn-primary">
-                Call
-              </a>
-            ) : (
-              <button type="button" className="crm-btn crm-btn-primary" disabled>
-                Call
-              </button>
-            )}
-            {emailValue ? (
-              <a href={`mailto:${encodeURIComponent(emailValue)}`} className="crm-btn crm-btn-primary">
-                Email
-              </a>
-            ) : (
-              <button type="button" className="crm-btn crm-btn-primary" disabled>
-                Email
-              </button>
-            )}
-          </div>
           <div className="crm-lead-command-secondary-actions">
             <Link href="/app/kanban" className="crm-btn crm-btn-secondary">
               Open in Pipeline
@@ -319,16 +292,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
           </p>
         </div>
         <div className="crm-lead-command-next-actions">
-          {phoneActionValue ? (
-            <a href={`tel:${phoneActionValue}`} className="crm-btn crm-btn-primary">
-              Call Now
-            </a>
-          ) : null}
-          {emailValue ? (
-            <a href={`mailto:${encodeURIComponent(emailValue)}`} className="crm-btn crm-btn-secondary">
-              Email Lead
-            </a>
-          ) : null}
           <Link href="/app/kanban" className="crm-btn crm-btn-secondary">
             Update Stage
           </Link>
@@ -351,7 +314,7 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
               <div>
                 <h2 className="crm-section-title">Contact and Lead Details</h2>
                 <p className="crm-section-subtitle">
-                  The core information you need before making contact or moving the lead forward.
+                  The core information you need to qualify the lead and move the conversation forward.
                 </p>
               </div>
             </div>
@@ -472,7 +435,7 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
               <div>
                 <h2 className="crm-section-title">Recent Activity</h2>
                 <p className="crm-section-subtitle">
-                  Quick context before you call, text, or move the lead.
+                  Quick context before you update the stage or set the next step.
                 </p>
               </div>
             </div>

@@ -212,41 +212,9 @@ function leadTempChipClass(leadTemp: string | null): string {
   return "crm-chip";
 }
 
-function toPhoneActionValue(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const normalized = value.replace(/[^\d+]/g, "").trim();
-  return normalized || null;
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
-}
-
-function firstStringFromRecord(
-  record: Record<string, unknown> | null,
-  keys: string[]
-): string | null {
-  if (!record) return null;
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value !== "string") continue;
-    const trimmed = value.trim();
-    if (trimmed) return trimmed;
-  }
-  return null;
-}
-
-function normalizeHttpUrl(value: string | null): string | null {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (/^www\./i.test(trimmed)) return `https://${trimmed}`;
-  if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(trimmed) && !/\s/.test(trimmed)) {
-    return `https://${trimmed}`;
-  }
-  return null;
 }
 
 function leadContactName(lead: LeadDetail): string {
@@ -257,111 +225,6 @@ function leadContactName(lead: LeadDetail): string {
   const combined = [first, last].filter(Boolean).join(" ").trim();
   if (combined) return combined;
   return "Not provided";
-}
-
-function primaryHandleFromLead(lead: LeadDetail): string | null {
-  const direct = cleanHandle(lead.ig_username);
-  if (direct) return direct;
-
-  const source = asRecord(lead.source_detail);
-  const custom = asRecord(lead.custom_fields);
-  const raw =
-    firstStringFromRecord(source, [
-      "primary_handle",
-      "handle",
-      "username",
-      "social_handle",
-      "instagram_handle",
-      "facebook_handle",
-      "tiktok_handle",
-    ]) ||
-    firstStringFromRecord(custom, [
-      "primary_handle",
-      "handle",
-      "username",
-      "social_handle",
-      "instagram_handle",
-      "facebook_handle",
-      "tiktok_handle",
-    ]);
-
-  if (!raw) return null;
-  const cleaned = raw.replace(/^@+/, "").trim();
-  if (!cleaned || cleaned.includes(" ")) return null;
-  return `@${cleaned}`;
-}
-
-function sourceUrlFromLead(lead: LeadDetail): string | null {
-  const source = asRecord(lead.source_detail);
-  const custom = asRecord(lead.custom_fields);
-  const fromSource =
-    firstStringFromRecord(source, [
-      "profile_url",
-      "external_profile_url",
-      "source_url",
-      "origin_url",
-      "landing_page_url",
-      "website_url",
-      "website",
-      "form_url",
-      "referrer_url",
-      "facebook_profile_url",
-      "instagram_profile_url",
-    ]) ||
-    firstStringFromRecord(custom, [
-      "profile_url",
-      "external_profile_url",
-      "source_url",
-      "origin_url",
-      "landing_page_url",
-      "website_url",
-      "website",
-      "form_url",
-      "referrer_url",
-      "facebook_profile_url",
-      "instagram_profile_url",
-    ]);
-  return normalizeHttpUrl(fromSource);
-}
-
-function sourceLabelForExternalAction(url: string): string {
-  const normalized = url.toLowerCase();
-  if (normalized.includes("instagram.com")) return "Open Instagram Profile";
-  if (normalized.includes("facebook.com")) return "Open Facebook Profile";
-  if (normalized.includes("tiktok.com")) return "Open TikTok Profile";
-  if (normalized.includes("linkedin.com")) return "Open LinkedIn Profile";
-  return "Open Source Page";
-}
-
-function externalActionForLead(
-  lead: LeadDetail,
-  primaryHandle: string | null
-): { label: string; href: string } | null {
-  const explicitUrl = sourceUrlFromLead(lead);
-  if (explicitUrl) {
-    return {
-      label: sourceLabelForExternalAction(explicitUrl),
-      href: explicitUrl,
-    };
-  }
-
-  if (!primaryHandle) return null;
-
-  const handle = primaryHandle.replace(/^@+/, "").trim();
-  if (!handle) return null;
-
-  const normalizedSource = (lead.source || "").trim().toLowerCase();
-  if (normalizedSource.includes("facebook") || normalizedSource === "fb") {
-    return {
-      label: "Open Facebook Profile",
-      href: `https://www.facebook.com/${encodeURIComponent(handle)}`,
-    };
-  }
-
-  return {
-    label: normalizedSource.includes("instagram") || normalizedSource === "ig" ? "Open Instagram Profile" : "Open Profile",
-    href: `https://www.instagram.com/${encodeURIComponent(handle)}/`,
-  };
 }
 
 function fieldLabel(key: string): string {
@@ -553,14 +416,9 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const stageLabel = displayLead ? prettyLabel(displayLead.stage) : "";
   const tempLabel = displayLead ? prettyLabel(displayLead.lead_temp) : "";
   const sourceLabel = displayLead ? sourceDisplayLabel(displayLead.source) : "";
-  const handleValue = displayLead ? primaryHandleFromLead(displayLead) : null;
   const emailValue = firstNonEmpty(displayLead?.canonical_email || null);
   const phoneValue = firstNonEmpty(displayLead?.canonical_phone || null);
   const nameValue = displayLead ? leadContactName(displayLead) : "Not provided";
-  const phoneActionValue = toPhoneActionValue(phoneValue);
-  const phoneHref = phoneActionValue ? `tel:${phoneActionValue}` : null;
-  const emailHref = emailValue ? `mailto:${encodeURIComponent(emailValue)}` : null;
-  const externalAction = displayLead ? externalActionForLead(displayLead, handleValue) : null;
   const urgencyLabel = prettyLabel(displayLead?.urgency_level);
   const urgencyScore =
     typeof displayLead?.urgency_score === "number" && Number.isFinite(displayLead.urgency_score)
@@ -820,39 +678,6 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                     <MiniField label="Phone" value={phoneValue || "Not provided"} />
                     <MiniField label="Email" value={emailValue || "Not provided"} />
                   </div>
-
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                      gap: 8,
-                    }}
-                  >
-                    {phoneHref ? (
-                      <a className="crm-btn crm-btn-secondary" href={phoneHref}>Call</a>
-                    ) : (
-                      <button type="button" className="crm-btn crm-btn-secondary" disabled>Call</button>
-                    )}
-                    {emailHref ? (
-                      <a className="crm-btn crm-btn-secondary" href={emailHref}>Email</a>
-                    ) : (
-                      <button type="button" className="crm-btn crm-btn-secondary" disabled>Email</button>
-                    )}
-                    {externalAction ? (
-                      <a className="crm-btn crm-btn-secondary" href={externalAction.href} target="_blank" rel="noopener noreferrer">
-                        {externalAction.label}
-                      </a>
-                    ) : (
-                      <button type="button" className="crm-btn crm-btn-secondary" disabled>Open Source/Profile</button>
-                    )}
-                  </div>
-
-                  {!phoneHref ? (
-                    <div style={{ marginTop: 8, fontSize: 12, color: "var(--ink-muted)" }}>
-                      No phone number is stored for this lead.
-                    </div>
-                  ) : null}
                 </section>
 
                 <section className="crm-card-muted" style={{ padding: 12 }}>
