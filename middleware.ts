@@ -1,6 +1,7 @@
 // middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
@@ -11,13 +12,6 @@ export async function middleware(req: NextRequest) {
   const isHomeRoute = pathname === "/";
   const isLegacySelectWorkspaceRoute = pathname === "/app/select-workspace";
   const isOnboardingRoute = pathname === "/app/onboarding";
-
-  if (isOnboardingRoute) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/app";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
 
   if (process.env.NODE_ENV === "production" && isPingRoute) {
     return new NextResponse("Not Found", { status: 404 });
@@ -67,6 +61,31 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = "/auth";
     return NextResponse.redirect(url);
+  }
+
+  if (isAppRoute && user) {
+    const { data: agentRow } = await supabase
+      .from("agents")
+      .select("settings")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
+    const needsOnboarding = !onboardingState.has_completed_onboarding;
+
+    if (needsOnboarding && !isOnboardingRoute) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/app/onboarding";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    if (!needsOnboarding && isOnboardingRoute) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/app";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return res;

@@ -12,6 +12,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const supabase = useMemo(() => supabaseBrowser(), []);
 
+  if (pathname.startsWith("/app/onboarding")) {
+    return <>{children}</>;
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/auth");
