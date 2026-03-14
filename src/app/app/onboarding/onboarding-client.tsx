@@ -154,7 +154,7 @@ export default function OnboardingClient({
             <span className="crm-chip crm-chip-ok">First-time setup</span>
             <button
               type="button"
-              className="crm-btn crm-btn-secondary"
+              className="crm-btn crm-btn-primary"
               onClick={completeOnboarding}
               disabled={isCompleting}
             >
@@ -383,15 +383,6 @@ export default function OnboardingClient({
             <div className="crm-onboarding-card-kicker">You’re Ready</div>
             <h2>You&apos;re ready to capture leads.</h2>
             <p>Put your link in front of real clients and Merlyn will handle the first step automatically.</p>
-
-            <div className="crm-onboarding-success-actions">
-              <button type="button" className="crm-btn crm-btn-primary" onClick={completeOnboarding} disabled={isCompleting}>
-                {isCompleting ? "Finishing..." : "Go To My CRM"}
-              </button>
-              <button type="button" className="crm-btn crm-btn-secondary" onClick={handleCopyLink}>
-                Copy My Intake Link
-              </button>
-            </div>
 
             <div className="crm-onboarding-next-strip">
               <span>Add the link to your Instagram bio</span>
