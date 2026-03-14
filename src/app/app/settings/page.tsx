@@ -30,7 +30,7 @@ export default function SettingsPage() {
         <section className="crm-card crm-section-card crm-stack-10">
           <div style={{ fontWeight: 700 }}>Concierge</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-            Unlock missed-call follow-up, direct calling and texting in supported workspaces, and cleaner communication workflows.
+            Premium upgrade for missed-call follow-up, direct calling and texting in supported workspaces, and cleaner communication workflows.
           </p>
           <div>
             <Link href="/app/settings/receptionist" className="crm-btn crm-btn-primary">
@@ -56,7 +56,7 @@ export default function SettingsPage() {
           <h2 className="crm-section-title">Need a quick check?</h2>
         </div>
         <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-          If you are getting ready to launch or share the product more widely, start with intake, receptionist, and legal.
+          If you are getting ready to launch or share the product more widely, start with intake, Concierge, and legal.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link href="/app/intake" className="crm-btn crm-btn-secondary">

@@ -167,7 +167,7 @@ function phoneSetupStatusMeta(status: ReceptionistPhoneSetupStatus): StatusMeta 
   return {
     label: "Not configured",
     toneClass: "crm-chip crm-chip-warn",
-    helper: "Choose a phone setup path to activate receptionist call/text routing.",
+    helper: "Choose a phone setup path to unlock Concierge calling and texting.",
   };
 }
 
@@ -258,7 +258,7 @@ export default function ReceptionistSettingsPage() {
         const payload = (await response.json()) as SettingsResponse;
 
         if (!response.ok || !payload.settings) {
-          if (!canceled) setMessage(payload.error || "Could not load receptionist settings.");
+          if (!canceled) setMessage(payload.error || "Could not load Concierge settings.");
           return;
         }
 
@@ -267,7 +267,7 @@ export default function ReceptionistSettingsPage() {
           setKeywordsText(keywordsToText(payload.settings.escalation_keywords));
         }
       } catch {
-        if (!canceled) setMessage("Could not load receptionist settings.");
+        if (!canceled) setMessage("Could not load Concierge settings.");
       } finally {
         if (!canceled) setLoading(false);
       }
@@ -411,7 +411,7 @@ export default function ReceptionistSettingsPage() {
           <div className="crm-page-header-main">
             <h1 className="crm-page-title">Concierge</h1>
             <p className="crm-page-subtitle">
-              Configure missed-call follow-up, direct calling and texting unlocks, and how serious inbound opportunities stay moving.
+              Concierge is the premium upgrade for missed-call follow-up, direct calling and texting, and faster response on serious inbound inquiries.
             </p>
           </div>
           <div className="crm-page-actions">
@@ -443,9 +443,8 @@ export default function ReceptionistSettingsPage() {
             </span>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55 }}>
-            When someone contacts your Merlyn business number: your phone can ring first, missed calls can trigger an
-            automatic text, replies continue by SMS, lead details are captured in CRM, and urgent intent can generate
-            alerts.
+            Once Concierge is active, your Merlyn business number can power missed-call text-back, direct SMS
+            conversations, captured lead details, and urgent alerts without bouncing you across separate tools.
           </p>
           <ol
             style={{
@@ -468,7 +467,7 @@ export default function ReceptionistSettingsPage() {
 
       <section className="crm-card crm-section-card crm-stack-10">
         <div className="crm-section-head">
-          <h2 className="crm-section-title">Concierge Status</h2>
+          <h2 className="crm-section-title">Upgrade Status</h2>
           <span className={communicationsActive ? "crm-chip crm-chip-ok" : "crm-chip crm-chip-warn"}>
             {communicationsActive ? "Messaging Active" : "Messaging Paused"}
           </span>
@@ -477,7 +476,7 @@ export default function ReceptionistSettingsPage() {
         <div className="crm-grid-cards-3">
           <ToggleCard
             title="Concierge Active"
-            description="Master control for Concierge workflows. Turn this on to allow Merlyn to respond and capture communication activity."
+            description="Master switch for the Concierge upgrade. Turn this on to unlock Merlyn communication workflows."
             checked={settings.receptionist_enabled}
             onChange={(next) =>
               setSettings((previous) => ({ ...previous, receptionist_enabled: next }))
@@ -485,8 +484,8 @@ export default function ReceptionistSettingsPage() {
           />
           <ToggleCard
             title="Messaging Active"
-            description="Allows SMS send/receive actions from your CRM. This should be on for inbound text qualification and outbound follow-up."
-            helper="Tip: Concierge Active + Messaging Active both need to be on for automatic responses."
+            description="Allows SMS send and receive inside Merlyn after Concierge is enabled."
+            helper="Tip: Concierge Active and Messaging Active both need to be on for automatic responses."
             checked={settings.communications_enabled}
             onChange={(next) =>
               setSettings((previous) => ({ ...previous, communications_enabled: next }))
@@ -494,7 +493,7 @@ export default function ReceptionistSettingsPage() {
           />
           <ToggleCard
             title="Missed Call Auto-Reply"
-            description="When enabled, Merlyn can send your starter SMS after a missed call based on your after-hours rules."
+            description="When enabled, Concierge can send your starter SMS after a missed call based on your after-hours rules."
             checked={settings.missed_call_textback_enabled}
             onChange={(next) =>
               setSettings((previous) => ({ ...previous, missed_call_textback_enabled: next }))
@@ -510,17 +509,17 @@ export default function ReceptionistSettingsPage() {
         </div>
 
         <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-          Choose how you want your public-facing business number configured. New Merlyn number is the fastest path.
+          Choose how Concierge should handle your public-facing business number. A new Merlyn number is the fastest path to activation.
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
           <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0, fontSize: 14 }}>Get a New Merlyn Number</h3>
+            <h3 style={{ margin: 0, fontSize: 14 }}>Get a New Merlyn Number</h3>
               <span className="crm-chip crm-chip-ok">Recommended</span>
             </div>
             <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
-              Fastest onboarding. Merlyn assigns a business number so you can start handling calls and texts quickly.
+              Fastest upgrade setup. Merlyn assigns a business number so Concierge can start handling calls and texts quickly.
             </p>
             <button
               type="button"
@@ -534,11 +533,11 @@ export default function ReceptionistSettingsPage() {
 
           <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0, fontSize: 14 }}>Use My Existing Business Number</h3>
+            <h3 style={{ margin: 0, fontSize: 14 }}>Use My Existing Business Number</h3>
               <span className="crm-chip">Setup-Assisted</span>
             </div>
             <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
-              Keep your current number. Some setups require manual review, forwarding configuration, or porting support.
+              Keep your current number. Some Concierge setups require manual review, forwarding configuration, or porting support.
             </p>
             <button
               type="button"

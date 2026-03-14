@@ -1,0 +1,824 @@
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  buildMissedCallStarterText,
+  readReceptionistSettingsFromAgentSettings,
+  shouldSendMissedCallTextback,
+  type ReceptionistSettings,
+} from "@/lib/receptionist/settings";
+import {
+  extractStructuredFieldsFromSms,
+  nextMissingReceptionistQuestion,
+  normalizePhoneToE164,
+  upsertReceptionistLead,
+  type ReceptionistLeadRow,
+} from "@/lib/receptionist/lead-upsert";
+import { detectUrgency } from "@/lib/receptionist/urgency";
+import {
+  sendReceptionistSms,
+  startReceptionistBridgeCall,
+  type CallBridgeResult,
+  type SmsSendResult,
+} from "@/lib/receptionist/provider";
+
+type AdminClient = ReturnType<typeof supabaseAdmin>;
+
+export type LeadInteractionRow = {
+  id: string;
+  agent_id: string;
+  lead_id: string;
+  channel: "sms" | "missed_call_textback" | "call_outbound" | "call_inbound" | "system" | "voice";
+  direction: "in" | "out" | "system";
+  interaction_type: string;
+  status: "queued" | "sent" | "delivered" | "received" | "missed" | "completed" | "failed" | "logged";
+  raw_transcript: string | null;
+  raw_message_body: string | null;
+  summary: string | null;
+  structured_payload: Record<string, unknown>;
+  provider_message_id: string | null;
+  provider_call_id: string | null;
+  created_at: string;
+};
+
+export type ReceptionistAlertRow = {
+  id: string;
+  agent_id: string;
+  lead_id: string | null;
+  alert_type: string;
+  severity: "info" | "high" | "urgent";
+  title: string;
+  message: string;
+  status: "open" | "acknowledged" | "resolved";
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AgentReceptionistContext = {
+  agentId: string;
+  agentName: string;
+  settings: ReceptionistSettings;
+};
+
+export type LeadCommunicationThread = {
+  lead: Pick<
+    ReceptionistLeadRow,
+    | "id"
+    | "full_name"
+    | "canonical_phone"
+    | "canonical_email"
+    | "stage"
+    | "lead_temp"
+    | "urgency_level"
+    | "urgency_score"
+    | "source"
+  >;
+  interactions: LeadInteractionRow[];
+  alerts: ReceptionistAlertRow[];
+};
+
+export type InboundSmsWorkflowResult = {
+  leadId: string;
+  createdLead: boolean;
+  urgent: boolean;
+  askedQuestion: string | null;
+};
+
+function optionalString(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function compactText(value: string | null | undefined, max = 220): string | null {
+  const text = optionalString(value);
+  if (!text) return null;
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 3)}...`;
+}
+
+function stopsAutomation(messageBody: string): boolean {
+  return /\b(stop|unsubscribe|do\s*not\s*text|don't\s*text|dont\s*text|opt\s*out)\b/i.test(
+    messageBody
+  );
+}
+
+export async function loadAgentReceptionistContext(
+  admin: AdminClient,
+  agentId: string
+): Promise<AgentReceptionistContext> {
+  const { data, error } = await admin
+    .from("agents")
+    .select("full_name,settings")
+    .eq("id", agentId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const settings = readReceptionistSettingsFromAgentSettings(data?.settings || null);
+
+  return {
+    agentId,
+    agentName: optionalString(data?.full_name || null) || "your agent",
+    settings,
+  };
+}
+
+export async function insertLeadInteraction(input: {
+  admin: AdminClient;
+  agentId: string;
+  leadId: string;
+  channel: LeadInteractionRow["channel"];
+  direction: LeadInteractionRow["direction"];
+  interactionType: string;
+  status: LeadInteractionRow["status"];
+  messageBody?: string | null;
+  transcript?: string | null;
+  summary?: string | null;
+  providerMessageId?: string | null;
+  providerCallId?: string | null;
+  structuredPayload?: Record<string, unknown>;
+  createdAt?: string;
+}): Promise<LeadInteractionRow> {
+  const createdAt = input.createdAt || new Date().toISOString();
+
+  const { data, error } = await input.admin
+    .from("lead_interactions")
+    .insert({
+      agent_id: input.agentId,
+      lead_id: input.leadId,
+      channel: input.channel,
+      direction: input.direction,
+      interaction_type: input.interactionType,
+      status: input.status,
+      raw_message_body: optionalString(input.messageBody),
+      raw_transcript: optionalString(input.transcript),
+      summary: compactText(input.summary || input.messageBody || null),
+      structured_payload: input.structuredPayload || {},
+      provider_message_id: optionalString(input.providerMessageId || null),
+      provider_call_id: optionalString(input.providerCallId || null),
+      created_at: createdAt,
+    })
+    .select(
+      "id,agent_id,lead_id,channel,direction,interaction_type,status,raw_transcript,raw_message_body,summary,structured_payload,provider_message_id,provider_call_id,created_at"
+    )
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || "Could not log interaction.");
+  }
+
+  const leadPatch: Record<string, unknown> = {
+    time_last_updated: createdAt,
+    last_communication_at: createdAt,
+  };
+
+  const messagePreview = compactText(input.messageBody || input.summary || null, 180);
+  if (messagePreview) {
+    leadPatch.last_message_preview = messagePreview;
+  }
+
+  await input.admin
+    .from("leads")
+    .update(leadPatch)
+    .eq("id", input.leadId)
+    .eq("agent_id", input.agentId);
+
+  return data as LeadInteractionRow;
+}
+
+export async function createReceptionistAlert(input: {
+  admin: AdminClient;
+  agentId: string;
+  leadId?: string | null;
+  alertType: string;
+  severity: ReceptionistAlertRow["severity"];
+  title: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+}): Promise<ReceptionistAlertRow | null> {
+  const { data, error } = await input.admin
+    .from("receptionist_alerts")
+    .insert({
+      agent_id: input.agentId,
+      lead_id: input.leadId || null,
+      alert_type: input.alertType,
+      severity: input.severity,
+      title: compactText(input.title, 140) || "Receptionist Alert",
+      message: compactText(input.message, 500) || "Lead activity needs attention.",
+      metadata: input.metadata || {},
+      status: "open",
+    })
+    .select("id,agent_id,lead_id,alert_type,severity,title,message,status,metadata,created_at")
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as ReceptionistAlertRow;
+}
+
+async function loadLeadForAgent(
+  admin: AdminClient,
+  agentId: string,
+  leadId: string
+): Promise<ReceptionistLeadRow | null> {
+  const { data, error } = await admin
+    .from("leads")
+    .select(
+      "id,agent_id,ig_username,canonical_email,canonical_phone,raw_email,raw_phone,full_name,first_name,last_name,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,notes,next_step,urgency_level,urgency_score,source_detail"
+    )
+    .eq("id", leadId)
+    .eq("agent_id", agentId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as ReceptionistLeadRow | null) || null;
+}
+
+export async function getLeadCommunicationThread(input: {
+  admin: AdminClient;
+  agentId: string;
+  leadId: string;
+}): Promise<LeadCommunicationThread | null> {
+  const lead = await loadLeadForAgent(input.admin, input.agentId, input.leadId);
+  if (!lead) return null;
+
+  const { data: interactionsData, error: interactionsError } = await input.admin
+    .from("lead_interactions")
+    .select(
+      "id,agent_id,lead_id,channel,direction,interaction_type,status,raw_transcript,raw_message_body,summary,structured_payload,provider_message_id,provider_call_id,created_at"
+    )
+    .eq("agent_id", input.agentId)
+    .eq("lead_id", input.leadId)
+    .order("created_at", { ascending: true })
+    .limit(160);
+
+  if (interactionsError) {
+    throw new Error(interactionsError.message);
+  }
+
+  const { data: alertsData, error: alertsError } = await input.admin
+    .from("receptionist_alerts")
+    .select("id,agent_id,lead_id,alert_type,severity,title,message,status,metadata,created_at")
+    .eq("agent_id", input.agentId)
+    .eq("lead_id", input.leadId)
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (alertsError) {
+    throw new Error(alertsError.message);
+  }
+
+  return {
+    lead: {
+      id: lead.id,
+      full_name: lead.full_name,
+      canonical_phone: lead.canonical_phone,
+      canonical_email: lead.canonical_email,
+      stage: lead.stage,
+      lead_temp: lead.lead_temp,
+      urgency_level: lead.urgency_level,
+      urgency_score: lead.urgency_score,
+      source: lead.source,
+    },
+    interactions: ((interactionsData || []) as LeadInteractionRow[]).map((row) => ({
+      ...row,
+      structured_payload:
+        row.structured_payload && typeof row.structured_payload === "object" && !Array.isArray(row.structured_payload)
+          ? (row.structured_payload as Record<string, unknown>)
+          : {},
+    })),
+    alerts: ((alertsData || []) as ReceptionistAlertRow[]).map((row) => ({
+      ...row,
+      metadata:
+        row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+          ? (row.metadata as Record<string, unknown>)
+          : {},
+    })),
+  };
+}
+
+async function maybeSendNotificationSms(input: {
+  context: AgentReceptionistContext;
+  body: string;
+}): Promise<SmsSendResult | null> {
+  const toPhone = normalizePhoneToE164(input.context.settings.notification_phone_number);
+  const fromPhone = normalizePhoneToE164(input.context.settings.business_phone_number);
+  if (!toPhone || !fromPhone) return null;
+
+  return sendReceptionistSms({
+    agentId: input.context.agentId,
+    fromPhone,
+    toPhone,
+    text: input.body,
+  });
+}
+
+export async function processInboundSms(input: {
+  admin: AdminClient;
+  agentId: string;
+  fromPhone: string;
+  toPhone?: string | null;
+  messageBody: string;
+  providerMessageId?: string | null;
+  provider?: string | null;
+}): Promise<InboundSmsWorkflowResult> {
+  const context = await loadAgentReceptionistContext(input.admin, input.agentId);
+  const body = input.messageBody.trim();
+  const occurredAt = new Date().toISOString();
+
+  if (!body) {
+    throw new Error("Inbound message is empty.");
+  }
+
+  const structured = extractStructuredFieldsFromSms(body);
+  const urgency = detectUrgency(body, context.settings.escalation_keywords);
+
+  const upsertResult = await upsertReceptionistLead({
+    admin: input.admin,
+    agentId: input.agentId,
+    source: "sms_receptionist",
+    values: {
+      ...structured,
+      phone: input.fromPhone,
+      source: "sms_receptionist",
+      source_detail: {
+        channel: "sms",
+        from_phone: input.fromPhone,
+        to_phone: input.toPhone || null,
+        provider: optionalString(input.provider || null),
+      },
+      urgency_level: urgency.isHigh ? "high" : null,
+      urgency_score: urgency.score,
+      interaction_at: occurredAt,
+    },
+  });
+
+  const lead = upsertResult.lead;
+
+  await insertLeadInteraction({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: lead.id,
+    channel: "sms",
+    direction: "in",
+    interactionType: "sms_inbound",
+    status: "received",
+    messageBody: body,
+    summary: compactText(body, 170),
+    providerMessageId: input.providerMessageId,
+    structuredPayload: {
+      parsed_fields: structured,
+      urgency_score: urgency.score,
+      matched_keywords: urgency.matchedKeywords,
+      provider: optionalString(input.provider || null),
+    },
+    createdAt: occurredAt,
+  });
+
+  if (urgency.isHigh) {
+    await createReceptionistAlert({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: lead.id,
+      alertType: "urgent_timing_detected",
+      severity: "urgent",
+      title: "Urgent lead response requested",
+      message: `${lead.full_name || lead.canonical_phone || "Lead"} requested immediate support by text.`,
+      metadata: {
+        matched_keywords: urgency.matchedKeywords,
+        urgency_score: urgency.score,
+      },
+    });
+
+    await maybeSendNotificationSms({
+      context,
+      body: `Merlyn urgent lead alert: ${lead.full_name || lead.canonical_phone || "Lead"} asked for immediate help.`,
+    });
+  }
+
+  if ((lead.lead_temp || "").trim().toLowerCase() === "hot") {
+    await createReceptionistAlert({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: lead.id,
+      alertType: "hot_lead_new_message",
+      severity: "high",
+      title: "Hot lead sent a new message",
+      message: `${lead.full_name || lead.canonical_phone || "Hot lead"} just sent an inbound SMS.`,
+      metadata: {},
+    });
+  }
+
+  if (upsertResult.previousUrgencyScore < 50 && urgency.score >= 50) {
+    await createReceptionistAlert({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: lead.id,
+      alertType: "urgency_threshold_crossed",
+      severity: "high",
+      title: "Urgency threshold crossed",
+      message: `${lead.full_name || lead.canonical_phone || "Lead"} moved into high urgency.`,
+      metadata: {
+        previous_score: upsertResult.previousUrgencyScore,
+        next_score: urgency.score,
+      },
+    });
+  }
+
+  let askedQuestion: string | null = null;
+  const nextQuestion = nextMissingReceptionistQuestion(lead);
+  const canAutoReply =
+    context.settings.receptionist_enabled &&
+    context.settings.communications_enabled &&
+    Boolean(normalizePhoneToE164(context.settings.business_phone_number)) &&
+    !stopsAutomation(body);
+
+  if (nextQuestion && canAutoReply) {
+    const sms = await sendReceptionistSms({
+      agentId: input.agentId,
+      fromPhone: context.settings.business_phone_number,
+      toPhone: input.fromPhone,
+      text: nextQuestion.prompt,
+    });
+
+    await insertLeadInteraction({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: lead.id,
+      channel: "sms",
+      direction: "out",
+      interactionType: "qualification_prompt",
+      status: sms.ok ? sms.status : "failed",
+      messageBody: nextQuestion.prompt,
+      providerMessageId: sms.providerMessageId,
+      summary: `Prompted for ${nextQuestion.field}.`,
+      structuredPayload: {
+        question_field: nextQuestion.field,
+        provider: sms.provider,
+        error: sms.error,
+      },
+      createdAt: new Date().toISOString(),
+    });
+
+    if (!sms.ok) {
+      await createReceptionistAlert({
+        admin: input.admin,
+        agentId: input.agentId,
+        leadId: lead.id,
+        alertType: "sms_send_failed",
+        severity: "high",
+        title: "Receptionist SMS failed",
+        message: sms.error || "Could not send qualification prompt.",
+        metadata: {
+          question_field: nextQuestion.field,
+        },
+      });
+    } else {
+      askedQuestion = nextQuestion.prompt;
+    }
+  }
+
+  return {
+    leadId: lead.id,
+    createdLead: upsertResult.created,
+    urgent: urgency.isHigh,
+    askedQuestion,
+  };
+}
+
+export async function processMissedCall(input: {
+  admin: AdminClient;
+  agentId: string;
+  fromPhone: string;
+  toPhone?: string | null;
+  providerCallId?: string | null;
+  provider?: string | null;
+}): Promise<{ leadId: string; textbackSent: boolean }> {
+  const context = await loadAgentReceptionistContext(input.admin, input.agentId);
+  const occurredAt = new Date().toISOString();
+
+  const upsertResult = await upsertReceptionistLead({
+    admin: input.admin,
+    agentId: input.agentId,
+    source: "missed_call_textback",
+    values: {
+      phone: input.fromPhone,
+      source: "missed_call_textback",
+      next_step: "Call back this lead",
+      source_detail: {
+        channel: "phone",
+        event: "missed_call",
+        from_phone: input.fromPhone,
+        to_phone: input.toPhone || null,
+        provider: optionalString(input.provider || null),
+      },
+      interaction_at: occurredAt,
+    },
+  });
+
+  const lead = upsertResult.lead;
+
+  await insertLeadInteraction({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: lead.id,
+    channel: "missed_call_textback",
+    direction: "in",
+    interactionType: "missed_call",
+    status: "missed",
+    summary: "Inbound call missed. Text-back workflow started.",
+    providerCallId: input.providerCallId,
+    structuredPayload: {
+      provider: optionalString(input.provider || null),
+      from_phone: input.fromPhone,
+      to_phone: input.toPhone || null,
+    },
+    createdAt: occurredAt,
+  });
+
+  const fromBusinessPhone = normalizePhoneToE164(context.settings.business_phone_number);
+  const canTextback = shouldSendMissedCallTextback(context.settings) && Boolean(fromBusinessPhone);
+
+  if (!canTextback) {
+    return { leadId: lead.id, textbackSent: false };
+  }
+
+  const starter = buildMissedCallStarterText(context.agentName, context.settings);
+  const sms = await sendReceptionistSms({
+    agentId: input.agentId,
+    fromPhone: fromBusinessPhone || context.settings.business_phone_number,
+    toPhone: input.fromPhone,
+    text: starter,
+  });
+
+  await insertLeadInteraction({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: lead.id,
+    channel: "missed_call_textback",
+    direction: "out",
+    interactionType: "missed_call_textback",
+    status: sms.ok ? sms.status : "failed",
+    messageBody: starter,
+    providerMessageId: sms.providerMessageId,
+    summary: "Missed-call text-back sent.",
+    structuredPayload: {
+      provider: sms.provider,
+      error: sms.error,
+    },
+    createdAt: new Date().toISOString(),
+  });
+
+  if (!sms.ok) {
+    await createReceptionistAlert({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: lead.id,
+      alertType: "missed_call_textback_failed",
+      severity: "high",
+      title: "Missed-call text-back failed",
+      message: sms.error || "Could not send missed-call text-back.",
+      metadata: {},
+    });
+  }
+
+  return { leadId: lead.id, textbackSent: sms.ok };
+}
+
+export async function sendManualSmsFromCrm(input: {
+  admin: AdminClient;
+  agentId: string;
+  leadId: string;
+  text: string;
+}): Promise<{ interaction: LeadInteractionRow; sms: SmsSendResult }> {
+  const context = await loadAgentReceptionistContext(input.admin, input.agentId);
+  if (!context.settings.receptionist_enabled || !context.settings.communications_enabled) {
+    throw new Error("Receptionist communications are disabled.");
+  }
+
+  const lead = await loadLeadForAgent(input.admin, input.agentId, input.leadId);
+  if (!lead) {
+    throw new Error("Lead not found.");
+  }
+
+  const toPhone = normalizePhoneToE164(lead.canonical_phone);
+  const fromPhone = normalizePhoneToE164(context.settings.business_phone_number);
+
+  if (!toPhone) {
+    throw new Error("Lead phone number is missing.");
+  }
+  if (!fromPhone) {
+    throw new Error("Business phone number is not configured.");
+  }
+
+  const sms = await sendReceptionistSms({
+    agentId: input.agentId,
+    fromPhone,
+    toPhone,
+    text: input.text,
+  });
+
+  const interaction = await insertLeadInteraction({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: input.leadId,
+    channel: "sms",
+    direction: "out",
+    interactionType: "manual_sms",
+    status: sms.ok ? sms.status : "failed",
+    messageBody: input.text,
+    providerMessageId: sms.providerMessageId,
+    summary: compactText(input.text, 170),
+    structuredPayload: {
+      provider: sms.provider,
+      error: sms.error,
+      initiated_by: "crm",
+    },
+  });
+
+  if (!sms.ok) {
+    await createReceptionistAlert({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: input.leadId,
+      alertType: "manual_sms_failed",
+      severity: "high",
+      title: "Manual SMS failed",
+      message: sms.error || "Could not send CRM text message.",
+      metadata: {},
+    });
+  }
+
+  return { interaction, sms };
+}
+
+export async function startCrmBridgeCall(input: {
+  admin: AdminClient;
+  agentId: string;
+  leadId: string;
+}): Promise<{ interaction: LeadInteractionRow; call: CallBridgeResult }> {
+  const context = await loadAgentReceptionistContext(input.admin, input.agentId);
+  if (!context.settings.receptionist_enabled || !context.settings.communications_enabled) {
+    throw new Error("Receptionist communications are disabled.");
+  }
+
+  const lead = await loadLeadForAgent(input.admin, input.agentId, input.leadId);
+  if (!lead) {
+    throw new Error("Lead not found.");
+  }
+
+  const leadPhone = normalizePhoneToE164(lead.canonical_phone);
+  const fromPhone = normalizePhoneToE164(context.settings.business_phone_number);
+  const forwardingPhone = normalizePhoneToE164(context.settings.forwarding_phone_number);
+
+  if (!leadPhone) {
+    throw new Error("Lead phone number is missing.");
+  }
+  if (!fromPhone) {
+    throw new Error("Business phone number is not configured.");
+  }
+  if (!forwardingPhone) {
+    throw new Error("Forwarding phone number is not configured.");
+  }
+
+  const call = await startReceptionistBridgeCall({
+    agentId: input.agentId,
+    fromPhone,
+    leadPhone,
+    forwardingPhone,
+  });
+
+  const interaction = await insertLeadInteraction({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: input.leadId,
+    channel: "call_outbound",
+    direction: "out",
+    interactionType: "call_outbound",
+    status: call.ok ? (call.status === "completed" ? "completed" : "queued") : "failed",
+    summary: call.ok
+      ? "Click-to-call bridge initiated. Agent phone rings first, then lead is dialed."
+      : "Click-to-call bridge failed.",
+    providerCallId: call.providerCallId,
+    structuredPayload: {
+      provider: call.provider,
+      error: call.error,
+      bridge_flow: "agent_first_then_lead",
+    },
+  });
+
+  if (!call.ok) {
+    await createReceptionistAlert({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: input.leadId,
+      alertType: "call_bridge_failed",
+      severity: "high",
+      title: "Click-to-call bridge failed",
+      message: call.error || "Could not start the outbound bridge call.",
+      metadata: {},
+    });
+  }
+
+  return { interaction, call };
+}
+
+function normalizeInboundCallStatus(value: string | null | undefined): LeadInteractionRow["status"] {
+  const normalized = (value || "").trim().toLowerCase();
+  if (normalized === "missed" || normalized === "no-answer" || normalized === "no_answer") {
+    return "missed";
+  }
+  if (normalized === "completed" || normalized === "answered") {
+    return "completed";
+  }
+  if (normalized === "failed" || normalized === "busy") {
+    return "failed";
+  }
+  return "received";
+}
+
+export async function processInboundCallLog(input: {
+  admin: AdminClient;
+  agentId: string;
+  fromPhone: string;
+  toPhone?: string | null;
+  callStatus?: string | null;
+  transcript?: string | null;
+  providerCallId?: string | null;
+  provider?: string | null;
+}): Promise<{ leadId: string; urgent: boolean }> {
+  const context = await loadAgentReceptionistContext(input.admin, input.agentId);
+  const occurredAt = new Date().toISOString();
+  const transcript = optionalString(input.transcript) || "";
+  const urgency = detectUrgency(transcript, context.settings.escalation_keywords);
+
+  const upsertResult = await upsertReceptionistLead({
+    admin: input.admin,
+    agentId: input.agentId,
+    source: "call_inbound",
+    values: {
+      phone: input.fromPhone,
+      source: "call_inbound",
+      source_detail: {
+        channel: "phone",
+        event: "inbound_call",
+        from_phone: input.fromPhone,
+        to_phone: input.toPhone || null,
+        provider: optionalString(input.provider || null),
+      },
+      urgency_level: urgency.isHigh ? "high" : null,
+      urgency_score: urgency.score,
+      interaction_at: occurredAt,
+    },
+  });
+
+  const lead = upsertResult.lead;
+  const status = normalizeInboundCallStatus(input.callStatus);
+
+  await insertLeadInteraction({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: lead.id,
+    channel: "call_inbound",
+    direction: "in",
+    interactionType: "call_inbound",
+    status,
+    transcript: transcript || null,
+    summary: transcript
+      ? compactText(transcript, 180)
+      : `Inbound call ${status}.`,
+    providerCallId: input.providerCallId,
+    structuredPayload: {
+      call_status: input.callStatus || null,
+      provider: optionalString(input.provider || null),
+      urgency_score: urgency.score,
+      matched_keywords: urgency.matchedKeywords,
+    },
+    createdAt: occurredAt,
+  });
+
+  if (urgency.isHigh) {
+    await createReceptionistAlert({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: lead.id,
+      alertType: "inbound_call_urgent",
+      severity: "urgent",
+      title: "Urgent inbound call signal",
+      message: `${lead.full_name || lead.canonical_phone || "Lead"} has urgent language in call transcript.`,
+      metadata: {
+        matched_keywords: urgency.matchedKeywords,
+        urgency_score: urgency.score,
+      },
+    });
+  }
+
+  return { leadId: lead.id, urgent: urgency.isHigh };
+}
