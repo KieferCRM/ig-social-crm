@@ -3154,6 +3154,45 @@ input:focus, textarea:focus, select:focus {
   flex-wrap: wrap;
 }
 
+.crm-demo-banner-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.crm-demo-banner-copy span {
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.crm-demo-topbar {
+  align-items: flex-start;
+}
+
+.crm-demo-topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.crm-demo-sidebar-footer {
+  gap: 10px;
+}
+
+.crm-demo-sidebar-footer .crm-stack-8 {
+  width: 100%;
+}
+
+.crm-demo-sidebar-footer .crm-btn {
+  width: 100%;
+}
+
+.crm-demo-dashboard-columns {
+  align-items: start;
+}
+
 .crm-demo-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3166,18 +3205,89 @@ input:focus, textarea:focus, select:focus {
   display: grid;
   gap: 10px;
   min-height: 280px;
+  align-content: start;
+}
+
+.crm-demo-column-title {
+  margin: 0;
+  font-size: 14px;
+}
+
+.crm-demo-column-subtitle {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--ink-muted);
 }
 
 .crm-demo-lead-card {
   width: 100%;
   text-align: left;
-  padding: 10px;
-  border: 1px solid var(--line);
+  padding: 12px;
+  border: 1px solid rgba(88, 111, 136, 0.32);
   cursor: pointer;
+  display: grid;
+  gap: 7px;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .crm-demo-lead-card:hover {
-  border-color: var(--line-strong);
+  border-color: rgba(115, 147, 182, 0.5);
+  background: rgba(26, 36, 48, 0.94);
+  transform: translateY(-1px);
+}
+
+.crm-demo-lead-card-selected {
+  border-color: rgba(92, 203, 125, 0.5);
+  box-shadow: 0 0 0 1px rgba(92, 203, 125, 0.18);
+}
+
+.crm-demo-lead-card-new {
+  animation: crm-demo-lead-pop 700ms ease;
+}
+
+@keyframes crm-demo-lead-pop {
+  0% {
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+    box-shadow: 0 0 0 0 rgba(92, 203, 125, 0.36);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.01);
+    opacity: 1;
+    box-shadow: 0 0 0 10px rgba(92, 203, 125, 0);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.crm-demo-lead-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.crm-demo-lead-name {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.crm-demo-lead-context {
+  font-size: 12px;
+  color: var(--foreground);
+}
+
+.crm-demo-lead-meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+  line-height: 1.45;
 }
 
 .crm-demo-followup-card {
@@ -3187,6 +3297,184 @@ input:focus, textarea:focus, select:focus {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.crm-demo-followup-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.crm-demo-followup-meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.crm-demo-cue-card {
+  padding: 12px;
+  display: grid;
+  gap: 5px;
+}
+
+.crm-demo-cue-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.crm-demo-cue-body {
+  font-size: 12px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+.crm-demo-preview-shell {
+  border: 1px solid rgba(88, 111, 136, 0.32);
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(16, 22, 31, 0.92);
+}
+
+.crm-demo-preview-topbar {
+  padding: 11px 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(88, 111, 136, 0.24);
+  background: rgba(18, 26, 35, 0.96);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.crm-demo-form-preview {
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.crm-demo-form-head {
+  display: grid;
+  gap: 6px;
+}
+
+.crm-demo-form-kicker {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.crm-demo-form-head h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.crm-demo-form-head p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+  max-width: 56ch;
+}
+
+.crm-demo-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.crm-demo-editor-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.crm-demo-field {
+  display: grid;
+  gap: 7px;
+}
+
+.crm-demo-field span {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.crm-demo-field input,
+.crm-demo-field select,
+.crm-demo-field textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(88, 111, 136, 0.28);
+  background: rgba(19, 28, 39, 0.94);
+  color: var(--foreground);
+  padding: 12px 13px;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.crm-demo-field textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.crm-demo-field input:focus,
+.crm-demo-field select:focus,
+.crm-demo-field textarea:focus {
+  border-color: rgba(92, 203, 125, 0.5);
+  box-shadow: 0 0 0 3px rgba(92, 203, 125, 0.12);
+}
+
+.crm-demo-field input[readonly],
+.crm-demo-field textarea[readonly] {
+  color: rgba(232, 240, 248, 0.88);
+}
+
+.crm-demo-field select:disabled {
+  opacity: 1;
+  color: rgba(232, 240, 248, 0.88);
+}
+
+.crm-demo-field-wide {
+  grid-column: 1 / -1;
+}
+
+.crm-demo-field-optional span {
+  color: rgba(167, 179, 197, 0.85);
+}
+
+.crm-demo-form-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.crm-demo-form-note {
+  flex: 1 1 280px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+.crm-demo-deal-card {
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.crm-demo-deal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crm-demo-deal-meta {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.crm-demo-deal-address {
+  font-size: 13px;
+  color: var(--foreground);
 }
 
 .crm-demo-detail-overlay {
@@ -3324,6 +3612,73 @@ input:focus, textarea:focus, select:focus {
 
 .crm-demo-detail-actions .crm-btn {
   flex: 1 1 180px;
+}
+
+.crm-demo-modal-overlay {
+  padding: 18px;
+}
+
+.crm-demo-modal-shell {
+  width: min(840px, 100%);
+  max-height: min(90vh, 900px);
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.crm-demo-modal-header {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.crm-demo-modal-form {
+  display: grid;
+  gap: 14px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.crm-demo-modal-actions {
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.crm-demo-onboarding-overlay {
+  background: rgba(4, 8, 14, 0.78);
+}
+
+.crm-demo-onboarding-shell {
+  width: min(560px, 100%);
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+}
+
+.crm-demo-onboarding-step {
+  padding: 14px;
+  display: grid;
+  gap: 4px;
+}
+
+.crm-demo-onboarding-step strong {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.crm-demo-onboarding-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.crm-demo-onboarding-note {
+  font-size: 12px;
+  color: var(--ink-muted);
 }
 
 .crm-demo-disabled {
@@ -3505,6 +3860,11 @@ input:focus, textarea:focus, select:focus {
   .crm-demo-detail-shell {
     width: min(420px, calc(100vw - 16px));
   }
+
+  .crm-demo-form-grid,
+  .crm-demo-editor-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -3549,6 +3909,15 @@ input:focus, textarea:focus, select:focus {
     grid-template-columns: 1fr;
   }
 
+  .crm-demo-topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .crm-demo-topbar-actions .crm-btn {
+    flex: 1 1 180px;
+  }
+
   .crm-page-actions {
     width: 100%;
   }
@@ -3589,6 +3958,27 @@ input:focus, textarea:focus, select:focus {
   }
 
   .crm-demo-detail-actions .crm-btn {
+    width: 100%;
+  }
+
+  .crm-demo-modal-overlay {
+    padding: 10px;
+  }
+
+  .crm-demo-modal-shell {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+    padding: 16px;
+  }
+
+  .crm-demo-form-footer,
+  .crm-demo-onboarding-actions {
+    align-items: stretch;
+  }
+
+  .crm-demo-form-footer .crm-btn,
+  .crm-demo-modal-actions .crm-btn,
+  .crm-demo-onboarding-actions .crm-btn {
     width: 100%;
   }
 
