@@ -1171,6 +1171,38 @@ h1, h2, h3, h4 {
   flex-wrap: wrap;
 }
 
+.crm-lead-command-action-center {
+  display: grid;
+  gap: 10px;
+}
+
+.crm-lead-command-action-block {
+  padding: 12px;
+}
+
+.crm-lead-command-action-copy {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+
+.crm-lead-command-action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.crm-lead-command-activity-list {
+  margin-top: 6px;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
 .crm-lead-command-next {
   display: grid;
   gap: 12px;
@@ -3762,6 +3794,7 @@ input:focus, textarea:focus, select:focus {
 
   .crm-lead-command-primary-actions,
   .crm-lead-command-secondary-actions,
+  .crm-lead-command-action-row,
   .crm-lead-command-next-actions,
   .crm-lead-command-composer-actions {
     flex-direction: column;
@@ -3769,6 +3802,7 @@ input:focus, textarea:focus, select:focus {
 
   .crm-lead-command-primary-actions .crm-btn,
   .crm-lead-command-secondary-actions .crm-btn,
+  .crm-lead-command-action-row .crm-btn,
   .crm-lead-command-next-actions .crm-btn,
   .crm-lead-command-composer-actions .crm-btn {
     width: 100%;

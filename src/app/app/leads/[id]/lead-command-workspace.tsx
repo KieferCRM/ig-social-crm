@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   calculateCommissionAmount,
   formatCurrency,
@@ -56,6 +56,13 @@ type LeadCommandWorkspaceProps = {
   reminders: ReminderPreview[];
 };
 
+const QUICK_STEP_OPTIONS = [
+  { key: "call", label: "Call", value: "Call lead" },
+  { key: "text", label: "Text", value: "Send follow-up text" },
+  { key: "showing", label: "Schedule Showing", value: "Schedule showing" },
+  { key: "reminder", label: "Set Reminder", value: "Set reminder" },
+] as const;
+
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
   for (const value of values) {
     if (!value) continue;
@@ -105,6 +112,13 @@ function formatDateTime(value: string | null | undefined): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString();
+}
+
+function formatShortDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function leadDisplayName(lead: LeadWorkspaceLead): string {
@@ -182,6 +196,7 @@ function MetricField({ label, value }: { label: string; value: string }) {
 
 export default function LeadCommandWorkspace({ lead: initialLead, reminders }: LeadCommandWorkspaceProps) {
   const lead = initialLead;
+  const [selectedQuickStep, setSelectedQuickStep] = useState<string | null>(null);
   const displayName = useMemo(() => leadDisplayName(lead), [lead]);
   const phoneValue = firstNonEmpty(lead.canonical_phone);
   const emailValue = firstNonEmpty(lead.canonical_email);
@@ -196,9 +211,10 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
       : null;
   const pendingReminders = reminders.filter((item) => item.status === "pending");
   const nextReminder = pendingReminders[0] || null;
-  const lastCommunicationText = formatDateTime(lead.last_communication_at);
   const lastUpdatedText = formatDateTime(lead.time_last_updated);
   const createdAtText = formatDateTime(lead.created_at);
+  const createdAtShort = formatShortDate(lead.created_at);
+  const updatedAtShort = formatShortDate(lead.time_last_updated);
   const sourceDetailRows = useMemo(() => recordRows(asRecord(lead.source_detail)), [lead.source_detail]);
   const customFieldRows = useMemo(() => recordRows(asRecord(lead.custom_fields)), [lead.custom_fields]);
   const tagsText =
@@ -216,36 +232,24 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
     return "Keep momentum moving with the next scheduled follow-up.";
   }, [lead.lead_temp, lead.next_step, lead.stage, pendingReminders.length]);
 
-  const guidance = useMemo(() => {
-    const items: string[] = [];
-    const stage = (lead.stage || "").trim().toLowerCase();
-    const temp = (lead.lead_temp || "").trim().toLowerCase();
-
-    if (stage === "new") {
-      items.push("Make first contact quickly. Fast response gives new inquiries the best chance to convert.");
-    }
-    if (temp === "hot") {
-      items.push("This lead has urgency. Anchor the conversation around timing and the next scheduled step.");
-    }
-    if (!firstNonEmpty(lead.next_step)) {
-      items.push("Set a next step as soon as you have contact so follow-up stays obvious.");
-    }
-    if (pendingReminders.length > 0) {
-      items.push(`${pendingReminders.length} reminder(s) are pending. Clearing them keeps response speed tight.`);
-    }
-    if (!firstNonEmpty(lead.notes)) {
-      items.push("Capture context after your first conversation so future follow-ups stay personal.");
-    }
-
-    return items.slice(0, 3);
-  }, [lead.lead_temp, lead.next_step, lead.notes, lead.stage, pendingReminders.length]);
-
   const dealPrice = parsePositiveDecimal(lead.deal_price);
   const commissionPercent = parsePositiveDecimal(lead.commission_percent);
   const commissionAmount =
     parsePositiveDecimal(lead.commission_amount) ?? calculateCommissionAmount(dealPrice, commissionPercent);
   const hasDealDetails =
     dealPrice !== null || commissionPercent !== null || commissionAmount !== null || Boolean(firstNonEmpty(lead.close_date));
+  const actionCenterRecommendation =
+    stageLabel.toLowerCase() === "contacted"
+      ? "Confirm motivation, timeline, and buying/selling plan."
+      : recommendedAction;
+  const merlynInsight =
+    stageLabel.toLowerCase() === "contacted"
+      ? "Leads in \"Contacted\" stage convert best when a follow-up happens within 24 hours."
+      : "Quick follow-up keeps serious inquiries moving while intent is still fresh.";
+  const nextStepValue =
+    QUICK_STEP_OPTIONS.find((option) => option.key === selectedQuickStep)?.value ||
+    firstNonEmpty(lead.next_step) ||
+    "No next step set yet";
 
   return (
     <main className="crm-page crm-page-wide crm-lead-command-page">
@@ -281,30 +285,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
             </Link>
           </div>
         </div>
-      </section>
-
-      <section className="crm-card crm-section-card crm-lead-command-next">
-        <div className="crm-lead-command-next-copy">
-          <div className="crm-lead-command-kicker">Next Best Action</div>
-          <h2 className="crm-section-title">{recommendedAction}</h2>
-          <p className="crm-section-subtitle">
-            {guidance[0] || "Keep response speed high and lock in a concrete next step."}
-          </p>
-        </div>
-        <div className="crm-lead-command-next-actions">
-          <Link href="/app/kanban" className="crm-btn crm-btn-secondary">
-            Update Stage
-          </Link>
-        </div>
-        {guidance.length > 1 ? (
-          <div className="crm-lead-command-guidance-list">
-            {guidance.slice(1).map((item) => (
-              <div key={item} className="crm-lead-command-guidance-item">
-                {item}
-              </div>
-            ))}
-          </div>
-        ) : null}
       </section>
 
       <div className="crm-lead-command-layout">
@@ -354,6 +334,68 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
           <section className="crm-card crm-section-card">
             <div className="crm-section-head">
               <div>
+                <h2 className="crm-section-title">Lead Action Center</h2>
+                <p className="crm-section-subtitle">
+                  Keep the next move obvious so this lead keeps moving.
+                </p>
+              </div>
+            </div>
+
+            <div className="crm-lead-command-action-center">
+              <div className="crm-card-muted crm-lead-command-action-block">
+                <div className="crm-lead-command-mini-label">Next Recommended Action</div>
+                <div className="crm-lead-command-action-copy">{actionCenterRecommendation}</div>
+              </div>
+
+              <div className="crm-card-muted crm-lead-command-action-block">
+                <div className="crm-lead-command-mini-label">Set Next Step</div>
+                <div className="crm-lead-command-action-row">
+                  {QUICK_STEP_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      className={`crm-btn ${selectedQuickStep === option.key ? "crm-btn-primary" : "crm-btn-secondary"}`}
+                      aria-pressed={selectedQuickStep === option.key}
+                      onClick={() =>
+                        setSelectedQuickStep((current) => (current === option.key ? null : option.key))
+                      }
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="crm-lead-command-inline-note">
+                  {nextStepValue}
+                </div>
+              </div>
+
+              <div className="crm-card-muted crm-lead-command-action-block">
+                <div className="crm-lead-command-mini-label">Next Reminder</div>
+                <div className="crm-lead-command-action-copy">
+                  {nextReminder
+                    ? `${formatDateTime(nextReminder.due_at)}${nextReminder.note ? ` • ${nextReminder.note}` : ""}`
+                    : "No reminder scheduled"}
+                </div>
+              </div>
+
+              <div className="crm-card-muted crm-lead-command-action-block">
+                <div className="crm-lead-command-mini-label">Recent Activity</div>
+                <div className="crm-lead-command-activity-list">
+                  <div>Lead created — {createdAtShort || "No timestamp"}</div>
+                  <div>Profile updated — {updatedAtShort || "No timestamp"}</div>
+                </div>
+              </div>
+
+              <div className="crm-card-muted crm-lead-command-action-block">
+                <div className="crm-lead-command-mini-label">Merlyn Insight</div>
+                <div className="crm-lead-command-action-copy">{merlynInsight}</div>
+              </div>
+            </div>
+          </section>
+
+          <section className="crm-card crm-section-card">
+            <div className="crm-section-head">
+              <div>
                 <h2 className="crm-section-title">Deal Details</h2>
                 <p className="crm-section-subtitle">
                   Revenue context stays near the top once this lead becomes active business.
@@ -377,73 +419,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
               {hasDealDetails
                 ? "Revenue details are tracked here once the lead becomes active business."
                 : "Deal details can be added once this inquiry becomes active business."}
-            </div>
-          </section>
-
-          <section className="crm-card crm-section-card">
-            <div className="crm-section-head">
-              <div>
-                <h2 className="crm-section-title">Follow-Ups and Reminders</h2>
-                <p className="crm-section-subtitle">
-                  The next move, reminder cadence, and contact preference in one place.
-                </p>
-              </div>
-            </div>
-
-            <div className="crm-lead-command-follow-grid">
-              <MetricField label="Recommended move" value={recommendedAction} />
-              <MetricField
-                label="Next step"
-                value={firstNonEmpty(lead.next_step) || "Set a concrete next step after your next touchpoint."}
-              />
-              <MetricField
-                label="Contact preference"
-                value={firstNonEmpty(lead.contact_preference) || "Not set yet"}
-              />
-              <MetricField
-                label="Next reminder"
-                value={
-                  nextReminder
-                    ? `${formatDateTime(nextReminder.due_at)}${nextReminder.note ? ` • ${nextReminder.note}` : ""}`
-                    : "No reminder scheduled yet."
-                }
-              />
-            </div>
-
-            <div className="crm-lead-command-reminder-stack">
-              <div className="crm-lead-command-stack-head">
-                <strong>Pending reminders</strong>
-                <span className="crm-chip">{pendingReminders.length}</span>
-              </div>
-              {pendingReminders.length === 0 ? (
-                <div className="crm-lead-command-empty">
-                  No reminders scheduled. Add one after contact so this lead never goes cold.
-                </div>
-              ) : (
-                pendingReminders.slice(0, 4).map((reminder) => (
-                  <div key={reminder.id} className="crm-card crm-lead-command-reminder-card">
-                    <div className="crm-lead-command-reminder-time">{formatDateTime(reminder.due_at)}</div>
-                    <div className="crm-lead-command-reminder-note">{reminder.note || "Follow-up reminder"}</div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="crm-card crm-section-card">
-            <div className="crm-section-head">
-              <div>
-                <h2 className="crm-section-title">Recent Activity</h2>
-                <p className="crm-section-subtitle">
-                  Quick context before you update the stage or set the next step.
-                </p>
-              </div>
-            </div>
-            <div className="crm-lead-command-follow-grid">
-              <MetricField label="Last message" value={firstNonEmpty(lead.last_message_preview) || "No recent message saved"} />
-              <MetricField label="Last communication" value={lastCommunicationText || "No communication logged"} />
-              <MetricField label="Profile updated" value={lastUpdatedText || "No timestamp available"} />
-              <MetricField label="Lead created" value={createdAtText || "No timestamp available"} />
             </div>
           </section>
         </div>
