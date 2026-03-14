@@ -209,7 +209,9 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("leads")
     .upsert(payload, { onConflict: "agent_id,ig_username" })
-    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,time_last_updated,deal_price,commission_percent,commission_amount,close_date")
+    .select(
+      "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,last_message_preview,time_last_updated,owner_user_id,assignee_user_id,source_detail,deal_price,commission_percent,commission_amount,close_date"
+    )
     .single();
 
   if (error) {

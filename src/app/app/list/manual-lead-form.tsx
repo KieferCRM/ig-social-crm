@@ -1,10 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { LeadListRow } from "./lead-list-table";
 
 type CreateLeadResponse = {
-  lead?: { id: string; ig_username: string };
+  lead?: LeadListRow;
   error?: string;
 };
 
@@ -12,10 +12,9 @@ export default function ManualLeadForm({
   onSaved,
   onCancel,
 }: {
-  onSaved?: () => void;
+  onSaved?: (lead: LeadListRow) => void;
   onCancel?: () => void;
 }) {
-  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -75,8 +74,7 @@ export default function ManualLeadForm({
       setIgUsername("");
       setIntent("");
       setTimeline("");
-      router.refresh();
-      onSaved?.();
+      onSaved?.(data.lead);
     } catch {
       setMessage("Could not save lead.");
     } finally {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import LeadListTable, { type LeadListRow } from "./lead-list-table";
 import ManualLeadForm from "./manual-lead-form";
 import MergeTool from "./merge-tool";
@@ -25,12 +25,17 @@ export default function LeadWorkspaceClient({
   followUpLeadIds,
   errorMessage,
 }: LeadWorkspaceClientProps) {
+  const [workspaceLeads, setWorkspaceLeads] = useState<LeadListRow[]>(leads);
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
 
+  useEffect(() => {
+    setWorkspaceLeads(leads);
+  }, [leads]);
+
   const mergeableLeads = useMemo(
     () =>
-      leads.map((lead) => ({
+      workspaceLeads.map((lead) => ({
         id: String(lead.id),
         ig_username: lead.ig_username || null,
         full_name: lead.full_name || null,
@@ -41,7 +46,7 @@ export default function LeadWorkspaceClient({
         stage: lead.stage || null,
         lead_temp: lead.lead_temp || null,
       })),
-    [leads]
+    [workspaceLeads]
   );
 
   return (
@@ -69,7 +74,7 @@ export default function LeadWorkspaceClient({
       ) : null}
 
       <LeadListTable
-        leads={leads}
+        leads={workspaceLeads}
         initialFilters={initialFilters}
         followUpDueMode={followUpDueMode}
         followUpLeadIds={followUpLeadIds}
@@ -108,7 +113,16 @@ export default function LeadWorkspaceClient({
               </button>
             </div>
             <div className="crm-workspace-tool-drawer__body">
-              <ManualLeadForm onSaved={() => setAddLeadOpen(false)} onCancel={() => setAddLeadOpen(false)} />
+              <ManualLeadForm
+                onSaved={(lead) => {
+                  setWorkspaceLeads((previous) => {
+                    const deduped = previous.filter((item) => item.id !== lead.id);
+                    return [lead, ...deduped];
+                  });
+                  setAddLeadOpen(false);
+                }}
+                onCancel={() => setAddLeadOpen(false)}
+              />
             </div>
           </aside>
         </div>
