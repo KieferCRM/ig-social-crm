@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { loadAccessContext, ownerFilter } from "@/lib/access-context";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizeConsent } from "@/lib/consent";
-import { applyLeadCreatedRules, listActiveLeadCreatedRules } from "@/lib/automation-rules";
+import {
+  buildSyntheticLeadHandle,
+  findExistingLeadByIdentity,
+  normalizeLeadEmail,
+  normalizeLeadHandle,
+  normalizeLeadPhone,
+} from "@/lib/leads/identity";
 
 export async function GET() {
   const supabase = await supabaseServer();
@@ -12,7 +19,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("leads")
-    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,intent,timeline,last_message_preview,next_step")
+    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,intent,timeline,last_message_preview,next_step,deal_price,commission_percent,commission_amount,close_date")
     .or(ownerFilter(auth.context))
     .order("ig_username", { ascending: true });
 
@@ -37,6 +44,7 @@ type CreateLeadBody = {
   source?: string | null;
   intent?: string | null;
   timeline?: string | null;
+  budget_range?: string | null;
   notes?: string | null;
   consent_to_email?: boolean | string | null;
   consent_to_sms?: boolean | string | null;
@@ -50,30 +58,6 @@ type UpdateLeadBody = {
   stage?: string | null;
 };
 
-function normalizeHandle(value: string): string {
-  return value.trim().replace(/^@+/, "").toLowerCase();
-}
-
-function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function normalizePhone(value: string): string {
-  return value.replace(/[^\d+]/g, "");
-}
-
-function shortHash(value: string): string {
-  let hash = 5381;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 33) ^ value.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(16).slice(0, 8);
-}
-
-function syntheticIgUsername(identity: string): string {
-  return `manual_lead_${shortHash(identity)}`;
-}
-
 function optionalString(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   const trimmed = value.trim();
@@ -81,6 +65,7 @@ function optionalString(value: string | null | undefined): string | null {
 }
 
 const ALLOWED_STAGES = new Set(["New", "Contacted", "Qualified", "Closed"]);
+const ALLOWED_TEMPS = new Set(["Cold", "Warm", "Hot"]);
 
 export async function POST(request: Request) {
   const supabase = await supabaseServer();
@@ -90,9 +75,10 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as CreateLeadBody;
   const rawHandle = optionalString(body.ig_username) || "";
-  const ig = normalizeHandle(rawHandle);
-  const email = normalizeEmail(optionalString(body.email) || "");
-  const phone = normalizePhone(optionalString(body.phone) || "");
+  const ig = normalizeLeadHandle(rawHandle);
+  const email = normalizeLeadEmail(optionalString(body.email));
+  const rawPhone = optionalString(body.phone);
+  const phone = normalizeLeadPhone(rawPhone);
   const externalId = (optionalString(body.external_id) || "").toLowerCase();
   const firstName = optionalString(body.first_name) || "";
   const lastName = optionalString(body.last_name) || "";
@@ -105,7 +91,7 @@ export async function POST(request: Request) {
     (phone ? `phone_${phone}` : "") ||
     (externalId ? `ext_${externalId}` : "") ||
     (displayName ? `name_${displayName.toLowerCase()}` : "");
-  const resolvedIg = ig || syntheticIgUsername(identity || "manual_lead");
+  const source = optionalString(body.source) || "manual";
 
   if (!identity) {
     return NextResponse.json(
@@ -114,18 +100,49 @@ export async function POST(request: Request) {
     );
   }
 
-  const sourceDetail: Record<string, string> = {};
-  if (firstName) sourceDetail.first_name = firstName;
-  if (lastName) sourceDetail.last_name = lastName;
-  if (fullName) sourceDetail.full_name = fullName;
-  if (email) sourceDetail.email = email;
-  if (phone) sourceDetail.phone = phone;
-  if (tags) sourceDetail.tags = tags;
-  if (externalId) sourceDetail.external_id = externalId;
-  sourceDetail.manual_identity = identity;
+  const existingLead = await findExistingLeadByIdentity({
+    admin,
+    agentId: auth.context.user.id,
+    source,
+    sourceRefId: externalId || null,
+    canonicalEmail: email,
+    phoneInput: rawPhone || phone,
+    igUsername: ig,
+  });
+
+  const stageInput = optionalString(body.stage);
+  if (stageInput && !ALLOWED_STAGES.has(stageInput)) {
+    return NextResponse.json({ error: "stage is invalid." }, { status: 400 });
+  }
+
+  const leadTempInput = optionalString(body.lead_temp);
+  if (leadTempInput && !ALLOWED_TEMPS.has(leadTempInput)) {
+    return NextResponse.json({ error: "lead_temp is invalid." }, { status: 400 });
+  }
+
+  const resolvedIg =
+    ig ||
+    existingLead?.ig_username ||
+    buildSyntheticLeadHandle(identity ? "manual_lead" : "manual", identity || "manual_lead");
+
+  const sourceDetailPatch: Record<string, string> = {};
+  if (firstName) sourceDetailPatch.first_name = firstName;
+  if (lastName) sourceDetailPatch.last_name = lastName;
+  if (fullName) sourceDetailPatch.full_name = fullName;
+  if (email) sourceDetailPatch.email = email;
+  if (phone) sourceDetailPatch.phone = phone;
+  if (tags) sourceDetailPatch.tags = tags;
+  if (externalId) sourceDetailPatch.external_id = externalId;
+  sourceDetailPatch.manual_identity = identity;
+  const existingSourceDetail =
+    existingLead?.source_detail &&
+    typeof existingLead.source_detail === "object" &&
+    !Array.isArray(existingLead.source_detail)
+      ? existingLead.source_detail
+      : {};
+  const sourceDetail = { ...existingSourceDetail, ...sourceDetailPatch };
 
   const nowIso = new Date().toISOString();
-  const source = optionalString(body.source) || "manual";
   const consent = normalizeConsent({
     source,
     consent_to_email: body.consent_to_email,
@@ -138,69 +155,71 @@ export async function POST(request: Request) {
 
   const payload: Record<string, unknown> = {
     agent_id: auth.context.user.id,
-    owner_user_id: auth.context.user.id,
-    assignee_user_id: auth.context.user.id,
+    owner_user_id: existingLead?.owner_user_id || auth.context.user.id,
+    assignee_user_id: existingLead?.assignee_user_id || auth.context.user.id,
     ig_username: resolvedIg,
-    stage: optionalString(body.stage) || "New",
-    lead_temp: optionalString(body.lead_temp) || "Warm",
+    stage: stageInput || existingLead?.stage || "New",
+    lead_temp: leadTempInput || existingLead?.lead_temp || "Warm",
     source,
     time_last_updated: nowIso,
     latest_source_method: "manual",
-    first_source_method: "manual",
-    source_confidence: ig || email || phone ? "exact" : "unknown",
+    first_source_method: existingLead?.first_source_method || "manual",
+    source_confidence: existingLead?.source_confidence || (ig || email || phone ? "exact" : "unknown"),
     source_detail: sourceDetail,
-    raw_email: email || null,
-    raw_phone: phone || null,
-    canonical_email: email || null,
-    canonical_phone: phone || null,
-    first_name: firstName || null,
-    last_name: lastName || null,
-    full_name: fullName || displayName || null,
-    source_ref_id: externalId || null,
-    consent_to_email: consent.consent_to_email,
-    consent_to_sms: consent.consent_to_sms,
-    consent_source: consent.consent_source,
-    consent_timestamp: consent.consent_timestamp,
-    consent_text_snapshot: consent.consent_text_snapshot,
-    custom_fields: {},
+    consent_to_email: Boolean(existingLead?.consent_to_email || consent.consent_to_email),
+    consent_to_sms: Boolean(existingLead?.consent_to_sms || consent.consent_to_sms),
+    consent_source: existingLead?.consent_source || consent.consent_source,
+    consent_timestamp: existingLead?.consent_timestamp || consent.consent_timestamp,
+    consent_text_snapshot: existingLead?.consent_text_snapshot || consent.consent_text_snapshot,
+    custom_fields: existingLead?.custom_fields || {},
   };
+
+  if (email) {
+    payload.raw_email = email;
+    payload.canonical_email = email;
+  } else if (existingLead?.canonical_email) {
+    payload.raw_email = existingLead.raw_email || existingLead.canonical_email;
+    payload.canonical_email = existingLead.canonical_email;
+  }
+
+  if (phone) {
+    payload.raw_phone = rawPhone || phone;
+    payload.canonical_phone = phone;
+  } else if (existingLead?.canonical_phone) {
+    payload.raw_phone = existingLead.raw_phone || existingLead.canonical_phone;
+    payload.canonical_phone = existingLead.canonical_phone;
+  }
+
+  if (firstName) payload.first_name = firstName;
+  if (lastName) payload.last_name = lastName;
+  if (fullName || displayName) payload.full_name = fullName || displayName;
+  if (externalId) payload.source_ref_id = externalId;
+  else if (existingLead?.source_ref_id) payload.source_ref_id = existingLead.source_ref_id;
 
   const intent = optionalString(body.intent);
   const timeline = optionalString(body.timeline);
+  const budgetRange = optionalString(body.budget_range);
   const notes = optionalString(body.notes);
 
   if (intent) payload.intent = intent;
   if (timeline) payload.timeline = timeline;
+  if (budgetRange) payload.budget_range = budgetRange;
   if (notes) payload.notes = notes;
-
-  const { data: existedLead } = await supabase
-    .from("leads")
-    .select("id")
-    .eq("agent_id", auth.context.user.id)
-    .eq("ig_username", resolvedIg)
-    .maybeSingle();
 
   const { data, error } = await supabase
     .from("leads")
     .upsert(payload, { onConflict: "agent_id,ig_username" })
-    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,time_last_updated")
+    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,time_last_updated,deal_price,commission_percent,commission_amount,close_date")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (!existedLead?.id) {
-    const rules = await listActiveLeadCreatedRules(admin, auth.context);
-    if (rules.length > 0) {
-      await applyLeadCreatedRules(admin, auth.context, {
-        id: data.id,
-        ig_username: data.ig_username || null,
-        stage: data.stage || null,
-        lead_temp: data.lead_temp || null,
-      }, rules);
-    }
-  }
+  revalidatePath("/app");
+  revalidatePath("/app/list");
+  revalidatePath("/app/kanban");
+  revalidatePath(`/app/leads/${data.id}`);
 
   return NextResponse.json({ lead: data });
 }
@@ -227,11 +246,16 @@ export async function PATCH(request: Request) {
     })
     .eq("id", id)
     .or(ownerFilter(auth.context))
-    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,time_last_updated")
+    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,time_last_updated,deal_price,commission_percent,commission_amount,close_date")
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "lead not found." }, { status: 404 });
+
+  revalidatePath("/app");
+  revalidatePath("/app/list");
+  revalidatePath("/app/kanban");
+  revalidatePath(`/app/leads/${id}`);
 
   return NextResponse.json({ lead: data });
 }

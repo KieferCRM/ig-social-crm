@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { loadAccessContext } from "@/lib/access-context";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizeConsent } from "@/lib/consent";
-import {
-  applyLeadCreatedRules,
-  listActiveLeadCreatedRules,
-  type LeadForAutomation,
-} from "@/lib/automation-rules";
 
 type CsvRow = Record<string, string>;
 
@@ -44,8 +38,6 @@ type ValidImportRow = PreparedImportRow & {
 type UpsertedLeadRow = {
   id: string;
   ig_username: string | null;
-  stage: string | null;
-  lead_temp: string | null;
 };
 
 const KNOWN_HEADERS = new Set([
@@ -455,7 +447,6 @@ export async function POST(request: Request) {
     const supabase = await supabaseServer();
     const auth = await loadAccessContext(supabase);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-    const admin = supabaseAdmin();
 
     const text = await file.text();
     const parsed = parseCsv(text);
@@ -477,8 +468,6 @@ export async function POST(request: Request) {
     let inserted = 0;
     let updated = 0;
     let skipped = 0;
-    const insertedLeadsForAutomation: LeadForAutomation[] = [];
-
     const preparedRows: PreparedImportRow[] = [];
 
     for (let i = 0; i < parsed.rows.length; i++) {
@@ -715,15 +704,6 @@ export async function POST(request: Request) {
           } else {
             inserted += 1;
             existingHandlesBefore.add(row.igUsername);
-            const upserted = upsertedByHandle.get(row.igUsername);
-            if (upserted?.id) {
-              insertedLeadsForAutomation.push({
-                id: upserted.id,
-                ig_username: upserted.ig_username,
-                stage: upserted.stage,
-                lead_temp: upserted.lead_temp,
-              });
-            }
           }
         }
 
@@ -751,27 +731,6 @@ export async function POST(request: Request) {
         } else {
           inserted += 1;
           existingHandlesBefore.add(row.igUsername);
-
-          if (upserted?.id) {
-            insertedLeadsForAutomation.push({
-              id: upserted.id,
-              ig_username: upserted.ig_username,
-              stage: upserted.stage,
-              lead_temp: upserted.lead_temp,
-            });
-          }
-        }
-      }
-    }
-
-    if (insertedLeadsForAutomation.length > 0) {
-      const rules = await listActiveLeadCreatedRules(admin, auth.context);
-      if (rules.length > 0) {
-        const seen = new Set<string>();
-        for (const lead of insertedLeadsForAutomation) {
-          if (seen.has(lead.id)) continue;
-          seen.add(lead.id);
-          await applyLeadCreatedRules(admin, auth.context, lead, rules);
         }
       }
     }
