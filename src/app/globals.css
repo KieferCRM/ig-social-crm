@@ -4895,6 +4895,76 @@ input:focus, textarea:focus, select:focus {
   font-size: 0.92rem;
 }
 
+.crm-concierge-brew-banner {
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(140, 170, 255, 0.16);
+  background: linear-gradient(180deg, rgba(18, 30, 47, 0.92), rgba(13, 22, 35, 0.94));
+  display: grid;
+  gap: 8px;
+}
+
+.crm-concierge-brew-banner__eyebrow,
+.crm-concierge-locked-panel__eyebrow {
+  color: rgba(153, 230, 180, 0.92);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.crm-concierge-brew-banner__title,
+.crm-concierge-locked-panel__title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.crm-concierge-brew-banner__copy,
+.crm-concierge-locked-panel__copy {
+  color: var(--ink-muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.crm-concierge-locked-shell {
+  position: relative;
+  display: grid;
+  gap: 12px;
+}
+
+.crm-concierge-locked-shell-active {
+  isolation: isolate;
+}
+
+.crm-concierge-locked-shell-active > section {
+  filter: blur(2px) saturate(0.82);
+  opacity: 0.44;
+  pointer-events: none;
+  user-select: none;
+}
+
+.crm-concierge-locked-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.crm-concierge-locked-panel {
+  width: min(100%, 460px);
+  padding: 22px 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(140, 170, 255, 0.18);
+  background: linear-gradient(180deg, rgba(13, 21, 34, 0.98), rgba(10, 17, 28, 0.98));
+  box-shadow: 0 28px 70px rgba(3, 7, 16, 0.46);
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+
 @keyframes crm-onboarding-lead-enter {
   from {
     opacity: 0;
