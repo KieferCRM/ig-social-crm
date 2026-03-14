@@ -299,16 +299,21 @@ export default function LeadCaptureSetupPage() {
             <Link href="/intake" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
               Open Preview
             </Link>
-            {linkMessage ? (
-              <span className={`crm-chip ${linkMessage === "Copied" ? "crm-chip-ok" : "crm-chip-danger"}`}>{linkMessage}</span>
-            ) : null}
           </div>
-          <div className="crm-intake-install-example-row">
-            {SHARE_EXAMPLES.map((item) => (
-              <span key={item} className="crm-intake-install-example-pill">
-                {item}
-              </span>
-            ))}
+          {linkMessage ? (
+            <div className="crm-intake-install-card__status">
+              <span className={`crm-chip ${linkMessage === "Copied" ? "crm-chip-ok" : "crm-chip-danger"}`}>{linkMessage}</span>
+            </div>
+          ) : null}
+          <div className="crm-intake-install-card__examples">
+            <div className="crm-intake-install-card__meta-label">Good places to use it</div>
+            <div className="crm-intake-install-example-row">
+              {SHARE_EXAMPLES.map((item) => (
+                <span key={item} className="crm-intake-install-example-pill">
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
         </article>
 

@@ -1552,6 +1552,26 @@ h1, h2, h3, h4 {
   align-items: center;
 }
 
+.crm-intake-install-card__status {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+}
+
+.crm-intake-install-card__examples {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.crm-intake-install-card__meta-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--ink-faint);
+}
+
 .crm-intake-install-example-row {
   display: flex;
   gap: 8px;
