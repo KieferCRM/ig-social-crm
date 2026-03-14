@@ -13,8 +13,6 @@ type QuestionnaireResponse = {
   error?: string;
 };
 
-type InstallPreviewMode = "link" | "embed";
-
 type PreviewField = {
   crmField: string;
   label: string;
@@ -35,11 +33,6 @@ const SHARE_EXAMPLES = [
   "Facebook post",
   "Website button",
   "Open house QR code",
-] as const;
-
-const EMBED_HELPERS = [
-  "Paste into a website HTML block",
-  "Use on landing pages or contact pages",
 ] as const;
 
 const DEFAULT_PREVIEW_FIELDS: PreviewField[] = [
@@ -151,9 +144,8 @@ function PreviewInput({ field }: { field: PreviewField }) {
 export default function LeadCaptureSetupPage() {
   const [questionnaireConfig, setQuestionnaireConfig] = useState<QuestionnaireConfig>(DEFAULT_QUESTIONNAIRE_CONFIG);
   const [intakeUrl, setIntakeUrl] = useState("/intake");
-  const [previewMode, setPreviewMode] = useState<InstallPreviewMode>("link");
   const [linkMessage, setLinkMessage] = useState("");
-  const [embedMessage, setEmbedMessage] = useState("");
+  const [qrMessage, setQrMessage] = useState("");
   const previewRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -196,11 +188,10 @@ export default function LeadCaptureSetupPage() {
     };
   }, []);
 
-  const embedUrl = useMemo(() => `${intakeUrl}?source=website_embed`, [intakeUrl]);
-  const embedSnippet = useMemo(
+  const qrCodeUrl = useMemo(
     () =>
-      `<iframe src="${embedUrl}" style="width:100%;max-width:760px;height:780px;border:0;border-radius:16px;" loading="lazy"></iframe>`,
-    [embedUrl]
+      `https://api.qrserver.com/v1/create-qr-code/?format=png&size=520x520&data=${encodeURIComponent(intakeUrl)}`,
+    [intakeUrl]
   );
   const previewFields = useMemo(() => overlayPreviewFields(questionnaireConfig), [questionnaireConfig]);
   const previewTitle = questionnaireConfig.title || "Lead Intake Form";
@@ -240,9 +231,32 @@ export default function LeadCaptureSetupPage() {
     }
   }
 
-  function openPreviewTab(mode: InstallPreviewMode) {
-    setPreviewMode(mode);
+  function openPreview() {
     previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function downloadQrCode() {
+    try {
+      const response = await fetch(qrCodeUrl);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = "merlyn-intake-qr.png";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      setTransientMessage(setQrMessage, "Downloaded");
+    } catch {
+      const link = document.createElement("a");
+      link.href = qrCodeUrl;
+      link.download = "merlyn-intake-qr.png";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTransientMessage(setQrMessage, "Opened PNG");
+    }
   }
 
   return (
@@ -252,7 +266,7 @@ export default function LeadCaptureSetupPage() {
           <p className="crm-intake-install-kicker">Lead Capture Install</p>
           <h1 className="crm-page-title">Install Your Lead Capture Form</h1>
           <p className="crm-page-subtitle">
-            Share a link anywhere or embed the full form on your website. Every submission flows directly into Merlyn.
+            Share a link anywhere or generate a QR code for open houses, print materials, and in-person traffic. Every submission flows directly into Merlyn.
           </p>
         </div>
         <div className="crm-intake-install-trust-row">
@@ -301,86 +315,64 @@ export default function LeadCaptureSetupPage() {
         <article className="crm-card crm-section-card crm-intake-install-card">
           <div className="crm-intake-install-card__head">
             <div>
-              <p className="crm-intake-install-card__eyebrow">Embed Full Form</p>
-              <h2 className="crm-section-title">Place the full questionnaire directly on your site.</h2>
+              <p className="crm-intake-install-card__eyebrow">Open House QR Code</p>
+              <h2 className="crm-section-title">Generate a QR code that opens your lead intake form.</h2>
             </div>
           </div>
           <p className="crm-section-subtitle">
-            Best when you want prospects to complete the full form without leaving your landing page or contact page.
+            Perfect for open houses, yard signs, flyers, and print materials.
           </p>
-          <pre className="crm-intake-install-code-block">
-            <code>{embedSnippet}</code>
-          </pre>
+          <div className="crm-intake-install-qr-card">
+            <img
+              src={qrCodeUrl}
+              alt="QR code for the Merlyn lead intake form"
+              width={220}
+              height={220}
+              className="crm-intake-install-qr-image"
+            />
+          </div>
           <div className="crm-intake-install-card__actions">
-            <button type="button" className="crm-btn crm-btn-primary" onClick={() => void copyValue(embedSnippet, setEmbedMessage)}>
-              Copy Embed Code
+            <button type="button" className="crm-btn crm-btn-primary" onClick={() => void downloadQrCode()}>
+              Download QR
             </button>
-            <button type="button" className="crm-btn crm-btn-secondary" onClick={() => openPreviewTab("embed")}>
-              Preview Form
+            <button type="button" className="crm-btn crm-btn-secondary" onClick={() => void copyValue(intakeUrl, setQrMessage)}>
+              Copy Intake Link
             </button>
-            {embedMessage ? (
-              <span className={`crm-chip ${embedMessage === "Copied" ? "crm-chip-ok" : "crm-chip-danger"}`}>{embedMessage}</span>
+            {qrMessage ? (
+              <span className={`crm-chip ${qrMessage === "Downloaded" || qrMessage === "Copied" || qrMessage === "Opened PNG" ? "crm-chip-ok" : "crm-chip-danger"}`}>{qrMessage}</span>
             ) : null}
           </div>
-          <div className="crm-intake-install-helper-list">
-            {EMBED_HELPERS.map((item) => (
-              <div key={item} className="crm-intake-install-helper-item">
-                {item}
-              </div>
-            ))}
-          </div>
+          <p className="crm-intake-install-qr-helper">
+            Place this QR code on open house signs or flyers so visitors can instantly submit their inquiry.
+          </p>
         </article>
       </section>
 
       <section ref={previewRef} className="crm-card crm-section-card crm-intake-install-preview">
         <div className="crm-section-head">
           <div>
-            <h2 className="crm-section-title">Live Preview</h2>
+            <h2 className="crm-section-title">Form Preview</h2>
             <p className="crm-section-subtitle">
-              This is the experience your prospect sees when they open the link or view the embedded form.
+              This is the form a prospect sees after opening your share link or scanning your QR code.
             </p>
           </div>
-          <div className="crm-intake-install-preview-tabs" role="tablist" aria-label="Lead capture preview">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={previewMode === "link"}
-              className={`crm-intake-install-preview-tab${previewMode === "link" ? " is-active" : ""}`}
-              onClick={() => setPreviewMode("link")}
-            >
-              Preview Link Experience
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={previewMode === "embed"}
-              className={`crm-intake-install-preview-tab${previewMode === "embed" ? " is-active" : ""}`}
-              onClick={() => setPreviewMode("embed")}
-            >
-              Preview Embedded Form
-            </button>
-          </div>
+          <button type="button" className="crm-btn crm-btn-secondary" onClick={openPreview}>
+            Preview Link Experience
+          </button>
         </div>
 
-        <div className={`crm-intake-install-preview-shell crm-intake-install-preview-shell--${previewMode}`}>
-          {previewMode === "link" ? (
-            <div className="crm-intake-install-preview-frame">
-              <div className="crm-intake-install-preview-frame__top">
-                <span>merlyn.com</span>
-                <span>Secure form</span>
-              </div>
-              <div className="crm-intake-install-preview-frame__hero">
-                <div className="crm-intake-install-preview-badge">Shareable form</div>
-                <h3>{previewTitle}</h3>
-                <p>{previewDescription}</p>
-              </div>
+        <div className="crm-intake-install-preview-shell">
+          <div className="crm-intake-install-preview-frame">
+            <div className="crm-intake-install-preview-frame__top">
+              <span>merlyn.com</span>
+              <span>Secure form</span>
             </div>
-          ) : (
-            <div className="crm-intake-install-embed-chrome">
-              <span>Embedded on your website</span>
-              <span>Inline on-page form</span>
+            <div className="crm-intake-install-preview-frame__hero">
+              <div className="crm-intake-install-preview-badge">Shareable form</div>
+              <h3>{previewTitle}</h3>
+              <p>{previewDescription}</p>
             </div>
-          )}
+          </div>
 
           <div className="crm-intake-install-form-card">
             <div className="crm-intake-install-form-card__head">

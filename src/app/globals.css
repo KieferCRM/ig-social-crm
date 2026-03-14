@@ -1528,8 +1528,7 @@ h1, h2, h3, h4 {
   color: var(--ink-faint);
 }
 
-.crm-intake-install-link-box,
-.crm-intake-install-code-block {
+.crm-intake-install-link-box {
   margin: 0;
   padding: 14px 16px;
   border-radius: 14px;
@@ -1538,8 +1537,7 @@ h1, h2, h3, h4 {
   overflow-x: auto;
 }
 
-.crm-intake-install-link-box code,
-.crm-intake-install-code-block code {
+.crm-intake-install-link-box code {
   color: var(--foreground);
   font-size: 13px;
   line-height: 1.7;
@@ -1570,10 +1568,30 @@ h1, h2, h3, h4 {
   color: var(--ink-muted);
 }
 
-.crm-intake-install-helper-list {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.crm-intake-install-qr-card {
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line-strong);
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.08), transparent 42%),
+    rgba(10, 16, 24, 0.74);
+}
+
+.crm-intake-install-qr-image {
+  width: min(220px, 100%);
+  height: auto;
+  border-radius: 14px;
+  background: white;
+  padding: 12px;
+}
+
+.crm-intake-install-qr-helper {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-muted);
 }
 
 .crm-intake-install-preview {
@@ -1581,42 +1599,12 @@ h1, h2, h3, h4 {
   gap: 14px;
 }
 
-.crm-intake-install-preview-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.crm-intake-install-preview-tab {
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--ink-muted);
-  border-radius: 999px;
-  padding: 8px 12px;
-  font: inherit;
-  cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
-}
-
-.crm-intake-install-preview-tab:hover,
-.crm-intake-install-preview-tab.is-active {
-  border-color: var(--line-strong);
-  background: rgba(34, 197, 94, 0.12);
-  color: var(--foreground);
-}
-
-.crm-intake-install-preview-tab:focus-visible {
-  outline: 2px solid rgba(34, 197, 94, 0.3);
-  outline-offset: 2px;
-}
-
 .crm-intake-install-preview-shell {
   display: grid;
   gap: 12px;
 }
 
-.crm-intake-install-preview-frame,
-.crm-intake-install-embed-chrome {
+.crm-intake-install-preview-frame {
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -1627,11 +1615,6 @@ h1, h2, h3, h4 {
   background: rgba(10, 16, 24, 0.56);
   color: var(--ink-muted);
   font-size: 12px;
-}
-
-.crm-intake-install-preview-frame {
-  display: grid;
-  gap: 10px;
 }
 
 .crm-intake-install-preview-frame__top {
