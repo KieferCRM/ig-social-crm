@@ -22,13 +22,13 @@ type DemoLead = {
 };
 
 const LINK_PLACEMENTS = [
-  { icon: "IG", label: "Instagram Bio" },
-  { icon: "FB", label: "Facebook Profile" },
-  { icon: "TT", label: "TikTok Bio" },
-  { icon: "LT", label: "Linktree" },
-  { icon: "WEB", label: "Website Contact Page" },
-  { icon: "MAIL", label: "Email Signature" },
-  { icon: "QR", label: "Open House QR Code" },
+  "Instagram bio",
+  "Facebook profile",
+  "TikTok bio",
+  "Linktree",
+  "Website contact page",
+  "Email signature",
+  "Open house QR code",
 ] as const;
 
 const SIMULATED_LEAD: DemoLead = {
@@ -38,12 +38,6 @@ const SIMULATED_LEAD: DemoLead = {
   priceRange: "$450k-$600k",
   timeline: "3 Months",
   notes: "Looking for a home near downtown",
-};
-
-const EXAMPLE_LEAD = {
-  name: "Rachel Kim",
-  phone: "(615) 555-0129",
-  note: "Relocating to Nashville this spring",
 };
 
 async function copyText(value: string): Promise<boolean> {
@@ -75,8 +69,6 @@ export default function OnboardingClient({
       `https://api.qrserver.com/v1/create-qr-code/?format=png&size=520x520&data=${encodeURIComponent(intakeUrl)}`,
     [intakeUrl]
   );
-
-  const canFinish = leadMoved;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -149,7 +141,7 @@ export default function OnboardingClient({
 
   return (
     <main className="crm-onboarding-page">
-      <section className="crm-onboarding-shell">
+      <section className="crm-onboarding-shell crm-onboarding-shell-simplified">
         <header className="crm-onboarding-header">
           <div className="crm-onboarding-brand">
             <MerlynMascot decorative />
@@ -161,7 +153,7 @@ export default function OnboardingClient({
           <span className="crm-chip crm-chip-ok">First-time setup</span>
         </header>
 
-        <section className="crm-onboarding-hero">
+        <section className="crm-onboarding-hero crm-onboarding-hero-compact">
           <div className="crm-onboarding-headline">
             <div className="crm-onboarding-kicker">TURN ON YOUR LEAD CAPTURE</div>
             <h1>Turn On Your Lead Capture</h1>
@@ -171,28 +163,22 @@ export default function OnboardingClient({
             </p>
             <div className="crm-onboarding-trust-row" aria-label="Setup highlights">
               <span>No account required for the lead</span>
-              <span>Ready in under 60 seconds</span>
-              <span>Every inquiry lands in your pipeline</span>
+              <span>Takes under a minute</span>
+              <span>Lead goes straight to your pipeline</span>
             </div>
           </div>
         </section>
 
-        <section className="crm-onboarding-top-grid">
+        <section className="crm-onboarding-simple-grid">
           <article className="crm-card crm-onboarding-card">
             <div className="crm-onboarding-card-head">
               <div>
                 <div className="crm-onboarding-card-kicker">Questionnaire Preview</div>
-                <h2>This is what your clients will see.</h2>
+                <h2>This is what your clients fill out.</h2>
               </div>
-              <span className="crm-onboarding-card-chip">Live form preview</span>
             </div>
 
             <div className="crm-onboarding-form-preview">
-              <div className="crm-onboarding-form-preview-head">
-                <h3>Lead Intake Form</h3>
-                <p>Simple enough for a prospect to finish in one minute.</p>
-              </div>
-
               <div className="crm-onboarding-form-grid">
                 <label className="crm-onboarding-field">
                   <span>Name</span>
@@ -236,111 +222,89 @@ export default function OnboardingClient({
             </div>
           </article>
 
-          <div className="crm-onboarding-side-stack">
-            <article className="crm-card crm-onboarding-card">
-              <div className="crm-onboarding-card-head">
-                <div>
-                  <div className="crm-onboarding-card-kicker">Your Lead Capture Link</div>
-                  <h2>Share this anywhere clients already reach you.</h2>
-                </div>
-              </div>
-
-              <div className="crm-onboarding-link-box">
-                <code>{intakeUrl.replace(/^https?:\/\//, "")}</code>
-              </div>
-
-              <div className="crm-onboarding-link-actions">
-                <button type="button" className="crm-btn crm-btn-primary" onClick={handleCopyLink}>
-                  Copy Link
-                </button>
-                <Link href={intakePath} target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
-                  Open Form
-                </Link>
-                <button
-                  type="button"
-                  className="crm-btn crm-btn-secondary"
-                  onClick={() => setQrVisible((value) => !value)}
-                >
-                  Generate QR Code
-                </button>
-              </div>
-
-              {linkMessage ? <div className="crm-onboarding-link-status">{linkMessage}</div> : null}
-
-              {qrVisible ? (
-                <div className="crm-onboarding-qr-card">
-                  <img src={qrCodeUrl} alt="QR code for the Merlyn intake form" className="crm-onboarding-qr-image" />
-                  <div className="crm-onboarding-qr-actions">
-                    <button type="button" className="crm-btn crm-btn-secondary" onClick={handleDownloadQr}>
-                      Download QR Code
-                    </button>
-                    <button type="button" className="crm-btn crm-btn-secondary" onClick={handleCopyLink}>
-                      Copy Intake Link
-                    </button>
-                  </div>
-                  <p>
-                    Place this QR code on open house signs or flyers so visitors can instantly submit their inquiry.
-                  </p>
-                </div>
-              ) : null}
-            </article>
-
-            <article className="crm-card crm-onboarding-card">
-              <div className="crm-onboarding-card-head">
-                <div>
-                  <div className="crm-onboarding-card-kicker">Best Places To Add Your Link</div>
-                  <h2>Get it in front of real inquiries fast.</h2>
-                </div>
-              </div>
-
-              <div className="crm-onboarding-placement-grid">
-                {LINK_PLACEMENTS.map((item) => (
-                  <div key={item.label} className="crm-onboarding-placement-item">
-                    <span>{item.icon}</span>
-                    <strong>{item.label}</strong>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section className="crm-onboarding-flow-grid">
           <article className="crm-card crm-onboarding-card">
             <div className="crm-onboarding-card-head">
               <div>
-                <div className="crm-onboarding-card-kicker">What Happens Next</div>
-                <h2>Merlyn turns form submissions into pipeline-ready leads.</h2>
+                <div className="crm-onboarding-card-kicker">Your Lead Capture Link</div>
+                <h2>Share this anywhere clients already contact you.</h2>
               </div>
             </div>
 
-            <ol className="crm-onboarding-steps">
-              <li>A client fills out your questionnaire</li>
-              <li>Merlyn automatically creates a lead</li>
-              <li>The lead appears in your pipeline</li>
-            </ol>
+            <div className="crm-onboarding-link-box">
+              <code>{intakeUrl.replace(/^https?:\/\//, "")}</code>
+            </div>
 
-            <div className="crm-onboarding-action-block">
+            <div className="crm-onboarding-link-actions">
+              <button type="button" className="crm-btn crm-btn-primary" onClick={handleCopyLink}>
+                Copy Link
+              </button>
+              <Link href={intakePath} target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
+                Open Form
+              </Link>
               <button
                 type="button"
-                className="crm-btn crm-btn-primary crm-onboarding-simulate-btn"
-                onClick={simulateLeadAppearance}
-                disabled={isSimulating || showLead}
+                className="crm-btn crm-btn-secondary"
+                onClick={() => setQrVisible((value) => !value)}
               >
-                {showLead ? "Lead Captured" : "See How Leads Appear"}
+                Generate QR Code
               </button>
-              <div className="crm-onboarding-action-note">
-                Watch how Merlyn automatically captures inquiries.
-              </div>
-              {isSimulating ? <div className="crm-onboarding-loading">New inquiry received...</div> : null}
             </div>
-          </article>
 
-          <article className="crm-card crm-onboarding-card crm-onboarding-pipeline-card">
-            <div className="crm-onboarding-card-head">
-              <div>
-                <div className="crm-onboarding-card-kicker">Pipeline Preview</div>
-                <h2>{agentFirstName}, this is where new inquiries land.</h2>
+            {linkMessage ? <div className="crm-onboarding-link-status">{linkMessage}</div> : null}
+
+            <div className="crm-onboarding-placement-list">
+              {LINK_PLACEMENTS.map((item) => (
+                <span key={item} className="crm-onboarding-placement-pill">
+                  {item}
+                </span>
+              ))}
+            </div>
+
+            {qrVisible ? (
+              <div className="crm-onboarding-qr-card">
+                <img src={qrCodeUrl} alt="QR code for the Merlyn intake form" className="crm-onboarding-qr-image" />
+                <div className="crm-onboarding-qr-actions">
+                  <button type="button" className="crm-btn crm-btn-secondary" onClick={handleDownloadQr}>
+                    Download QR Code
+                  </button>
+                  <button type="button" className="crm-btn crm-btn-secondary" onClick={handleCopyLink}>
+                    Copy Intake Link
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </article>
+        </section>
+
+        <section className="crm-card crm-onboarding-card crm-onboarding-workflow-card">
+          <div className="crm-onboarding-card-head">
+            <div>
+              <div className="crm-onboarding-card-kicker">What Happens Next</div>
+              <h2>{agentFirstName}, this is the whole Merlyn story in one view.</h2>
+            </div>
+          </div>
+
+          <div className="crm-onboarding-workflow-grid">
+            <div className="crm-onboarding-workflow-copy">
+              <ol className="crm-onboarding-steps">
+                <li>A client fills out your questionnaire</li>
+                <li>Merlyn automatically creates a lead</li>
+                <li>The lead appears in your pipeline</li>
+              </ol>
+
+              <div className="crm-onboarding-action-block">
+                <button
+                  type="button"
+                  className="crm-btn crm-btn-primary crm-onboarding-simulate-btn"
+                  onClick={simulateLeadAppearance}
+                  disabled={isSimulating || showLead}
+                >
+                  {showLead ? "Lead Captured" : "See How Leads Appear"}
+                </button>
+                <div className="crm-onboarding-action-note">
+                  Watch how Merlyn automatically captures inquiries.
+                </div>
+                {isSimulating ? <div className="crm-onboarding-loading">New inquiry received...</div> : null}
               </div>
             </div>
 
@@ -352,16 +316,7 @@ export default function OnboardingClient({
               >
                 <div className="crm-onboarding-column-head">
                   <strong>New Leads</strong>
-                  <span>{1 + (showLead && leadStage === "new" ? 1 : 0)}</span>
-                </div>
-
-                <div className="crm-onboarding-lead-card crm-onboarding-lead-card-static">
-                  <div className="crm-onboarding-lead-card-head">
-                    <strong>{EXAMPLE_LEAD.name}</strong>
-                    <span>Example</span>
-                  </div>
-                  <div className="crm-onboarding-lead-card-meta">{EXAMPLE_LEAD.phone}</div>
-                  <div className="crm-onboarding-lead-card-note">{EXAMPLE_LEAD.note}</div>
+                  <span>{showLead && leadStage === "new" ? 1 : 0}</span>
                 </div>
 
                 {showLead && leadStage === "new" ? (
@@ -379,13 +334,11 @@ export default function OnboardingClient({
                       {SIMULATED_LEAD.intent} • {SIMULATED_LEAD.priceRange} • {SIMULATED_LEAD.timeline}
                     </div>
                     <div className="crm-onboarding-lead-card-note">{SIMULATED_LEAD.notes}</div>
-                    {!leadMoved ? <div className="crm-onboarding-tooltip">Drag this lead to update their status.</div> : null}
+                    {!leadMoved ? <div className="crm-onboarding-tooltip">Drag this lead to Contacted.</div> : null}
                   </div>
-                ) : null}
-
-                <div className="crm-onboarding-column-empty">
-                  {isSimulating ? "Waiting for the inquiry..." : "Your next lead will appear here automatically."}
-                </div>
+                ) : (
+                  <div className="crm-onboarding-column-empty">Your first lead will appear here automatically.</div>
+                )}
               </div>
 
               <div
@@ -405,43 +358,38 @@ export default function OnboardingClient({
                       <span>Moved</span>
                     </div>
                     <div className="crm-onboarding-lead-card-meta">{SIMULATED_LEAD.phone}</div>
-                    <div className="crm-onboarding-lead-card-note">Status updated. This lead is ready for follow-up.</div>
+                    <div className="crm-onboarding-lead-card-note">Status updated. This lead is now being worked.</div>
                   </div>
                 ) : (
-                  <div className="crm-onboarding-column-empty">Drag the lead here once it appears.</div>
+                  <div className="crm-onboarding-column-empty">Move the lead here after it appears.</div>
                 )}
               </div>
             </div>
-          </article>
+          </div>
         </section>
 
-        {canFinish ? (
-          <section className="crm-onboarding-finish-grid">
-            <article className="crm-card crm-onboarding-card crm-onboarding-success-card">
-              <div className="crm-onboarding-card-kicker">Complete Onboarding</div>
-              <h2>You&apos;re ready to capture leads.</h2>
-              <p>Your intake link is live, and you’ve seen exactly how an inquiry appears inside Merlyn.</p>
+        {leadMoved ? (
+          <section className="crm-card crm-onboarding-card crm-onboarding-success-card">
+            <div className="crm-onboarding-card-kicker">You’re Ready</div>
+            <h2>You&apos;re ready to capture leads.</h2>
+            <p>Put your link in front of real clients and Merlyn will handle the first step automatically.</p>
 
-              <div className="crm-onboarding-success-actions">
-                <button type="button" className="crm-btn crm-btn-primary" onClick={completeOnboarding} disabled={isCompleting}>
-                  {isCompleting ? "Finishing..." : "Go To My CRM"}
-                </button>
-                <button type="button" className="crm-btn crm-btn-secondary" onClick={handleCopyLink}>
-                  Copy My Intake Link
-                </button>
-              </div>
-              {saveError ? <div className="crm-onboarding-error">{saveError}</div> : null}
-            </article>
+            <div className="crm-onboarding-success-actions">
+              <button type="button" className="crm-btn crm-btn-primary" onClick={completeOnboarding} disabled={isCompleting}>
+                {isCompleting ? "Finishing..." : "Go To My CRM"}
+              </button>
+              <button type="button" className="crm-btn crm-btn-secondary" onClick={handleCopyLink}>
+                Copy My Intake Link
+              </button>
+            </div>
 
-            <article className="crm-card crm-onboarding-card">
-              <div className="crm-onboarding-card-kicker">Get Your First Real Lead</div>
-              <h2>Put the link to work today.</h2>
-              <ul className="crm-onboarding-next-steps">
-                <li>Add your intake link to your Instagram bio</li>
-                <li>Send the link to a past client</li>
-                <li>Print the QR code for your next open house</li>
-              </ul>
-            </article>
+            <div className="crm-onboarding-next-strip">
+              <span>Add the link to your Instagram bio</span>
+              <span>Send it to a past client</span>
+              <span>Print the QR code for your next open house</span>
+            </div>
+
+            {saveError ? <div className="crm-onboarding-error">{saveError}</div> : null}
           </section>
         ) : null}
       </section>
