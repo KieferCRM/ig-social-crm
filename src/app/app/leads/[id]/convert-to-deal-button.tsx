@@ -33,8 +33,13 @@ export default function ConvertToDealButton({
         setOpen(false);
       }
     }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   function openModal() {
@@ -110,21 +115,11 @@ export default function ConvertToDealButton({
 
       {open ? (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 80,
-            background: "rgba(4, 10, 22, 0.72)",
-            backdropFilter: "blur(2px)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
+          className="crm-lead-command-modal-overlay"
           onClick={() => setOpen(false)}
         >
           <section
-            className="crm-card"
-            style={{ width: "min(520px, 100%)", padding: 14, display: "grid", gap: 10 }}
+            className="crm-lead-command-modal"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="crm-section-head">
@@ -139,7 +134,10 @@ export default function ConvertToDealButton({
               </button>
             </div>
 
-            <form onSubmit={(event) => void onSubmit(event)} style={{ display: "grid", gap: 10 }}>
+            <form
+              onSubmit={(event) => void onSubmit(event)}
+              className="crm-lead-command-modal-form"
+            >
               <label style={{ display: "grid", gap: 6 }}>
                 <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Property Address</span>
                 <input
@@ -180,7 +178,7 @@ export default function ConvertToDealButton({
                 />
               </label>
 
-              <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+              <div className="crm-lead-command-modal-footer">
                 <div style={{ fontSize: 12, color: status ? "var(--foreground)" : "var(--ink-muted)" }}>
                   {status || "Stage will start at New."}
                 </div>

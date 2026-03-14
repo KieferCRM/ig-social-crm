@@ -19,7 +19,6 @@ export type LeadWorkspaceLead = {
   canonical_email: string | null;
   canonical_phone: string | null;
   source: string | null;
-  source_ref_id: string | null;
   stage: string | null;
   lead_temp: string | null;
   deal_price: number | string | null;
@@ -33,15 +32,12 @@ export type LeadWorkspaceLead = {
   contact_preference: string | null;
   next_step: string | null;
   notes: string | null;
-  tags: string[] | null;
   last_message_preview: string | null;
   time_last_updated: string | null;
   last_communication_at?: string | null;
   created_at?: string | null;
   urgency_level?: string | null;
   urgency_score?: number | null;
-  source_detail: Record<string, unknown> | null;
-  custom_fields: Record<string, unknown> | null;
 };
 
 export type ReminderPreview = {
@@ -54,6 +50,7 @@ export type ReminderPreview = {
 type LeadCommandWorkspaceProps = {
   lead: LeadWorkspaceLead;
   reminders: ReminderPreview[];
+  conciergeEnabled: boolean;
 };
 
 const QUICK_STEP_OPTIONS = [
@@ -122,6 +119,18 @@ function formatShortDate(value: string | null | undefined): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function formatPhoneDisplay(value: string | null | undefined): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const digits = trimmed.replace(/\D/g, "");
+  const normalized = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (normalized.length !== 10) return trimmed;
+
+  return `(${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`;
+}
+
 function leadDisplayName(lead: LeadWorkspaceLead): string {
   const full = firstNonEmpty(lead.full_name);
   if (full) return full;
@@ -138,7 +147,7 @@ function leadDisplayName(lead: LeadWorkspaceLead): string {
   if (email) return email;
 
   const phone = firstNonEmpty(lead.canonical_phone);
-  if (phone) return phone;
+  if (phone) return formatPhoneDisplay(phone) || phone;
 
   return "Unnamed lead";
 }
@@ -150,42 +159,6 @@ function leadTempChipClass(leadTemp: string | null): string {
   return "crm-chip";
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
-
-function fieldLabel(key: string): string {
-  return key
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function fieldValue(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) {
-    const items = value.map((item) => fieldValue(item)).filter(Boolean);
-    return items.join(", ");
-  }
-  if (typeof value === "object") return JSON.stringify(value);
-  return "";
-}
-
-function recordRows(record: Record<string, unknown> | null): Array<{ key: string; label: string; value: string }> {
-  if (!record) return [];
-  return Object.entries(record)
-    .map(([key, rawValue]) => ({
-      key,
-      label: fieldLabel(key),
-      value: fieldValue(rawValue),
-    }))
-    .filter((row) => row.value)
-    .slice(0, 24);
-}
-
 function MetricField({ label, value }: { label: string; value: string }) {
   return (
     <div className="crm-card-muted crm-lead-command-mini">
@@ -195,11 +168,16 @@ function MetricField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function LeadCommandWorkspace({ lead: initialLead, reminders }: LeadCommandWorkspaceProps) {
+export default function LeadCommandWorkspace({
+  lead: initialLead,
+  reminders,
+  conciergeEnabled,
+}: LeadCommandWorkspaceProps) {
   const lead = initialLead;
   const [selectedQuickStep, setSelectedQuickStep] = useState<string | null>(null);
   const displayName = useMemo(() => leadDisplayName(lead), [lead]);
   const phoneValue = firstNonEmpty(lead.canonical_phone);
+  const formattedPhone = formatPhoneDisplay(phoneValue);
   const emailValue = firstNonEmpty(lead.canonical_email);
   const handleValue = cleanHandle(lead.ig_username);
   const sourceLabel = sourceDisplayLabel(lead.source) || "Unspecified source";
@@ -212,16 +190,8 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
       : null;
   const pendingReminders = reminders.filter((item) => item.status === "pending");
   const nextReminder = pendingReminders[0] || null;
-  const lastUpdatedText = formatDateTime(lead.time_last_updated);
-  const createdAtText = formatDateTime(lead.created_at);
   const createdAtShort = formatShortDate(lead.created_at);
   const updatedAtShort = formatShortDate(lead.time_last_updated);
-  const sourceDetailRows = useMemo(() => recordRows(asRecord(lead.source_detail)), [lead.source_detail]);
-  const customFieldRows = useMemo(() => recordRows(asRecord(lead.custom_fields)), [lead.custom_fields]);
-  const tagsText =
-    Array.isArray(lead.tags) && lead.tags.length > 0
-      ? lead.tags.join(", ")
-      : null;
 
   const recommendedAction = useMemo(() => {
     const stage = (lead.stage || "").trim().toLowerCase();
@@ -259,7 +229,7 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
           <div className="crm-lead-command-kicker">Lead Command Workspace</div>
           <h1 className="crm-lead-command-title">{displayName}</h1>
           <div className="crm-lead-command-contact-line">
-            <span>{phoneValue || "No phone saved yet"}</span>
+            <span>{formattedPhone || "No phone saved yet"}</span>
             <span>{emailValue || "No email saved yet"}</span>
             {handleValue ? <span>{handleValue}</span> : null}
           </div>
@@ -301,7 +271,7 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
             </div>
 
             <div className="crm-lead-command-fact-grid">
-              <MetricField label="Phone" value={phoneValue || "Not provided"} />
+              <MetricField label="Phone" value={formattedPhone || "Not provided"} />
               <MetricField label="Email" value={emailValue || "Not provided"} />
               <MetricField label="Intent" value={firstNonEmpty(lead.intent) || "Not captured yet"} />
               <MetricField label="Timeline" value={firstNonEmpty(lead.timeline) || "Not captured yet"} />
@@ -365,6 +335,11 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
                     </button>
                   ))}
                 </div>
+                {!conciergeEnabled ? (
+                  <div className="crm-lead-command-action-helper">
+                    Enable Concierge to call and text leads directly from Merlyn.
+                  </div>
+                ) : null}
                 <div className="crm-lead-command-inline-note">
                   Next step: {nextStepValue}
                 </div>
@@ -425,46 +400,6 @@ export default function LeadCommandWorkspace({ lead: initialLead, reminders }: L
           </section>
         </div>
       </div>
-
-      <details className="crm-card crm-section-card crm-lead-command-advanced">
-        <summary className="crm-lead-command-advanced-summary">Advanced Data</summary>
-        <div className="crm-lead-command-advanced-body">
-          <div className="crm-lead-command-fact-grid">
-            <MetricField label="Source reference" value={firstNonEmpty(lead.source_ref_id) || "Not provided"} />
-            <MetricField label="Tags" value={tagsText || "No tags"} />
-            <MetricField label="Created" value={createdAtText || "No timestamp available"} />
-            <MetricField label="Updated" value={lastUpdatedText || "No timestamp available"} />
-          </div>
-
-          <div className="crm-lead-command-advanced-grid">
-            <section className="crm-card-muted crm-lead-command-advanced-panel">
-              <div className="crm-section-head">
-                <h3 className="crm-section-title">Source Data</h3>
-              </div>
-              <div className="crm-lead-command-advanced-stack">
-                {sourceDetailRows.length > 0 ? (
-                  sourceDetailRows.map((row) => <MetricField key={row.key} label={row.label} value={row.value} />)
-                ) : (
-                  <div className="crm-lead-command-empty">No structured source data yet.</div>
-                )}
-              </div>
-            </section>
-
-            <section className="crm-card-muted crm-lead-command-advanced-panel">
-              <div className="crm-section-head">
-                <h3 className="crm-section-title">Imported Details</h3>
-              </div>
-              <div className="crm-lead-command-advanced-stack">
-                {customFieldRows.length > 0 ? (
-                  customFieldRows.map((row) => <MetricField key={row.key} label={row.label} value={row.value} />)
-                ) : (
-                  <div className="crm-lead-command-empty">No custom fields stored for this lead.</div>
-                )}
-              </div>
-            </section>
-          </div>
-        </div>
-      </details>
     </main>
   );
 }
