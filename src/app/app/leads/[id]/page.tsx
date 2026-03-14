@@ -4,7 +4,6 @@ import LeadCommandWorkspace, {
   type ReminderPreview,
 } from "./lead-command-workspace";
 import { withReminderOwnerColumn } from "@/lib/reminders";
-import { RECEPTIONIST_SETTINGS_KEY, readReceptionistSettingsFromAgentSettings } from "@/lib/receptionist/settings";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +18,18 @@ type ReminderRow = {
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+const RECEPTIONIST_SETTINGS_KEY = "receptionist_settings";
+
+function readBoolean(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "off"].includes(normalized)) return false;
+  }
+  return fallback;
 }
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -81,10 +92,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     agentSettings && Object.prototype.hasOwnProperty.call(agentSettings, RECEPTIONIST_SETTINGS_KEY)
   );
   const receptionistSettings = hasReceptionistSettings
-    ? readReceptionistSettingsFromAgentSettings(agentRow?.settings || null)
+    ? asRecord(agentSettings?.[RECEPTIONIST_SETTINGS_KEY])
     : null;
   const conciergeEnabled = Boolean(
-    receptionistSettings?.receptionist_enabled && receptionistSettings?.communications_enabled
+    readBoolean(receptionistSettings?.receptionist_enabled, true) &&
+      readBoolean(receptionistSettings?.communications_enabled, true)
   );
 
   const { data: reminderData } = await withReminderOwnerColumn((ownerColumn) =>
