@@ -14,6 +14,7 @@ import {
   normalizeSourceChannel,
   sourceChannelLabel,
 } from "@/lib/inbound";
+import { inferLeadTags, normalizeTagList } from "@/lib/tags";
 import {
   buildSyntheticLeadHandle,
   findExistingLeadByIdentity,
@@ -148,6 +149,15 @@ export async function POST(request: Request) {
     notes: optionalString(body.notes),
   });
   const sourceChannel = normalizeSourceChannel(source) || "manual";
+  const inferredTags = normalizeTagList([
+    ...inferLeadTags({
+      intent: optionalString(body.intent),
+      source,
+      leadTemp: leadTempInput || qualification.temperature,
+      timeline: optionalString(body.timeline),
+    }),
+    ...normalizeTagList(tags),
+  ]);
   const nextAction = inferNextAction(
     {
       intent: optionalString(body.intent),
@@ -174,7 +184,7 @@ export async function POST(request: Request) {
   if (fullName) sourceDetailPatch.full_name = fullName;
   if (email) sourceDetailPatch.email = email;
   if (phone) sourceDetailPatch.phone = phone;
-  if (tags) sourceDetailPatch.tags = tags;
+  sourceDetailPatch.tags = inferredTags;
   if (externalId) sourceDetailPatch.external_id = externalId;
   sourceDetailPatch.manual_identity = identity;
   sourceDetailPatch.source_channel = sourceChannel;
@@ -265,6 +275,7 @@ export async function POST(request: Request) {
     next_action_title: nextAction.title,
     next_action_description: nextAction.description,
     property_context: propertyContext,
+    tags: inferredTags,
   };
 
   const { data, error } = await supabase

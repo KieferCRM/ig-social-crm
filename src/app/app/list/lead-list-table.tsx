@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import EmptyState from "@/components/ui/empty-state";
 import LeadDetailPanel from "@/components/leads/lead-detail-panel";
+import { formatTagsText, tagsFromSourceDetail } from "@/lib/tags";
 
 type SourceDetail = Record<string, unknown> | null;
 
@@ -77,7 +78,7 @@ function phoneOf(lead: LeadListRow): string {
 }
 
 function tagsOf(lead: LeadListRow): string {
-  return asText(lead.source_detail?.tags);
+  return formatTagsText(tagsFromSourceDetail(lead.source_detail));
 }
 
 function matchesSearch(lead: LeadListRow, q: string): boolean {

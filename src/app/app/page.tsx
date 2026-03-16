@@ -14,6 +14,7 @@ import {
 } from "@/lib/deals";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
 import { supabaseServer } from "@/lib/supabase/server";
+import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ type RecommendationRow = {
   description: string | null;
   priority: "low" | "medium" | "high" | "urgent";
   due_at: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 type DealRow = {
@@ -153,7 +155,7 @@ export default async function AppHome() {
 
   const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }] = await Promise.all([
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }] = await Promise.all([
     supabase
       .from("leads")
       .select(
@@ -170,11 +172,12 @@ export default async function AppHome() {
       .order("updated_at", { ascending: false }),
     supabase
       .from("lead_recommendations")
-      .select("id,lead_id,title,description,priority,due_at")
+      .select("id,lead_id,title,description,priority,due_at,metadata")
       .or(recommendationOwnerFilter)
       .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(12),
+    supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
   ]);
 
   const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
@@ -182,6 +185,13 @@ export default async function AppHome() {
     .map(mapDealRow)
     .filter((deal): deal is TodayDeal => Boolean(deal));
   const recommendations = (recommendationData || []) as RecommendationRow[];
+  const workspaceSettings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings || null);
+  const recentDocuments = workspaceSettings.documents.slice(0, 3);
+  const socialReminders = recommendations.filter((item) => {
+    const source = typeof item.metadata?.source_channel === "string" ? item.metadata.source_channel : "";
+    const normalized = source.toLowerCase();
+    return normalized === "instagram" || normalized === "facebook" || normalized === "tiktok";
+  });
 
   const activeDeals = deals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost");
   const hotLeads = leads.filter((lead) => String(lead.lead_temp || "").toLowerCase() === "hot");
@@ -388,6 +398,53 @@ export default async function AppHome() {
                   </div>
                 </div>
               ))}
+            </div>
+          </article>
+
+          <article className="crm-card crm-section-card crm-stack-10">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">Documents and social</h2>
+                <p className="crm-section-subtitle">
+                  Keep recent files and outbound reminders close to the deal view.
+                </p>
+              </div>
+            </div>
+
+            <div className="crm-stack-8">
+              <div className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
+                <div style={{ fontWeight: 700 }}>Recent document activity</div>
+                {recentDocuments.length === 0 ? (
+                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
+                    No documents uploaded yet.
+                  </div>
+                ) : (
+                  recentDocuments.map((document) => (
+                    <div key={document.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
+                      <span>{document.file_name}</span>
+                      <span style={{ color: "var(--ink-faint)" }}>{formatDate(document.uploaded_at)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
+                <div style={{ fontWeight: 700 }}>Social reminders</div>
+                {socialReminders.length === 0 ? (
+                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
+                    No social follow-up items right now.
+                  </div>
+                ) : (
+                  socialReminders.slice(0, 3).map((item) => (
+                    <div key={item.id} className="crm-stack-4">
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{item.title}</div>
+                      <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
+                        {item.description || "Follow up through the source platform or move the deal forward."}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </article>
         </div>

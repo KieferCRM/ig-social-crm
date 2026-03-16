@@ -5,6 +5,7 @@ import {
   DEFAULT_QUESTIONNAIRE_CONFIG,
   type QuestionnaireConfig,
   type QuestionnaireQuestion,
+  type QuestionnaireVariant,
 } from "@/lib/questionnaire";
 
 type IntakeResponse = {
@@ -20,6 +21,7 @@ type IntakeResponse = {
 
 type QuestionnaireResponse = {
   config?: QuestionnaireConfig;
+  booking_link?: string;
   error?: string;
 };
 
@@ -141,6 +143,38 @@ function renderQuestionInput(
     );
   }
 
+  if (question.input_type === "checkbox_group") {
+    const selected = value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    function toggle(option: string) {
+      const next = selected.includes(option)
+        ? selected.filter((item) => item !== option)
+        : [...selected, option];
+      onChange(next.join(", "));
+    }
+
+    return (
+      <fieldset className="crm-public-intake-field crm-public-intake-field-full">
+        <legend>{label}</legend>
+        <div className="crm-public-intake-radio-row">
+          {(question.options || []).map((option) => (
+            <label key={`${question.id}-${option}`} className="crm-public-intake-radio-chip">
+              <input
+                type="checkbox"
+                checked={selected.includes(option)}
+                onChange={() => toggle(option)}
+              />
+              <span>{option}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+
   return (
     <label className="crm-public-intake-field">
       {label}
@@ -156,8 +190,10 @@ function renderQuestionInput(
 
 export default function IntakeForm({
   defaultSource = "website_form",
+  variant,
 }: {
   defaultSource?: string;
+  variant?: QuestionnaireVariant;
 }) {
   const [config, setConfig] = useState<QuestionnaireConfig>(DEFAULT_QUESTIONNAIRE_CONFIG);
   const [answers, setAnswers] = useState<Record<string, string>>(
@@ -169,6 +205,7 @@ export default function IntakeForm({
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState("");
+  const [bookingLink, setBookingLink] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -187,11 +224,16 @@ export default function IntakeForm({
 
     async function loadConfig() {
       try {
-        const response = await fetch("/api/questionnaire", { cache: "no-store" });
+        const search = new URLSearchParams();
+        if (variant) search.set("variant", variant);
+        const response = await fetch(`/api/intake/config${search.toString() ? `?${search.toString()}` : ""}`, {
+          cache: "no-store",
+        });
         const data = (await response.json()) as QuestionnaireResponse;
         if (!active) return;
         const nextConfig = response.ok && data.config ? data.config : DEFAULT_QUESTIONNAIRE_CONFIG;
         setConfig(nextConfig);
+        setBookingLink(response.ok && data.booking_link ? data.booking_link : "");
         setAnswers((previous) => {
           const next = buildDefaultAnswers(nextConfig);
           for (const key of Object.keys(next)) {
@@ -210,7 +252,7 @@ export default function IntakeForm({
     return () => {
       active = false;
     };
-  }, []);
+  }, [variant]);
 
   const requiredMissing = useMemo(() => {
     return config.questions.some((question) => question.required && !clean(answers[question.id] || ""));
@@ -235,12 +277,16 @@ export default function IntakeForm({
       const payload: Record<string, unknown> = {
         questionnaire_answers: questionnaireAnswers,
         source: transport.source || "website_form",
+        form_variant: variant || null,
         external_id: transport.external_id || "",
         website: transport.website || "",
         utm_source: transport.utm_source || "",
         utm_medium: transport.utm_medium || "",
         utm_campaign: transport.utm_campaign || "",
       };
+
+      if (variant === "buyer") payload.intent = "Buy";
+      if (variant === "seller") payload.intent = "Sell";
 
       for (const question of config.questions) {
         const value = clean(answers[question.id] || "");
@@ -294,6 +340,18 @@ export default function IntakeForm({
               step.
             </p>
           </div>
+          {bookingLink ? (
+            <div className="crm-inline-actions" style={{ justifyContent: "center" }}>
+              <a
+                href={bookingLink}
+                target="_blank"
+                rel="noreferrer"
+                className="crm-btn crm-btn-primary"
+              >
+                Book a call now
+              </a>
+            </div>
+          ) : null}
         </div>
       </section>
     );
@@ -303,7 +361,13 @@ export default function IntakeForm({
     <section className="crm-card crm-public-intake-form">
       <form onSubmit={submitForm} className="crm-public-intake-form-grid">
         <div className="crm-public-intake-hero">
-          <p className="crm-page-kicker">Inbound Real Estate Intake</p>
+          <p className="crm-page-kicker">
+            {variant === "seller"
+              ? "Seller Intake"
+              : variant === "buyer"
+                ? "Buyer Intake"
+                : "Inbound Real Estate Intake"}
+          </p>
           <h2 style={{ margin: 0 }}>{config.title}</h2>
           <p style={{ margin: 0, color: "var(--ink-muted)" }}>{config.description}</p>
         </div>

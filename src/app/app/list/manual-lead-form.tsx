@@ -38,6 +38,7 @@ export default function ManualLeadForm({
   const [budgetRange, setBudgetRange] = useState("");
   const [locationArea, setLocationArea] = useState("");
   const [contactPreference, setContactPreference] = useState("Text");
+  const [tags, setTags] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -71,6 +72,7 @@ export default function ManualLeadForm({
           budget_range: budgetRange.trim() || null,
           location_area: locationArea.trim() || null,
           contact_preference: contactPreference || null,
+          tags: tags.trim() || null,
           notes: notes.trim() || null,
         }),
       });
@@ -92,6 +94,7 @@ export default function ManualLeadForm({
       setBudgetRange("");
       setLocationArea("");
       setContactPreference("Text");
+      setTags("");
       setNotes("");
       onSaved?.(data.lead);
     } catch {
@@ -156,6 +159,11 @@ export default function ManualLeadForm({
           placeholder="Area, neighborhood, or property"
           value={locationArea}
           onChange={(e) => setLocationArea(e.target.value)}
+        />
+        <input
+          placeholder="Tags (comma separated)"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
         />
       </div>
 

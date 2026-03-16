@@ -262,6 +262,9 @@ function tagsFromLead(lead: LeadDetail): string | null {
     return lead.tags.join(", ");
   }
   const tagText = lead.source_detail?.tags;
+  if (Array.isArray(tagText) && tagText.length > 0) {
+    return tagText.filter((item): item is string => typeof item === "string" && item.trim().length > 0).join(", ");
+  }
   if (typeof tagText === "string" && tagText.trim()) {
     return tagText.trim();
   }

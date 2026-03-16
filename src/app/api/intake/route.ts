@@ -19,13 +19,16 @@ import {
   normalizeLeadPhone,
 } from "@/lib/leads/identity";
 import {
+  getBuiltInQuestionnaireConfig,
   isCoreQuestionField,
+  normalizeQuestionnaireVariant,
   readQuestionnaireFromAgentSettings,
   type QuestionnaireConfig,
 } from "@/lib/questionnaire";
 import { takeRateLimit } from "@/lib/rate-limit";
 import { withReminderOwnerColumn } from "@/lib/reminders";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { inferLeadTags, normalizeTagList } from "@/lib/tags";
 
 type IntakeBody = {
   full_name?: string | null;
@@ -58,6 +61,7 @@ type IntakeBody = {
   consent_source?: string | null;
   consent_timestamp?: string | null;
   consent_text_snapshot?: string | null;
+  form_variant?: string | null;
   questionnaire_answers?: Record<string, unknown> | null;
 };
 
@@ -118,8 +122,13 @@ function parseIntakeAgentId(): string | null {
 
 async function loadAgentQuestionnaireConfig(
   admin: ReturnType<typeof supabaseAdmin>,
-  agentId: string
+  agentId: string,
+  variant: string | null
 ): Promise<QuestionnaireConfig> {
+  const normalizedVariant = normalizeQuestionnaireVariant(variant);
+  if (normalizedVariant) {
+    return getBuiltInQuestionnaireConfig(normalizedVariant);
+  }
   const { data } = await admin.from("agents").select("settings").eq("id", agentId).maybeSingle();
   return readQuestionnaireFromAgentSettings(data?.settings || null);
 }
@@ -176,10 +185,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  const questionnaireConfig = await loadAgentQuestionnaireConfig(admin, intakeAgentId);
+  const formVariant = normalizeQuestionnaireVariant(body.form_variant);
+  const questionnaireConfig = await loadAgentQuestionnaireConfig(admin, intakeAgentId, formVariant);
   const questionnaireAnswers = asRecord(body.questionnaire_answers);
   const resolvedInput: IntakeBody = { ...body };
   const customQuestionnaireFields: Record<string, string> = {};
+
+  if (!optionalString(resolvedInput.intent) && formVariant === "buyer") {
+    resolvedInput.intent = "Buy";
+  }
+  if (!optionalString(resolvedInput.intent) && formVariant === "seller") {
+    resolvedInput.intent = "Sell";
+  }
 
   if (questionnaireAnswers) {
     for (const question of questionnaireConfig.questions) {
@@ -287,12 +304,26 @@ export async function POST(request: Request) {
     qualification
   );
 
+  const existingSourceDetail = asRecord(existingLead?.source_detail) || {};
+  const inferredTags = inferLeadTags({
+    intent: optionalString(resolvedInput.intent),
+    source,
+    leadTemp,
+    timeline: optionalString(resolvedInput.timeline),
+  });
+  const combinedTags = normalizeTagList([
+    ...normalizeTagList(existingSourceDetail.tags),
+    ...inferredTags,
+    ...(formVariant ? [`${formVariant} form`] : []),
+  ]);
+
   const sourceDetailPatch: Record<string, unknown> = {
     intake_identity: identity,
     source_channel: sourceChannel,
     source_channel_label: sourceChannelLabel(sourceChannel),
     qualification_score: qualification.score,
     qualification_reason: buildTemperatureReason(qualification),
+    tags: combinedTags,
   };
   if (firstName) sourceDetailPatch.first_name = firstName;
   if (lastName) sourceDetailPatch.last_name = lastName;
@@ -312,8 +343,7 @@ export async function POST(request: Request) {
   if (optionalString(resolvedInput.utm_medium)) sourceDetailPatch.utm_medium = optionalString(resolvedInput.utm_medium);
   if (optionalString(resolvedInput.utm_campaign)) sourceDetailPatch.utm_campaign = optionalString(resolvedInput.utm_campaign);
   if (externalId) sourceDetailPatch.external_id = externalId;
-
-  const existingSourceDetail = asRecord(existingLead?.source_detail) || {};
+  if (formVariant) sourceDetailPatch.form_variant = formVariant;
   const sourceDetail: Record<string, unknown> = {
     ...existingSourceDetail,
     ...sourceDetailPatch,
@@ -401,6 +431,8 @@ export async function POST(request: Request) {
     seller_readiness: optionalString(resolvedInput.seller_readiness),
     agency_status: optionalString(resolvedInput.agency_status),
     property_type: optionalString(resolvedInput.property_type),
+    form_variant: formVariant,
+    tags: combinedTags,
   };
 
   payload.custom_fields = {
@@ -434,6 +466,7 @@ export async function POST(request: Request) {
         source,
         source_ref_id: externalId || null,
         method: "intake_form",
+        form_variant: formVariant,
       },
       actor_id: null,
       created_at: occurredAt,
@@ -450,6 +483,7 @@ export async function POST(request: Request) {
       source_channel: sourceChannel,
       temperature: leadTemp,
       next_action: nextAction.title,
+      form_variant: formVariant,
     },
     actor_id: null,
     created_at: occurredAt,
@@ -558,6 +592,7 @@ export async function POST(request: Request) {
         temperature: leadTemp,
         qualification_score: qualification.score,
         deal_id: dealId,
+        tags: combinedTags,
       },
     });
     recommendationCreated = !recommendationError;

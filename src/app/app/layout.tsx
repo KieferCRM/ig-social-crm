@@ -21,12 +21,27 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     { href: "/app", label: "Today", active: pathname === "/app" },
     { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals") },
     {
+      href: "/app/contacts",
+      label: "Contacts",
+      active: pathname.startsWith("/app/contacts"),
+    },
+    {
       href: "/app/intake",
       label: "Intake",
       active:
         pathname.startsWith("/app/intake") ||
         pathname.startsWith("/app/ingestion") ||
         pathname.startsWith("/app/import"),
+    },
+    {
+      href: "/app/documents",
+      label: "Documents",
+      active: pathname.startsWith("/app/documents"),
+    },
+    {
+      href: "/app/social",
+      label: "Social Media",
+      active: pathname.startsWith("/app/social"),
     },
     {
       href: "/app/priorities",
@@ -54,6 +69,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           "Work the pipeline from one board: move stages fast, scan context quickly, and keep the next step visible.",
       };
     }
+    if (pathname.startsWith("/app/contacts")) {
+      return {
+        title: "Contacts",
+        subtitle:
+          "Organize buyers, sellers, and outreach groups with tags that stay usable day to day.",
+      };
+    }
     if (
       pathname.startsWith("/app/intake") ||
       pathname.startsWith("/app/ingestion") ||
@@ -63,6 +85,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         title: "Intake",
         subtitle:
           "Review new inbound inquiries, confirm what the system created, and keep source context clear.",
+      };
+    }
+    if (pathname.startsWith("/app/documents")) {
+      return {
+        title: "Documents",
+        subtitle:
+          "Keep agreements, contracts, checklists, and deal files tied to the right record instead of scattered notes.",
+      };
+    }
+    if (pathname.startsWith("/app/social")) {
+      return {
+        title: "Social Media",
+        subtitle:
+          "Plan outreach, keep scripts close, and move between platforms without turning the CRM into a scheduler.",
       };
     }
     if (pathname.startsWith("/app/priorities")) {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import WorkspaceSettingsClient from "./workspace-settings-client";
 
 export default function SettingsPage() {
   return (
@@ -14,15 +15,31 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <WorkspaceSettingsClient />
+
       <div className="crm-grid-cards-3">
         <section className="crm-card crm-section-card crm-stack-10">
           <div style={{ fontWeight: 700 }}>Inbound intake</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-            Review inbound submissions, share your form, and keep social and form capture flowing into deals cleanly.
+            Review inbound submissions, share your buyer and seller forms, and keep social and
+            form capture flowing into deals cleanly.
           </p>
           <div>
             <Link href="/app/intake" className="crm-btn crm-btn-primary">
               Open intake
+            </Link>
+          </div>
+        </section>
+
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div style={{ fontWeight: 700 }}>Documents</div>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+            Keep agreements, contracts, and checklist files attached to the right deal without
+            scattering them across notes and folders.
+          </p>
+          <div>
+            <Link href="/app/documents" className="crm-btn crm-btn-primary">
+              Open documents
             </Link>
           </div>
         </section>
@@ -62,8 +79,11 @@ export default function SettingsPage() {
           <Link href="/app/intake" className="crm-btn crm-btn-secondary">
             Intake
           </Link>
-          <Link href="/app/priorities" className="crm-btn crm-btn-secondary">
-            Priorities
+          <Link href="/app/social" className="crm-btn crm-btn-secondary">
+            Social Media
+          </Link>
+          <Link href="/app/contacts" className="crm-btn crm-btn-secondary">
+            Contacts
           </Link>
           <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary">
             Concierge

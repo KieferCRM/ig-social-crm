@@ -132,9 +132,12 @@ export default function IntakeWorkspacePage() {
               sample data if you seeded test records.
             </p>
           </div>
-          <div className="crm-page-actions">
-            <Link href="/intake" target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
-              Open public form
+        <div className="crm-page-actions">
+            <Link href="/buyer" target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
+              Open buyer form
+            </Link>
+            <Link href="/seller" target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
+              Open seller form
             </Link>
             <button
               type="button"
@@ -171,11 +174,11 @@ export default function IntakeWorkspacePage() {
       </section>
 
       <IntakeShareKit
-        intakePath="/intake"
-        title="Create one QR-ready intake that works everywhere."
-        description="Use this share link and QR code for open houses, business cards, flyers, and social profiles."
-        openLabel="Preview public intake"
-        downloadName="merlyn-intake-qr.png"
+        intakePath="/buyer"
+        title="Share the buyer form anywhere."
+        description="Use this buyer intake link and QR code for Instagram bio links, TikTok bio, Facebook posts, business cards, and open-house handouts."
+        openLabel="Preview buyer form"
+        downloadName="merlyn-buyer-form-qr.png"
         placementSuggestions={[
           "Open house sign-in table",
           "Business card",
@@ -183,6 +186,22 @@ export default function IntakeWorkspacePage() {
           "Sign rider",
           "Instagram bio",
           "Facebook profile",
+        ]}
+      />
+
+      <IntakeShareKit
+        intakePath="/seller"
+        title="Share the seller form when qualification matters."
+        description="Use this seller intake link and QR code for acquisition posts, seller lead magnets, direct outreach follow-up, and QR placements."
+        openLabel="Preview seller form"
+        downloadName="merlyn-seller-form-qr.png"
+        placementSuggestions={[
+          "Facebook seller post",
+          "Instagram bio",
+          "TikTok profile",
+          "Printed flyer",
+          "Direct mail QR code",
+          "Seller outreach follow-up",
         ]}
       />
 
