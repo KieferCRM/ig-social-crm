@@ -4434,13 +4434,14 @@ input:focus, textarea:focus, select:focus {
 }
 
 .merlyn-button-primary {
-  color: var(--merlyn-text-primary);
+  color: #ffffff;
   border-color: rgba(23, 22, 20, 0.12);
   background: linear-gradient(180deg, var(--merlyn-accent) 0%, var(--merlyn-accent-hover) 100%);
   box-shadow: var(--merlyn-button-shadow);
 }
 
 .merlyn-button-primary:hover {
+  color: #ffffff;
   background: linear-gradient(180deg, var(--merlyn-accent-bright) 0%, var(--merlyn-accent) 100%);
   box-shadow: var(--merlyn-button-shadow-hover);
 }
