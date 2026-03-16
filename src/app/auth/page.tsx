@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import MerlynMascot from "@/components/branding/merlyn-mascot";
@@ -43,6 +43,7 @@ function toFriendlyError(message: string): string {
 export default function AuthPage() {
   const router = useRouter();
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const isEnteringWorkspaceRef = useRef(false);
 
   const [mode, setMode] = useState<AuthMode>("sign_in");
   const [email, setEmail] = useState("");
@@ -56,6 +57,23 @@ export default function AuthPage() {
   const createAccountLabel = FEATURE_SIGNUP_ENABLED ? "Create Account" : "Request Early Access";
   const isBusy = busyAction !== null;
 
+  const enterTodayPage = useEffectEvent(async () => {
+    if (isEnteringWorkspaceRef.current) return;
+    isEnteringWorkspaceRef.current = true;
+
+    const bootstrap = await bootstrapWorkspace();
+    if (!bootstrap.ok) {
+      setMessage(`${bootstrap.error} You can still enter the workspace now.`);
+      setShowContinueToWorkspace(true);
+      setBusyAction(null);
+      isEnteringWorkspaceRef.current = false;
+      return;
+    }
+
+    router.replace("/app");
+    router.refresh();
+  });
+
   useEffect(() => {
     const {
       data: { subscription },
@@ -64,11 +82,35 @@ export default function AuthPage() {
         setMode("recovery");
         setError(null);
         setMessage("Create a new password for your workspace.");
+        return;
+      }
+
+      if (event === "SIGNED_IN") {
+        void enterTodayPage();
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, [supabase, enterTodayPage]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restoreActiveSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (cancelled || !session || mode === "recovery") return;
+      await enterTodayPage();
+    }
+
+    void restoreActiveSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, supabase, enterTodayPage]);
 
   useEffect(() => {
     const requestedMode =
@@ -153,15 +195,7 @@ export default function AuthPage() {
       return;
     }
 
-    const bootstrap = await bootstrapWorkspace();
-    if (!bootstrap.ok) {
-      setMessage(`${bootstrap.error} You can still enter the workspace now.`);
-      setShowContinueToWorkspace(true);
-      setBusyAction(null);
-      return;
-    }
-
-    router.push("/app");
+    await enterTodayPage();
   }
 
   async function handleSignUp() {
@@ -184,14 +218,7 @@ export default function AuthPage() {
     }
 
     if (data.session) {
-      const bootstrap = await bootstrapWorkspace();
-      if (!bootstrap.ok) {
-        setMessage(`${bootstrap.error} You can still enter the workspace now.`);
-        setShowContinueToWorkspace(true);
-        setBusyAction(null);
-        return;
-      }
-      router.push("/app");
+      await enterTodayPage();
       return;
     }
 
@@ -409,7 +436,7 @@ export default function AuthPage() {
               <button
                 type="button"
                 className="crm-btn crm-btn-secondary crm-auth-submit"
-                onClick={() => router.push("/app")}
+                onClick={() => router.replace("/app")}
               >
                 Enter Workspace
               </button>
