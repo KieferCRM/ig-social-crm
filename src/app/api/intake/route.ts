@@ -1,14 +1,31 @@
 import { NextResponse } from "next/server";
-import { getClientIp, parseJsonBody } from "@/lib/http";
-import { takeRateLimit } from "@/lib/rate-limit";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizeConsent } from "@/lib/consent";
-import { withReminderOwnerColumn } from "@/lib/reminders";
+import {
+  buildPropertyContext,
+  buildTemperatureReason,
+  inferDealType,
+  inferLeadStage,
+  inferLeadTemperature,
+  inferNextAction,
+  normalizeSourceChannel,
+  sourceChannelLabel,
+} from "@/lib/inbound";
+import { getClientIp, parseJsonBody } from "@/lib/http";
+import {
+  buildSyntheticLeadHandle,
+  findExistingLeadByIdentity,
+  normalizeLeadEmail,
+  normalizeLeadHandle,
+  normalizeLeadPhone,
+} from "@/lib/leads/identity";
 import {
   isCoreQuestionField,
   readQuestionnaireFromAgentSettings,
   type QuestionnaireConfig,
 } from "@/lib/questionnaire";
+import { takeRateLimit } from "@/lib/rate-limit";
+import { withReminderOwnerColumn } from "@/lib/reminders";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type IntakeBody = {
   full_name?: string | null;
@@ -22,9 +39,8 @@ type IntakeBody = {
   timeline?: string | null;
   budget_range?: string | null;
   location_area?: string | null;
+  property_context?: string | null;
   contact_preference?: string | null;
-  next_step?: string | null;
-  tags?: string | null;
   notes?: string | null;
   source?: string | null;
   stage?: string | null;
@@ -33,6 +49,10 @@ type IntakeBody = {
   utm_source?: string | null;
   utm_medium?: string | null;
   utm_campaign?: string | null;
+  financing_status?: string | null;
+  seller_readiness?: string | null;
+  agency_status?: string | null;
+  property_type?: string | null;
   consent_to_email?: boolean | string | null;
   consent_to_sms?: boolean | string | null;
   consent_source?: string | null;
@@ -41,46 +61,36 @@ type IntakeBody = {
   questionnaire_answers?: Record<string, unknown> | null;
 };
 
+type ExistingLead = {
+  id?: string | null;
+  owner_user_id?: string | null;
+  assignee_user_id?: string | null;
+  ig_username?: string | null;
+  stage?: string | null;
+  lead_temp?: string | null;
+  source?: string | null;
+  source_ref_id?: string | null;
+  source_detail?: unknown;
+  canonical_email?: string | null;
+  raw_email?: string | null;
+  canonical_phone?: string | null;
+  raw_phone?: string | null;
+  first_source_method?: string | null;
+  source_confidence?: string | null;
+  consent_to_email?: boolean | null;
+  consent_to_sms?: boolean | null;
+  consent_source?: string | null;
+  consent_timestamp?: string | null;
+  consent_text_snapshot?: string | null;
+  first_source_channel?: string | null;
+  latest_source_channel?: string | null;
+  custom_fields?: unknown;
+};
+
 function optionalString(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizeHandle(value: string): string {
-  return value.trim().replace(/^@+/, "").toLowerCase();
-}
-
-function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function normalizePhone(value: string): string {
-  return value.replace(/[^\d+]/g, "");
-}
-
-function shortHash(value: string): string {
-  let hash = 5381;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 33) ^ value.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(16).slice(0, 8);
-}
-
-function syntheticIgUsername(identity: string): string {
-  return `intake_lead_${shortHash(identity)}`;
-}
-
-function normalizeSourceChannel(value: string | null): string | null {
-  const source = (value || "").trim().toLowerCase();
-  if (!source) return null;
-  if (source === "ig" || source.includes("instagram")) return "ig";
-  if (source === "fb" || source.includes("facebook")) return "fb";
-  if (source.includes("webform") || source.includes("intake")) return "webform";
-  if (source.includes("website") || source.includes("site")) return "website";
-  if (source.includes("email")) return "email";
-  if (source.includes("phone") || source.includes("call") || source.includes("sms") || source.includes("text")) return "phone";
-  return "other";
 }
 
 function isUuid(value: string): boolean {
@@ -110,12 +120,7 @@ async function loadAgentQuestionnaireConfig(
   admin: ReturnType<typeof supabaseAdmin>,
   agentId: string
 ): Promise<QuestionnaireConfig> {
-  const { data } = await admin
-    .from("agents")
-    .select("settings")
-    .eq("id", agentId)
-    .maybeSingle();
-
+  const { data } = await admin.from("agents").select("settings").eq("id", agentId).maybeSingle();
   return readQuestionnaireFromAgentSettings(data?.settings || null);
 }
 
@@ -167,8 +172,7 @@ export async function POST(request: Request) {
   }
   const body = parsedBody.data;
 
-  const honeypot = optionalString(body.website);
-  if (honeypot) {
+  if (optionalString(body.website)) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
@@ -202,9 +206,10 @@ export async function POST(request: Request) {
     }
   }
 
-  const ig = normalizeHandle(optionalString(resolvedInput.ig_username) || "");
-  const email = normalizeEmail(optionalString(resolvedInput.email) || "");
-  const phone = normalizePhone(optionalString(resolvedInput.phone) || "");
+  const ig = normalizeLeadHandle(optionalString(resolvedInput.ig_username));
+  const email = normalizeLeadEmail(optionalString(resolvedInput.email));
+  const rawPhone = optionalString(resolvedInput.phone);
+  const phone = normalizeLeadPhone(rawPhone);
   const externalId = (optionalString(resolvedInput.external_id) || "").toLowerCase();
   const firstName = optionalString(resolvedInput.first_name) || "";
   const lastName = optionalString(resolvedInput.last_name) || "";
@@ -219,47 +224,102 @@ export async function POST(request: Request) {
 
   if (!identity) {
     return NextResponse.json(
-      { error: "Please provide at least one identity field (name, email, phone, IG)." },
+      { error: "Please provide at least one identity field (name, email, phone, or IG)." },
       { status: 400 }
     );
   }
 
-  const stage = optionalString(resolvedInput.stage) || "New";
-  if (!ALLOWED_STAGES.has(stage)) {
+  const existingLead = (await findExistingLeadByIdentity({
+    admin,
+    agentId: intakeAgentId,
+    source: optionalString(resolvedInput.source),
+    sourceRefId: externalId || null,
+    canonicalEmail: email,
+    phoneInput: rawPhone || phone,
+    igUsername: ig,
+  })) as ExistingLead | null;
+
+  const qualification = inferLeadTemperature({
+    intent: optionalString(resolvedInput.intent),
+    timeline: optionalString(resolvedInput.timeline),
+    budgetRange: optionalString(resolvedInput.budget_range),
+    locationArea: optionalString(resolvedInput.location_area),
+    propertyContext: optionalString(resolvedInput.property_context),
+    phone,
+    email,
+    contactPreference: optionalString(resolvedInput.contact_preference),
+    notes: optionalString(resolvedInput.notes),
+    financingStatus: optionalString(resolvedInput.financing_status),
+    sellerReadiness: optionalString(resolvedInput.seller_readiness),
+    agencyStatus: optionalString(resolvedInput.agency_status),
+  });
+
+  const requestedStage = optionalString(resolvedInput.stage);
+  if (requestedStage && !ALLOWED_STAGES.has(requestedStage)) {
     return NextResponse.json({ error: "Invalid stage." }, { status: 400 });
   }
 
-  const leadTemp = optionalString(resolvedInput.lead_temp) || "Warm";
-  if (!ALLOWED_TEMPS.has(leadTemp)) {
+  const requestedLeadTemp = optionalString(resolvedInput.lead_temp);
+  if (requestedLeadTemp && !ALLOWED_TEMPS.has(requestedLeadTemp)) {
     return NextResponse.json({ error: "Invalid lead temperature." }, { status: 400 });
   }
 
-  const source = optionalString(resolvedInput.source) || "website_intake";
-  const sourceChannel = normalizeSourceChannel(source);
-  const resolvedIg = ig || syntheticIgUsername(identity);
+  const requestedSource = optionalString(resolvedInput.source);
+  const source = requestedSource || existingLead?.source || "website_form";
+  const sourceChannel = normalizeSourceChannel(source) || "other";
+  const stage = requestedStage || existingLead?.stage || inferLeadStage(qualification.temperature);
+  const leadTemp = requestedLeadTemp || existingLead?.lead_temp || qualification.temperature;
+  const nextAction = inferNextAction(
+    {
+      intent: optionalString(resolvedInput.intent),
+      timeline: optionalString(resolvedInput.timeline),
+      budgetRange: optionalString(resolvedInput.budget_range),
+      locationArea: optionalString(resolvedInput.location_area),
+      propertyContext: optionalString(resolvedInput.property_context),
+      phone,
+      email,
+      contactPreference: optionalString(resolvedInput.contact_preference),
+      notes: optionalString(resolvedInput.notes),
+      financingStatus: optionalString(resolvedInput.financing_status),
+      sellerReadiness: optionalString(resolvedInput.seller_readiness),
+      agencyStatus: optionalString(resolvedInput.agency_status),
+    },
+    qualification
+  );
 
-  const sourceDetail: Record<string, string> = {};
-  if (firstName) sourceDetail.first_name = firstName;
-  if (lastName) sourceDetail.last_name = lastName;
-  if (fullName) sourceDetail.full_name = fullName;
-  if (email) sourceDetail.email = email;
-  if (phone) sourceDetail.phone = phone;
-  if (optionalString(resolvedInput.tags)) sourceDetail.tags = optionalString(resolvedInput.tags) as string;
-  if (externalId) sourceDetail.external_id = externalId;
-  if (optionalString(resolvedInput.utm_source))
-    sourceDetail.utm_source = optionalString(resolvedInput.utm_source) as string;
-  if (optionalString(resolvedInput.utm_medium))
-    sourceDetail.utm_medium = optionalString(resolvedInput.utm_medium) as string;
-  if (optionalString(resolvedInput.utm_campaign))
-    sourceDetail.utm_campaign = optionalString(resolvedInput.utm_campaign) as string;
-  sourceDetail.intake_identity = identity;
+  const sourceDetailPatch: Record<string, unknown> = {
+    intake_identity: identity,
+    source_channel: sourceChannel,
+    source_channel_label: sourceChannelLabel(sourceChannel),
+    qualification_score: qualification.score,
+    qualification_reason: buildTemperatureReason(qualification),
+  };
+  if (firstName) sourceDetailPatch.first_name = firstName;
+  if (lastName) sourceDetailPatch.last_name = lastName;
+  if (fullName) sourceDetailPatch.full_name = fullName;
+  if (email) sourceDetailPatch.email = email;
+  if (phone) sourceDetailPatch.phone = phone;
+  if (optionalString(resolvedInput.intent)) sourceDetailPatch.intent = optionalString(resolvedInput.intent);
+  if (optionalString(resolvedInput.timeline)) sourceDetailPatch.timeline = optionalString(resolvedInput.timeline);
+  if (optionalString(resolvedInput.budget_range)) sourceDetailPatch.budget_range = optionalString(resolvedInput.budget_range);
+  if (optionalString(resolvedInput.location_area)) sourceDetailPatch.location_area = optionalString(resolvedInput.location_area);
+  if (optionalString(resolvedInput.property_context)) sourceDetailPatch.property_context = optionalString(resolvedInput.property_context);
+  if (optionalString(resolvedInput.financing_status)) sourceDetailPatch.financing_status = optionalString(resolvedInput.financing_status);
+  if (optionalString(resolvedInput.seller_readiness)) sourceDetailPatch.seller_readiness = optionalString(resolvedInput.seller_readiness);
+  if (optionalString(resolvedInput.agency_status)) sourceDetailPatch.agency_status = optionalString(resolvedInput.agency_status);
+  if (optionalString(resolvedInput.property_type)) sourceDetailPatch.property_type = optionalString(resolvedInput.property_type);
+  if (optionalString(resolvedInput.utm_source)) sourceDetailPatch.utm_source = optionalString(resolvedInput.utm_source);
+  if (optionalString(resolvedInput.utm_medium)) sourceDetailPatch.utm_medium = optionalString(resolvedInput.utm_medium);
+  if (optionalString(resolvedInput.utm_campaign)) sourceDetailPatch.utm_campaign = optionalString(resolvedInput.utm_campaign);
+  if (externalId) sourceDetailPatch.external_id = externalId;
 
-  const { data: existingLead } = await admin
-    .from("leads")
-    .select("id, custom_fields")
-    .eq("agent_id", intakeAgentId)
-    .eq("ig_username", resolvedIg)
-    .maybeSingle();
+  const existingSourceDetail = asRecord(existingLead?.source_detail) || {};
+  const sourceDetail: Record<string, unknown> = {
+    ...existingSourceDetail,
+    ...sourceDetailPatch,
+  };
+  const resolvedIg =
+    ig || existingLead?.ig_username || buildSyntheticLeadHandle("intake_lead", identity);
 
   const nowIso = new Date().toISOString();
   const consent = normalizeConsent({
@@ -274,31 +334,49 @@ export async function POST(request: Request) {
 
   const payload: Record<string, unknown> = {
     agent_id: intakeAgentId,
-    owner_user_id: intakeAgentId,
-    assignee_user_id: intakeAgentId,
+    owner_user_id: existingLead?.owner_user_id || intakeAgentId,
+    assignee_user_id: existingLead?.assignee_user_id || intakeAgentId,
     ig_username: resolvedIg,
     stage,
     lead_temp: leadTemp,
     source,
     time_last_updated: nowIso,
     latest_source_method: "api",
-    first_source_method: "api",
-    source_confidence: ig || email || phone ? "exact" : "unknown",
+    first_source_method: existingLead?.first_source_method || "api",
+    source_confidence:
+      existingLead?.source_confidence || (ig || email || phone ? "exact" : "unknown"),
     source_detail: sourceDetail,
-    raw_email: email || null,
-    raw_phone: phone || null,
-    canonical_email: email || null,
-    canonical_phone: phone || null,
-    first_name: firstName || null,
-    last_name: lastName || null,
-    full_name: fullName || displayName || null,
-    source_ref_id: externalId || null,
-    consent_to_email: consent.consent_to_email,
-    consent_to_sms: consent.consent_to_sms,
-    consent_source: consent.consent_source,
-    consent_timestamp: consent.consent_timestamp,
-    consent_text_snapshot: consent.consent_text_snapshot,
+    consent_to_email: Boolean(existingLead?.consent_to_email || consent.consent_to_email),
+    consent_to_sms: Boolean(existingLead?.consent_to_sms || consent.consent_to_sms),
+    consent_source: existingLead?.consent_source || consent.consent_source || source,
+    consent_timestamp: existingLead?.consent_timestamp || consent.consent_timestamp,
+    consent_text_snapshot:
+      existingLead?.consent_text_snapshot || consent.consent_text_snapshot || null,
+    first_source_channel: existingLead?.first_source_channel || sourceChannel,
+    latest_source_channel: sourceChannel,
   };
+
+  if (email) {
+    payload.raw_email = email;
+    payload.canonical_email = email;
+  } else if (existingLead?.canonical_email) {
+    payload.raw_email = existingLead.raw_email || existingLead.canonical_email;
+    payload.canonical_email = existingLead.canonical_email;
+  }
+
+  if (phone) {
+    payload.raw_phone = rawPhone || phone;
+    payload.canonical_phone = phone;
+  } else if (existingLead?.canonical_phone) {
+    payload.raw_phone = existingLead.raw_phone || existingLead.canonical_phone;
+    payload.canonical_phone = existingLead.canonical_phone;
+  }
+
+  if (firstName) payload.first_name = firstName;
+  if (lastName) payload.last_name = lastName;
+  if (fullName || displayName) payload.full_name = fullName || displayName;
+  if (externalId) payload.source_ref_id = externalId;
+  else if (existingLead?.source_ref_id) payload.source_ref_id = existingLead.source_ref_id;
 
   const intent = optionalString(resolvedInput.intent);
   const timeline = optionalString(resolvedInput.timeline);
@@ -306,26 +384,30 @@ export async function POST(request: Request) {
   const budgetRange = optionalString(resolvedInput.budget_range);
   const locationArea = optionalString(resolvedInput.location_area);
   const contactPreference = optionalString(resolvedInput.contact_preference);
-  const nextStep = optionalString(resolvedInput.next_step);
   if (intent) payload.intent = intent;
   if (timeline) payload.timeline = timeline;
   if (notes) payload.notes = notes;
   if (budgetRange) payload.budget_range = budgetRange;
   if (locationArea) payload.location_area = locationArea;
   if (contactPreference) payload.contact_preference = contactPreference;
-  if (nextStep) payload.next_step = nextStep;
-  if (sourceChannel) {
-    payload.first_source_channel = sourceChannel;
-    payload.latest_source_channel = sourceChannel;
-  }
 
   const existingCustomFields = asRecord(existingLead?.custom_fields) || {};
-  if (Object.keys(customQuestionnaireFields).length > 0) {
-    payload.custom_fields = {
-      ...existingCustomFields,
-      ...customQuestionnaireFields,
-    };
-  }
+  const derivedCustomFields: Record<string, unknown> = {
+    qualification_score: qualification.score,
+    next_action_title: nextAction.title,
+    next_action_description: nextAction.description,
+    property_context: optionalString(resolvedInput.property_context),
+    financing_status: optionalString(resolvedInput.financing_status),
+    seller_readiness: optionalString(resolvedInput.seller_readiness),
+    agency_status: optionalString(resolvedInput.agency_status),
+    property_type: optionalString(resolvedInput.property_type),
+  };
+
+  payload.custom_fields = {
+    ...existingCustomFields,
+    ...derivedCustomFields,
+    ...customQuestionnaireFields,
+  };
 
   const { data: upsertedLead, error: upsertError } = await admin
     .from("leads")
@@ -340,11 +422,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const intakeEventRows: Array<Record<string, unknown>> = [];
+  const leadId = String(upsertedLead.id);
   const occurredAt = new Date().toISOString();
+  const intakeEventRows: Array<Record<string, unknown>> = [];
   if (!existingLead?.id) {
     intakeEventRows.push({
-      lead_id: upsertedLead.id,
+      lead_id: leadId,
       agent_id: intakeAgentId,
       event_type: "created",
       event_data: {
@@ -357,7 +440,7 @@ export async function POST(request: Request) {
     });
   }
   intakeEventRows.push({
-    lead_id: upsertedLead.id,
+    lead_id: leadId,
     agent_id: intakeAgentId,
     event_type: "ingested",
     event_data: {
@@ -365,6 +448,8 @@ export async function POST(request: Request) {
       source_ref_id: externalId || null,
       method: "intake_form",
       source_channel: sourceChannel,
+      temperature: leadTemp,
+      next_action: nextAction.title,
     },
     actor_id: null,
     created_at: occurredAt,
@@ -375,40 +460,117 @@ export async function POST(request: Request) {
   }
 
   let reminderCreated = false;
-  const dueAt = new Date(Date.now() + 24 * 3600_000).toISOString();
-
-  const { data: existingReminder, error: checkReminderError } = await withReminderOwnerColumn((ownerColumn) =>
+  const { data: existingReminder } = await withReminderOwnerColumn((ownerColumn) =>
     admin
       .from("follow_up_reminders")
       .select("id")
       .eq(ownerColumn, intakeAgentId)
-      .eq("lead_id", upsertedLead.id)
+      .eq("lead_id", leadId)
       .eq("status", "pending")
       .limit(1)
       .maybeSingle()
   );
 
-  if (!checkReminderError && !existingReminder) {
+  if (!existingReminder) {
     const { error: reminderError } = await withReminderOwnerColumn((ownerColumn) =>
-      admin
-        .from("follow_up_reminders")
-        .insert({
-          [ownerColumn]: intakeAgentId,
-          lead_id: upsertedLead.id,
-          conversation_id: null,
-          due_at: dueAt,
-          status: "pending",
-          note: "New intake lead follow-up",
-          preset: "1d",
-        })
+      admin.from("follow_up_reminders").insert({
+        [ownerColumn]: intakeAgentId,
+        lead_id: leadId,
+        conversation_id: null,
+        due_at: nextAction.dueAt,
+        status: "pending",
+        note: nextAction.title,
+        preset: "1d",
+      })
     );
     reminderCreated = !reminderError;
+  }
+
+  let dealCreated = false;
+  let dealId: string | null = null;
+  const { data: existingDeal } = await admin
+    .from("deals")
+    .select("id,stage")
+    .eq("agent_id", intakeAgentId)
+    .eq("lead_id", leadId)
+    .neq("stage", "closed")
+    .neq("stage", "lost")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingDeal?.id) {
+    dealId = String(existingDeal.id);
+  } else {
+    const { data: insertedDeal, error: dealError } = await admin
+      .from("deals")
+      .insert({
+        agent_id: intakeAgentId,
+        lead_id: leadId,
+        property_address: buildPropertyContext({
+          intent,
+          locationArea,
+          propertyContext: optionalString(resolvedInput.property_context),
+        }),
+        deal_type: inferDealType(intent),
+        price: null,
+        stage: "new",
+        expected_close_date: null,
+        notes:
+          notes ||
+          `${sourceChannelLabel(sourceChannel)} inquiry. ${buildTemperatureReason(qualification)}`,
+      })
+      .select("id")
+      .single();
+
+    if (!dealError && insertedDeal?.id) {
+      dealCreated = true;
+      dealId = String(insertedDeal.id);
+    } else if (dealError) {
+      console.warn("[intake] deal insert failed", { error: dealError.message });
+    }
+  }
+
+  let recommendationCreated = false;
+  const { data: existingRecommendation } = await admin
+    .from("lead_recommendations")
+    .select("id")
+    .eq("lead_id", leadId)
+    .eq("status", "open")
+    .limit(1)
+    .maybeSingle();
+
+  if (!existingRecommendation) {
+    const { error: recommendationError } = await admin.from("lead_recommendations").insert({
+      agent_id: intakeAgentId,
+      owner_user_id: intakeAgentId,
+      lead_id: leadId,
+      person_id: null,
+      source_event_id: null,
+      reason_code: leadTemp === "Hot" ? "hot_inbound" : "inbound_next_action",
+      title: nextAction.title,
+      description: nextAction.description,
+      priority: nextAction.priority,
+      due_at: nextAction.dueAt,
+      metadata: {
+        source_channel: sourceChannel,
+        source_label: sourceChannelLabel(sourceChannel),
+        temperature: leadTemp,
+        qualification_score: qualification.score,
+        deal_id: dealId,
+      },
+    });
+    recommendationCreated = !recommendationError;
   }
 
   return NextResponse.json({
     ok: true,
     status: existingLead?.id ? "updated" : "inserted",
-    lead_id: upsertedLead.id,
+    lead_id: leadId,
     reminder_created: reminderCreated,
+    deal_created: dealCreated,
+    recommendation_created: recommendationCreated,
+    temperature: leadTemp,
+    next_action: nextAction.title,
   });
 }

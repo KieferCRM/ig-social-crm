@@ -1,433 +1,254 @@
 "use client";
 
 import Link from "next/link";
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
-import {
-  DEFAULT_QUESTIONNAIRE_CONFIG,
-  type QuestionnaireConfig,
-  type QuestionnaireQuestion,
-} from "@/lib/questionnaire";
+import { useEffect, useMemo, useState } from "react";
+import StatusBadge from "@/components/ui/status-badge";
+import { sourceChannelTone } from "@/lib/inbound";
 
-type QuestionnaireResponse = {
-  config?: QuestionnaireConfig;
+type Submission = {
+  id: string;
+  lead_name: string;
+  source: string;
+  intent: string;
+  timeline: string;
+  temperature: string;
+  stage: string;
+  property_context: string;
+  budget_range: string | null;
+  deal_id: string | null;
+  deal_stage: string | null;
+  next_action: string | null;
+  next_action_detail: string | null;
+  next_action_priority: string | null;
+  next_action_due_at: string | null;
+  timestamp: string | null;
+};
+
+type IntakeResponse = {
+  submissions?: Submission[];
   error?: string;
 };
 
-type PreviewField = {
-  crmField: string;
-  label: string;
-  placeholder: string;
-  required?: boolean;
-  type?: "text" | "email" | "tel" | "select" | "textarea";
-  options?: string[];
-};
-
-const TRUST_POINTS = [
-  "No account required for the lead",
-  "Takes under 1 minute",
-  "Sent directly into your CRM",
-] as const;
-
-const SHARE_EXAMPLES = [
-  "Instagram bio",
-  "Facebook post",
-  "Website button",
-  "Open house QR code",
-] as const;
-
-const DEFAULT_PREVIEW_FIELDS: PreviewField[] = [
-  { crmField: "full_name", label: "Full Name", placeholder: "Jordan Mitchell", required: true, type: "text" },
-  { crmField: "email", label: "Email", placeholder: "jordan@email.com", required: true, type: "email" },
-  { crmField: "phone", label: "Phone", placeholder: "(615) 555-0182", required: true, type: "tel" },
-  {
-    crmField: "intent",
-    label: "Intent",
-    placeholder: "Select intent",
-    type: "select",
-    options: ["Buy", "Sell", "Invest", "Just browsing"],
-  },
-  { crmField: "location_area", label: "Preferred Location", placeholder: "East Nashville", type: "text" },
-  {
-    crmField: "budget_range",
-    label: "Budget",
-    placeholder: "Select budget",
-    type: "select",
-    options: ["Under $250k", "$250k-$500k", "$500k-$750k", "$750k-$1M", "$1M+"],
-  },
-  {
-    crmField: "timeline",
-    label: "Timeline",
-    placeholder: "Select timeline",
-    type: "select",
-    options: ["ASAP", "1-3 months", "3-6 months", "6+ months", "Just browsing"],
-  },
-  {
-    crmField: "contact_preference",
-    label: "Preferred Contact Method",
-    placeholder: "Select contact method",
-    type: "select",
-    options: ["Text", "Call", "Email"],
-  },
-  {
-    crmField: "notes",
-    label: "Notes",
-    placeholder: "Anything else that would help before we follow up?",
-    type: "textarea",
-  },
-  {
-    crmField: "source",
-    label: "How did you find us?",
-    placeholder: "Instagram, referral, Zillow, Google, etc.",
-    type: "text",
-  },
-];
-
-function questionMap(config: QuestionnaireConfig): Map<string, QuestionnaireQuestion> {
-  const map = new Map<string, QuestionnaireQuestion>();
-  for (const question of config.questions) {
-    if (question.crm_field) map.set(question.crm_field, question);
-  }
-  return map;
+function formatDate(value: string | null): string {
+  if (!value) return "No timestamp";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No timestamp";
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
 
-function overlayPreviewFields(config: QuestionnaireConfig): PreviewField[] {
-  const map = questionMap(config);
-  return DEFAULT_PREVIEW_FIELDS.map((field) => {
-    const match = map.get(field.crmField);
-    if (!match) return field;
-
-    return {
-      ...field,
-      label: match.label || field.label,
-      placeholder: match.placeholder || field.placeholder,
-      required: match.required,
-      type:
-        field.crmField === "intent" ||
-        field.crmField === "timeline" ||
-        field.crmField === "budget_range" ||
-        field.crmField === "contact_preference"
-          ? "select"
-          : field.type,
-    };
-  });
+function temperatureTone(value: string): "default" | "warn" | "danger" {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "hot") return "danger";
+  if (normalized === "warm") return "warn";
+  return "default";
 }
 
-function fieldByKey(fields: PreviewField[], key: string): PreviewField {
-  return fields.find((field) => field.crmField === key) || DEFAULT_PREVIEW_FIELDS.find((field) => field.crmField === key)!;
-}
-
-function PreviewInput({ field }: { field: PreviewField }) {
-  const type = field.type || "text";
-
-  return (
-    <label className={`crm-intake-install-preview-field${type === "textarea" ? " crm-intake-install-preview-field-full" : ""}`}>
-      <span>
-        {field.label}
-        {field.required ? <em>Required</em> : null}
-      </span>
-      {type === "textarea" ? (
-        <textarea disabled rows={3} className="crm-intake-install-preview-input" placeholder={field.placeholder} />
-      ) : type === "select" ? (
-        <select disabled className="crm-intake-install-preview-input">
-          <option>{field.placeholder}</option>
-          {(field.options || []).map((option) => (
-            <option key={`${field.crmField}-${option}`}>{option}</option>
-          ))}
-        </select>
-      ) : (
-        <input disabled type={type} className="crm-intake-install-preview-input" placeholder={field.placeholder} />
-      )}
-    </label>
-  );
-}
-
-export default function LeadCaptureSetupPage() {
-  const [questionnaireConfig, setQuestionnaireConfig] = useState<QuestionnaireConfig>(DEFAULT_QUESTIONNAIRE_CONFIG);
-  const [intakeUrl, setIntakeUrl] = useState("/intake");
-  const [linkMessage, setLinkMessage] = useState("");
-  const [qrMessage, setQrMessage] = useState("");
-  const previewRef = useRef<HTMLElement | null>(null);
+export default function IntakeWorkspacePage() {
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [shareLink, setShareLink] = useState("/intake");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    setIntakeUrl(`${window.location.origin}/intake`);
+    if (typeof window !== "undefined") {
+      setShareLink(`${window.location.origin}/intake`);
+    }
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    let active = true;
 
-    async function loadQuestionnaire() {
+    async function loadSubmissions() {
       try {
-        const response = await fetch("/api/questionnaire", {
-          signal: controller.signal,
-          cache: "no-store",
-        });
-        const data = (await response.json()) as QuestionnaireResponse;
-        if (!mounted) return;
-
-        if (response.ok && data.config) {
-          setQuestionnaireConfig(data.config);
-        } else {
-          setQuestionnaireConfig(DEFAULT_QUESTIONNAIRE_CONFIG);
+        const response = await fetch("/api/intake/submissions", { cache: "no-store" });
+        const data = (await response.json()) as IntakeResponse;
+        if (!active) return;
+        if (!response.ok) {
+          setError(data.error || "Could not load intake.");
+          setLoading(false);
+          return;
         }
+        const nextSubmissions = data.submissions || [];
+        setSubmissions(nextSubmissions);
+        setSelectedId((current) => current || nextSubmissions[0]?.id || "");
+        setError(null);
       } catch {
-        if (mounted) setQuestionnaireConfig(DEFAULT_QUESTIONNAIRE_CONFIG);
+        if (active) setError("Could not load intake.");
       } finally {
-        window.clearTimeout(timeout);
+        if (active) setLoading(false);
       }
     }
 
-    void loadQuestionnaire();
-
+    void loadSubmissions();
     return () => {
-      mounted = false;
-      controller.abort();
-      window.clearTimeout(timeout);
+      active = false;
     };
   }, []);
 
-  const qrCodeUrl = useMemo(
-    () =>
-      `https://api.qrserver.com/v1/create-qr-code/?format=png&size=520x520&data=${encodeURIComponent(intakeUrl)}`,
-    [intakeUrl]
+  const selectedSubmission = useMemo(
+    () => submissions.find((item) => item.id === selectedId) || submissions[0] || null,
+    [selectedId, submissions]
   );
-  const previewFields = useMemo(() => overlayPreviewFields(questionnaireConfig), [questionnaireConfig]);
-  const previewTitle = questionnaireConfig.title || "Lead Intake Form";
-  const previewDescription =
-    questionnaireConfig.description ||
-    "Answer a few quick questions so the agent can follow up with the right next step.";
-
-  const contactFields = useMemo(
-    () => ["full_name", "email", "phone"].map((key) => fieldByKey(previewFields, key)),
-    [previewFields]
-  );
-  const searchFields = useMemo(
-    () => ["intent", "location_area", "budget_range", "timeline"].map((key) => fieldByKey(previewFields, key)),
-    [previewFields]
-  );
-  const detailFields = useMemo(
-    () => ["contact_preference", "notes"].map((key) => fieldByKey(previewFields, key)),
-    [previewFields]
-  );
-  const optionalField = useMemo(() => fieldByKey(previewFields, "source"), [previewFields]);
-
-  function setTransientMessage(
-    setter: Dispatch<SetStateAction<string>>,
-    value: string,
-    durationMs = 1800
-  ) {
-    setter(value);
-    window.setTimeout(() => setter(""), durationMs);
-  }
-
-  async function copyValue(value: string, setter: Dispatch<SetStateAction<string>>) {
-    try {
-      await navigator.clipboard.writeText(value);
-      setTransientMessage(setter, "Copied");
-    } catch {
-      setTransientMessage(setter, "Copy failed", 2200);
-    }
-  }
-
-  function openPreview() {
-    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  async function downloadQrCode() {
-    try {
-      const response = await fetch(qrCodeUrl);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = "merlyn-intake-qr.png";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(objectUrl);
-      setTransientMessage(setQrMessage, "Downloaded");
-    } catch {
-      const link = document.createElement("a");
-      link.href = qrCodeUrl;
-      link.download = "merlyn-intake-qr.png";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTransientMessage(setQrMessage, "Opened PNG");
-    }
-  }
 
   return (
-    <main className="crm-page crm-page-wide crm-intake-install-page">
-      <section className="crm-card crm-section-card crm-intake-install-header">
-        <div className="crm-intake-install-header__copy">
-          <p className="crm-intake-install-kicker">Lead Capture Install</p>
-          <h1 className="crm-page-title">Install Your Lead Capture Form</h1>
-          <p className="crm-page-subtitle">
-            Share a link anywhere or generate a QR code for open houses, print materials, and in-person traffic. Every submission flows directly into Merlyn.
-          </p>
-        </div>
-        <div className="crm-intake-install-trust-row">
-          {TRUST_POINTS.map((item) => (
-            <span key={item} className="crm-chip crm-chip-ok">
-              {item}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      <section className="crm-intake-install-methods">
-        <article className="crm-card crm-section-card crm-intake-install-card">
-          <div className="crm-intake-install-card__head">
-            <div>
-              <p className="crm-intake-install-card__eyebrow">Share Link</p>
-              <h2 className="crm-section-title">Use one link anywhere you ask for inquiries.</h2>
-            </div>
-          </div>
-          <p className="crm-section-subtitle">
-            Best for Facebook posts, Instagram bios, website buttons, email blasts, and open house QR codes.
-          </p>
-          <div className="crm-intake-install-link-box">
-            <code>{intakeUrl}</code>
-          </div>
-          <div className="crm-intake-install-card__actions">
-            <button type="button" className="crm-btn crm-btn-primary" onClick={() => void copyValue(intakeUrl, setLinkMessage)}>
-              Copy Link
-            </button>
-            <Link href="/intake" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
-              Open Preview
-            </Link>
-          </div>
-          {linkMessage ? (
-            <div className="crm-intake-install-card__status">
-              <span className={`crm-chip ${linkMessage === "Copied" ? "crm-chip-ok" : "crm-chip-danger"}`}>{linkMessage}</span>
-            </div>
-          ) : null}
-          <div className="crm-intake-install-card__examples">
-            <div className="crm-intake-install-card__meta-label">Good places to use it</div>
-            <div className="crm-intake-install-example-row">
-              {SHARE_EXAMPLES.map((item) => (
-                <span key={item} className="crm-intake-install-example-pill">
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-        </article>
-
-        <article className="crm-card crm-section-card crm-intake-install-card">
-          <div className="crm-intake-install-card__head">
-            <div>
-              <p className="crm-intake-install-card__eyebrow">Open House QR Code</p>
-              <h2 className="crm-section-title">Generate a QR code that opens your lead intake form.</h2>
-            </div>
-          </div>
-          <p className="crm-section-subtitle">
-            Perfect for open houses, yard signs, flyers, and print materials.
-          </p>
-          <div className="crm-intake-install-qr-card">
-            <img
-              src={qrCodeUrl}
-              alt="QR code for the Merlyn lead intake form"
-              width={220}
-              height={220}
-              className="crm-intake-install-qr-image"
-            />
-          </div>
-          <div className="crm-intake-install-card__actions">
-            <button type="button" className="crm-btn crm-btn-primary" onClick={() => void downloadQrCode()}>
-              Download QR
-            </button>
-            <button type="button" className="crm-btn crm-btn-secondary" onClick={() => void copyValue(intakeUrl, setQrMessage)}>
-              Copy Intake Link
-            </button>
-            {qrMessage ? (
-              <span className={`crm-chip ${qrMessage === "Downloaded" || qrMessage === "Copied" || qrMessage === "Opened PNG" ? "crm-chip-ok" : "crm-chip-danger"}`}>{qrMessage}</span>
-            ) : null}
-          </div>
-          <p className="crm-intake-install-qr-helper">
-            Place this QR code on open house signs or flyers so visitors can instantly submit their inquiry.
-          </p>
-        </article>
-      </section>
-
-      <section ref={previewRef} className="crm-card crm-section-card crm-intake-install-preview">
-        <div className="crm-section-head">
-          <div>
-            <h2 className="crm-section-title">Form Preview</h2>
-            <p className="crm-section-subtitle">
-              This is the form a prospect sees after opening your share link or scanning your QR code.
+    <main className="crm-page crm-page-wide crm-stack-12">
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div className="crm-page-header">
+          <div className="crm-page-header-main">
+            <p className="crm-page-kicker">Intake</p>
+            <h1 className="crm-page-title">Inbound review queue</h1>
+            <p className="crm-page-subtitle">
+              This is where new social, form, open-house, and Concierge inquiries land before you work the deal.
             </p>
           </div>
-          <button type="button" className="crm-btn crm-btn-secondary" onClick={openPreview}>
-            Preview Link Experience
-          </button>
+          <div className="crm-page-actions">
+            <Link href="/intake" target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
+              Open public form
+            </Link>
+            <Link href="/app/intake/code" className="crm-btn crm-btn-primary">
+              Share intake
+            </Link>
+          </div>
         </div>
 
-        <div className="crm-intake-install-preview-shell">
-          <div className="crm-intake-install-preview-frame">
-            <div className="crm-intake-install-preview-frame__top">
-              <span>merlyn.com</span>
-              <span>Secure form</span>
-            </div>
-            <div className="crm-intake-install-preview-frame__hero">
-              <div className="crm-intake-install-preview-badge">Shareable form</div>
-              <h3>{previewTitle}</h3>
-              <p>{previewDescription}</p>
-            </div>
-          </div>
-
-          <div className="crm-intake-install-form-card">
-            <div className="crm-intake-install-form-card__head">
-              <h3>{previewTitle}</h3>
-              <p>{previewDescription}</p>
-            </div>
-
-            <div className="crm-intake-install-form-group">
-              <div className="crm-intake-install-form-group__label">Contact</div>
-              <div className="crm-intake-install-form-grid">
-                {contactFields.map((field) => (
-                  <PreviewInput key={field.crmField} field={field} />
-                ))}
-              </div>
-            </div>
-
-            <div className="crm-intake-install-form-group">
-              <div className="crm-intake-install-form-group__label">What are you looking for?</div>
-              <div className="crm-intake-install-form-grid">
-                {searchFields.map((field) => (
-                  <PreviewInput key={field.crmField} field={field} />
-                ))}
-              </div>
-            </div>
-
-            <div className="crm-intake-install-form-group">
-              <div className="crm-intake-install-form-group__label">Additional Details</div>
-              <div className="crm-intake-install-form-grid">
-                {detailFields.map((field) => (
-                  <PreviewInput key={field.crmField} field={field} />
-                ))}
-              </div>
-            </div>
-
-            <details className="crm-intake-install-optional">
-              <summary>Add extra details</summary>
-              <div className="crm-intake-install-optional__body">
-                <div className="crm-intake-install-form-group__label">Optional</div>
-                <div className="crm-intake-install-form-grid">
-                  <PreviewInput field={optionalField} />
-                </div>
-              </div>
-            </details>
-
-            <button type="button" disabled className="crm-btn crm-btn-primary crm-intake-install-submit">
-              {questionnaireConfig.submit_label || "Submit Request"}
-            </button>
-          </div>
+        <div className="crm-inline-actions" style={{ gap: 10, flexWrap: "wrap" }}>
+          <span className="crm-chip">Share link: {shareLink}</span>
+          <span className="crm-chip">New today: {submissions.length}</span>
+          <span className="crm-chip crm-chip-danger">
+            Hot: {submissions.filter((item) => item.temperature === "Hot").length}
+          </span>
+          <span className="crm-chip crm-chip-ok">
+            Converted: {submissions.filter((item) => item.deal_id).length}
+          </span>
         </div>
       </section>
+
+      {loading ? (
+        <section className="crm-card crm-section-card">
+          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading inbound queue...</div>
+        </section>
+      ) : null}
+
+      {error ? (
+        <section className="crm-card crm-section-card">
+          <div style={{ color: "var(--danger)", fontSize: 13 }}>{error}</div>
+        </section>
+      ) : null}
+
+      {!loading && !error ? (
+        <section className="crm-intake-grid">
+          <article className="crm-card crm-section-card crm-stack-8">
+            <div className="crm-section-head">
+              <h2 className="crm-section-title">Newest inbound</h2>
+            </div>
+            <div className="crm-stack-8">
+              {submissions.length === 0 ? (
+                <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
+                  No inbound submissions yet. Social, forms, open house, and Concierge traffic will appear here.
+                </div>
+              ) : null}
+              {submissions.map((submission) => (
+                <button
+                  key={submission.id}
+                  type="button"
+                  onClick={() => setSelectedId(submission.id)}
+                  className={`crm-card-muted crm-intake-row${selectedSubmission?.id === submission.id ? " crm-intake-row-active" : ""}`}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div className="crm-stack-4" style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700 }}>{submission.lead_name}</div>
+                      <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
+                        {submission.property_context}
+                      </div>
+                    </div>
+                    <StatusBadge label={submission.temperature} tone={temperatureTone(submission.temperature)} />
+                  </div>
+                  <div className="crm-inline-actions" style={{ gap: 6 }}>
+                    <StatusBadge label={submission.source} tone={sourceChannelTone(submission.source)} />
+                    <StatusBadge label={submission.intent} tone="default" />
+                  </div>
+                  <div style={{ color: "var(--ink-faint)", fontSize: 12 }}>{formatDate(submission.timestamp)}</div>
+                </button>
+              ))}
+            </div>
+          </article>
+
+          <article className="crm-card crm-section-card crm-stack-10">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">Mapped intake</h2>
+                <p className="crm-section-subtitle">
+                  See what the system understood and which deal it created.
+                </p>
+              </div>
+            </div>
+
+            {selectedSubmission ? (
+              <>
+                <div className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 16 }}>{selectedSubmission.lead_name}</div>
+                      <div style={{ color: "var(--ink-muted)", marginTop: 4 }}>
+                        {selectedSubmission.property_context}
+                      </div>
+                    </div>
+                    <div className="crm-inline-actions" style={{ gap: 8 }}>
+                      <StatusBadge label={selectedSubmission.source} tone={sourceChannelTone(selectedSubmission.source)} />
+                      <StatusBadge label={selectedSubmission.temperature} tone={temperatureTone(selectedSubmission.temperature)} />
+                    </div>
+                  </div>
+
+                  <div className="crm-detail-grid">
+                    <div>
+                      <div className="crm-detail-label">Intent</div>
+                      <div>{selectedSubmission.intent}</div>
+                    </div>
+                    <div>
+                      <div className="crm-detail-label">Timeline</div>
+                      <div>{selectedSubmission.timeline}</div>
+                    </div>
+                    <div>
+                      <div className="crm-detail-label">Budget / price</div>
+                      <div>{selectedSubmission.budget_range || "Not provided"}</div>
+                    </div>
+                    <div>
+                      <div className="crm-detail-label">Lead stage</div>
+                      <div>{selectedSubmission.stage}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
+                  <div style={{ fontWeight: 700 }}>System result</div>
+                  <div className="crm-detail-grid">
+                    <div>
+                      <div className="crm-detail-label">Deal created</div>
+                      <div>{selectedSubmission.deal_id ? "Yes" : "No"}</div>
+                    </div>
+                    <div>
+                      <div className="crm-detail-label">Deal stage</div>
+                      <div>{selectedSubmission.deal_stage || "Pending"}</div>
+                    </div>
+                    <div>
+                      <div className="crm-detail-label">Next action</div>
+                      <div>{selectedSubmission.next_action || "Not set"}</div>
+                    </div>
+                    <div>
+                      <div className="crm-detail-label">Due</div>
+                      <div>{formatDate(selectedSubmission.next_action_due_at)}</div>
+                    </div>
+                  </div>
+                  {selectedSubmission.next_action_detail ? (
+                    <div style={{ color: "var(--ink-muted)" }}>{selectedSubmission.next_action_detail}</div>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </article>
+        </section>
+      ) : null}
     </main>
   );
 }

@@ -16,9 +16,9 @@ export default function SettingsPage() {
 
       <div className="crm-grid-cards-3">
         <section className="crm-card crm-section-card crm-stack-10">
-          <div style={{ fontWeight: 700 }}>Lead intake</div>
+          <div style={{ fontWeight: 700 }}>Inbound intake</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-            Manage your form, review submissions, and import existing leads from one place.
+            Review inbound submissions, share your form, and keep social and form capture flowing into deals cleanly.
           </p>
           <div>
             <Link href="/app/intake" className="crm-btn crm-btn-primary">
@@ -56,11 +56,14 @@ export default function SettingsPage() {
           <h2 className="crm-section-title">Need a quick check?</h2>
         </div>
         <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-          If you are getting ready to launch or share the product more widely, start with intake, Concierge, and legal.
+          If you are getting ready to launch or share the product more widely, start with intake, priorities, Concierge, and legal.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link href="/app/intake" className="crm-btn crm-btn-secondary">
             Intake
+          </Link>
+          <Link href="/app/priorities" className="crm-btn crm-btn-secondary">
+            Priorities
           </Link>
           <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary">
             Concierge

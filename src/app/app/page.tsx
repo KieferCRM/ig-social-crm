@@ -1,50 +1,49 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { normalizeDealStage, type DealStage } from "@/lib/deals";
+import KpiCard from "@/components/ui/kpi-card";
+import StatusBadge from "@/components/ui/status-badge";
+import {
+  dealStageLabel,
+  dealStageTone,
+  dealTypeLabel,
+  leadDisplayName,
+  leadTempTone,
+  normalizeDealStage,
+  normalizeDealType,
+  type DealLeadSummary,
+} from "@/lib/deals";
+import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
 import { supabaseServer } from "@/lib/supabase/server";
-import DashboardPanel from "./dashboard-panel";
-import DashboardRightRail from "./dashboard-right-rail";
+
 export const dynamic = "force-dynamic";
 
 type LeadRow = {
   id: string;
-  ig_username: string | null;
   full_name: string | null;
   first_name: string | null;
   last_name: string | null;
   canonical_email: string | null;
   canonical_phone: string | null;
-  stage: string | null;
+  ig_username: string | null;
   lead_temp: string | null;
+  stage: string | null;
   source: string | null;
   intent: string | null;
   timeline: string | null;
-  last_message_preview: string | null;
+  location_area: string | null;
+  budget_range: string | null;
+  notes: string | null;
   time_last_updated: string | null;
 };
 
 type RecommendationRow = {
   id: string;
   lead_id: string | null;
-  person_id: string | null;
-  reason_code: string;
   title: string;
   description: string | null;
   priority: "low" | "medium" | "high" | "urgent";
-  status: "open" | "done" | "dismissed";
   due_at: string | null;
-  created_at: string;
 };
-
-type DealLeadRow = {
-  id?: unknown;
-  full_name?: unknown;
-  first_name?: unknown;
-  last_name?: unknown;
-  canonical_email?: unknown;
-  canonical_phone?: unknown;
-  ig_username?: unknown;
-} | null;
 
 type DealRow = {
   id?: unknown;
@@ -52,28 +51,26 @@ type DealRow = {
   property_address?: unknown;
   price?: unknown;
   stage?: unknown;
-  expected_close_date?: unknown;
+  deal_type?: unknown;
   updated_at?: unknown;
-  lead?: DealLeadRow | DealLeadRow[];
+  expected_close_date?: unknown;
+  lead?: DealLeadSummary | DealLeadSummary[];
 };
 
-type PriorityDeal = {
+type TodayDeal = {
   id: string;
-  client_name: string;
-  property_address: string | null;
-  price: number | string | null;
-  stage: DealStage;
-  expected_close_date: string | null;
-  updated_at: string | null;
+  leadId: string | null;
+  propertyAddress: string | null;
+  price: string | number | null;
+  stage: ReturnType<typeof normalizeDealStage>;
+  dealType: ReturnType<typeof normalizeDealType>;
+  updatedAt: string | null;
+  expectedCloseDate: string | null;
+  lead: DealLeadSummary | null;
 };
 
-function asSingle(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : "";
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
@@ -85,79 +82,66 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string | nu
   return null;
 }
 
-function normalizeLeadValue(
-  value: DealLeadRow | DealLeadRow[] | undefined
-): Exclude<DealLeadRow, null> | null {
-  const first = Array.isArray(value) ? value[0] : value;
-  if (!first || typeof first !== "object" || Array.isArray(first)) return null;
-  return first;
+function formatDate(value: string | null): string {
+  if (!value) return "No due date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No due date";
+  return date.toLocaleDateString();
 }
 
-function dealClientName(value: DealLeadRow | DealLeadRow[] | undefined): string {
-  const lead = normalizeLeadValue(value);
-  if (!lead) return "Unknown lead";
-  const full = typeof lead.full_name === "string" ? lead.full_name : null;
-  if (full && full.trim()) return full.trim();
-  const first = typeof lead.first_name === "string" ? lead.first_name : null;
-  const last = typeof lead.last_name === "string" ? lead.last_name : null;
-  const combined = [first, last].filter(Boolean).join(" ").trim();
-  if (combined) return combined;
-  const email = typeof lead.canonical_email === "string" ? lead.canonical_email : null;
-  if (email && email.trim()) return email.trim();
-  const phone = typeof lead.canonical_phone === "string" ? lead.canonical_phone : null;
-  if (phone && phone.trim()) return phone.trim();
-  const username = typeof lead.ig_username === "string" ? lead.ig_username : null;
-  if (username && username.trim()) return `@${username.trim()}`;
-  return "Unnamed lead";
+function formatTimeAgo(value: string | null): string {
+  if (!value) return "No recent activity";
+  const ts = new Date(value).getTime();
+  if (Number.isNaN(ts)) return "No recent activity";
+  const hours = Math.round((Date.now() - ts) / 3600_000);
+  if (hours <= 24) return `${Math.max(hours, 1)}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
 }
 
-function asIso(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed || null;
+function isStale(updatedAt: string | null, days: number): boolean {
+  if (!updatedAt) return true;
+  const ts = new Date(updatedAt).getTime();
+  if (Number.isNaN(ts)) return true;
+  return ts < Date.now() - days * 24 * 3600_000;
 }
 
-function isCurrentMonth(dateValue: string | null): boolean {
-  if (!dateValue) return false;
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return false;
-  const now = new Date();
-  return date.getUTCFullYear() === now.getUTCFullYear() && date.getUTCMonth() === now.getUTCMonth();
+function mapDealLead(value: DealLeadSummary | DealLeadSummary[] | undefined): DealLeadSummary | null {
+  const lead = Array.isArray(value) ? value[0] : value;
+  if (!lead || typeof lead !== "object") return null;
+  return {
+    id: typeof lead.id === "string" ? lead.id : "",
+    full_name: typeof lead.full_name === "string" ? lead.full_name : null,
+    first_name: typeof lead.first_name === "string" ? lead.first_name : null,
+    last_name: typeof lead.last_name === "string" ? lead.last_name : null,
+    canonical_email: typeof lead.canonical_email === "string" ? lead.canonical_email : null,
+    canonical_phone: typeof lead.canonical_phone === "string" ? lead.canonical_phone : null,
+    ig_username: typeof lead.ig_username === "string" ? lead.ig_username : null,
+    lead_temp: typeof lead.lead_temp === "string" ? lead.lead_temp : null,
+    source: typeof lead.source === "string" ? lead.source : null,
+    intent: typeof lead.intent === "string" ? lead.intent : null,
+    timeline: typeof lead.timeline === "string" ? lead.timeline : null,
+    location_area: typeof lead.location_area === "string" ? lead.location_area : null,
+  };
 }
 
-function isWithinNextDays(dateValue: string | null, days: number): boolean {
-  if (!dateValue) return false;
-  const date = new Date(dateValue).getTime();
-  if (Number.isNaN(date)) return false;
-  const now = Date.now();
-  const end = now + days * 24 * 3600_000;
-  return date >= now && date <= end;
+function mapDealRow(row: DealRow): TodayDeal | null {
+  const id = asString(row.id);
+  if (!id) return null;
+  return {
+    id,
+    leadId: asString(row.lead_id),
+    propertyAddress: asString(row.property_address),
+    price: typeof row.price === "number" || typeof row.price === "string" ? row.price : null,
+    stage: normalizeDealStage(asString(row.stage)),
+    dealType: normalizeDealType(asString(row.deal_type)),
+    updatedAt: asString(row.updated_at),
+    expectedCloseDate: asString(row.expected_close_date),
+    lead: mapDealLead(row.lead),
+  };
 }
 
-function isRecentlyUpdated(dateValue: string | null, days = 7): boolean {
-  if (!dateValue) return false;
-  const ts = new Date(dateValue).getTime();
-  if (Number.isNaN(ts)) return false;
-  return ts >= Date.now() - days * 24 * 3600_000;
-}
-
-function urgencyScore(deal: PriorityDeal): number {
-  const now = Date.now();
-  const closeTs = deal.expected_close_date ? new Date(deal.expected_close_date).getTime() : Number.POSITIVE_INFINITY;
-  const updatedTs = deal.updated_at ? new Date(deal.updated_at).getTime() : 0;
-  const underContractBoost = deal.stage === "under_contract" ? 250_000_000_000 : 0;
-  const closeBoost = Number.isFinite(closeTs)
-    ? Math.max(0, 120_000_000_000 - Math.max(0, closeTs - now))
-    : 0;
-  const freshnessBoost = Math.max(0, updatedTs - (now - 30 * 24 * 3600_000));
-  return underContractBoost + closeBoost + freshnessBoost;
-}
-
-export default async function AppHome({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default async function AppHome() {
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -167,159 +151,247 @@ export default async function AppHome({
     redirect("/auth");
   }
 
-  const ownerOnly = `agent_id.eq.${user.id}`;
+  const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  const { data: leads, error } = await supabase
-    .from("leads")
-    .select(
-      "id, ig_username, full_name, first_name, last_name, canonical_email, canonical_phone, stage, lead_temp, source, intent, timeline, last_message_preview, time_last_updated"
-    )
-    .or(ownerOnly);
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }] = await Promise.all([
+    supabase
+      .from("leads")
+      .select(
+        "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,stage,source,intent,timeline,location_area,budget_range,notes,time_last_updated"
+      )
+      .eq("agent_id", user.id)
+      .order("time_last_updated", { ascending: false }),
+    supabase
+      .from("deals")
+      .select(
+        "id,lead_id,property_address,price,stage,deal_type,updated_at,expected_close_date,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,source,intent,timeline,location_area)"
+      )
+      .eq("agent_id", user.id)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("lead_recommendations")
+      .select("id,lead_id,title,description,priority,due_at")
+      .or(recommendationOwnerFilter)
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .limit(12),
+  ]);
 
-  const { data: dealsData } = await supabase
-    .from("deals")
-    .select(
-      "id,lead_id,property_address,price,stage,expected_close_date,updated_at,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username)"
-    )
-    .eq("agent_id", user.id)
-    .order("updated_at", { ascending: false });
+  const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
+  const deals = ((dealData || []) as DealRow[])
+    .map(mapDealRow)
+    .filter((deal): deal is TodayDeal => Boolean(deal));
+  const recommendations = (recommendationData || []) as RecommendationRow[];
 
-  let recommendations: RecommendationRow[] = [];
-  const { data: recommendationData, error: recommendationError } = await supabase
-    .from("lead_recommendations")
-    .select("id, lead_id, person_id, reason_code, title, description, priority, status, due_at, created_at")
-    .or(ownerOnly)
-    .eq("status", "open")
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const activeDeals = deals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost");
+  const hotLeads = leads.filter((lead) => String(lead.lead_temp || "").toLowerCase() === "hot");
+  const staleDeals = activeDeals.filter((deal) => isStale(deal.updatedAt, 5));
+  const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
 
-  if (!recommendationError) {
-    recommendations = (recommendationData || []) as RecommendationRow[];
-  }
+  const hotLeadMap = new Map(leads.map((lead) => [lead.id, lead]));
+  const attentionRows = recommendations.slice(0, 5).map((item) => {
+    const lead = item.lead_id ? hotLeadMap.get(item.lead_id) || null : null;
+    return {
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      dueAt: item.due_at,
+      priority: item.priority,
+      lead,
+    };
+  });
 
-  const params = (await searchParams) || {};
-  const newLeadId = asSingle(params.new_lead_id) || "";
-  const onboardingDone = asSingle(params.onboarding) === "done";
-
-  const leadRows = (leads || []) as LeadRow[];
-
-  const hot = leadRows.filter((l) => l.lead_temp === "Hot").length;
-  const newCount = leadRows.filter((l) => l.stage === "New").length;
-  const sortedLeadRows = leadRows
-    .slice()
-    .sort((a, b) => (b.time_last_updated || "").localeCompare(a.time_last_updated || ""));
-  const dealRows = (Array.isArray(dealsData) ? dealsData : []) as DealRow[];
-  const mappedDeals = dealRows
-    .map((deal): PriorityDeal | null => {
-      const id = asString(deal.id);
-      if (!id) return null;
-      return {
-        id,
-        client_name: dealClientName(deal.lead),
-        property_address: asIso(deal.property_address),
-        price:
-          typeof deal.price === "number" || typeof deal.price === "string"
-            ? deal.price
-            : null,
-        stage: normalizeDealStage(typeof deal.stage === "string" ? deal.stage : null),
-        expected_close_date: asIso(deal.expected_close_date),
-        updated_at: asIso(deal.updated_at),
-      };
-    })
-    .filter((deal): deal is PriorityDeal => Boolean(deal));
-  const activeDealsList = mappedDeals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost");
-  const activeDeals = activeDealsList.length;
-  const underContract = activeDealsList.filter((deal) => deal.stage === "under_contract").length;
-  const closingThisMonth = activeDealsList.filter((deal) => isCurrentMonth(deal.expected_close_date)).length;
-  const urgentDeals = activeDealsList
-    .filter(
-      (deal) =>
-        deal.stage === "under_contract" ||
-        isWithinNextDays(deal.expected_close_date, 30) ||
-        isRecentlyUpdated(deal.updated_at, 7)
-    )
-    .sort((a, b) => urgencyScore(b) - urgencyScore(a));
-  const priorityDeals = (urgentDeals.length > 0 ? urgentDeals : activeDealsList)
-    .slice()
-    .sort((a, b) => urgencyScore(b) - urgencyScore(a))
+  const hotNow = hotLeads
+    .filter((lead) => !attentionRows.some((item) => item.lead?.id === lead.id))
     .slice(0, 3);
-  const newLead = newLeadId
-    ? sortedLeadRows.find((lead) => lead.id === newLeadId) || null
-    : null;
-  const newLeadName =
-    firstNonEmpty(
-      newLead?.full_name,
-      `${newLead?.first_name || ""} ${newLead?.last_name || ""}`.trim(),
-      newLead?.canonical_email,
-      newLead?.canonical_phone
-    ) || "Test Buyer";
 
   return (
-    <main className="crm-dashboard-page crm-stack-12">
-      {onboardingDone ? (
-        <section className="crm-card crm-section-card">
-          <div className="crm-inline-actions" style={{ justifyContent: "space-between", width: "100%" }}>
+    <main className="crm-page crm-page-wide crm-stack-12">
+      <section className="crm-today-hero">
+        <div>
+          <p className="crm-page-kicker">Today</p>
+          <h2 className="crm-page-title" style={{ marginTop: 6 }}>
+            Keep the deals moving without manual CRM cleanup.
+          </h2>
+          <p className="crm-page-subtitle">
+            New intake should become organized work immediately. This page keeps the next call,
+            hottest inquiry, and most active deals in view.
+          </p>
+        </div>
+        <div className="crm-inline-actions">
+          <Link href="/app/deals" className="crm-btn crm-btn-primary">
+            Open deals
+          </Link>
+          <Link href="/app/intake" className="crm-btn crm-btn-secondary">
+            Review intake
+          </Link>
+        </div>
+      </section>
+
+      <section className="crm-kpi-grid crm-dashboard-kpi-grid">
+        <KpiCard label="Active Deals" value={activeDeals.length} tone="ok" href="/app/deals" compact />
+        <KpiCard
+          label="Needs Contact Today"
+          value={contactToday.length}
+          tone={contactToday.length > 0 ? "warn" : "default"}
+          href="/app/priorities"
+          compact
+        />
+        <KpiCard
+          label="Hot Inbound"
+          value={hotLeads.length}
+          tone={hotLeads.length > 0 ? "danger" : "default"}
+          href="/app/intake"
+          compact
+        />
+        <KpiCard
+          label="Stale Deals"
+          value={staleDeals.length}
+          tone={staleDeals.length > 0 ? "warn" : "default"}
+          href="/app/priorities"
+          compact
+        />
+      </section>
+
+      <section className="crm-today-grid">
+        <article className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
             <div>
-              <div style={{ fontWeight: 700 }}>Your workspace is live.</div>
-              <div style={{ marginTop: 4, fontSize: 13, color: "var(--ink-muted)" }}>
-                New inquiries from your intake link will start landing here automatically.
-              </div>
+              <h2 className="crm-section-title">Needs Attention Now</h2>
+              <p className="crm-section-subtitle">
+                Quiet guidance for the work that should happen next.
+              </p>
             </div>
-            {newLead ? (
-              <Link href={`/app/leads/${newLead.id}`} className="crm-btn crm-btn-secondary">
-                Open {newLeadName}
-              </Link>
+            <Link href="/app/priorities" className="crm-btn crm-btn-secondary">
+              Open priorities
+            </Link>
+          </div>
+
+          <div className="crm-stack-8">
+            {attentionRows.length === 0 && hotNow.length === 0 ? (
+              <div className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
+                <div style={{ fontWeight: 700 }}>You&apos;re caught up</div>
+                <div style={{ color: "var(--ink-muted)" }}>
+                  New intake and follow-up recommendations will show here as the workspace updates.
+                </div>
+              </div>
             ) : null}
-          </div>
-        </section>
-      ) : null}
 
-      {!error && leadRows.length === 0 ? (
-        <section className="crm-card crm-section-card crm-stack-10">
-          <div className="crm-inline-actions" style={{ justifyContent: "space-between", width: "100%" }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 18 }}>Your workspace is ready.</div>
-              <div style={{ marginTop: 6, fontSize: 14, color: "var(--ink-muted)", maxWidth: 560 }}>
-                You do not have any leads yet. Share your intake link, import an existing list, or explore the demo workspace to see how Merlyn is meant to flow.
+            {attentionRows.map((item) => (
+              <div key={item.id} className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <div className="crm-stack-4">
+                    <div style={{ fontWeight: 700 }}>{item.title}</div>
+                    {item.description ? (
+                      <div style={{ color: "var(--ink-muted)" }}>{item.description}</div>
+                    ) : null}
+                  </div>
+                  <StatusBadge
+                    label={item.priority === "urgent" ? "Contact now" : "Today"}
+                    tone={item.priority === "urgent" ? "danger" : "warn"}
+                  />
+                </div>
+                {item.lead ? (
+                  <div className="crm-inline-actions" style={{ gap: 8 }}>
+                    <StatusBadge label={sourceChannelLabel(item.lead.source)} tone={sourceChannelTone(item.lead.source)} />
+                    <StatusBadge label={item.lead.lead_temp || "Warm"} tone={leadTempTone(item.lead.lead_temp)} />
+                    <span style={{ color: "var(--ink-muted)", fontSize: 13 }}>
+                      {leadDisplayName(item.lead)}{item.lead.timeline ? ` • ${item.lead.timeline}` : ""}
+                    </span>
+                  </div>
+                ) : null}
+                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                  Due {formatDate(item.dueAt)}
+                </div>
+              </div>
+            ))}
+
+            {hotNow.map((lead) => (
+              <div key={lead.id} className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{firstNonEmpty(lead.full_name, lead.ig_username) || "Hot inquiry"}</div>
+                    <div style={{ color: "var(--ink-muted)" }}>
+                      Hot inbound from {sourceChannelLabel(lead.source)}. Enough detail to reach out right away.
+                    </div>
+                  </div>
+                  <StatusBadge label="Hot" tone="danger" />
+                </div>
+                <div className="crm-inline-actions" style={{ gap: 8 }}>
+                  <StatusBadge label={lead.intent || "Inquiry"} tone="default" />
+                  {lead.timeline ? <StatusBadge label={lead.timeline} tone="warn" /> : null}
+                  {lead.location_area ? <StatusBadge label={lead.location_area} tone="info" /> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <div className="crm-stack-12">
+          <article className="crm-card crm-section-card crm-stack-10">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">Active Deals Snapshot</h2>
+                <p className="crm-section-subtitle">The most recent deals, sorted for easy scan.</p>
               </div>
             </div>
-          </div>
+            <div className="crm-stack-8">
+              {activeDeals.slice(0, 5).map((deal) => (
+                <div key={deal.id} className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>
+                        {deal.propertyAddress || leadDisplayName(deal.lead)}
+                      </div>
+                      <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
+                        {leadDisplayName(deal.lead)}{deal.lead?.timeline ? ` • ${deal.lead.timeline}` : ""}
+                      </div>
+                    </div>
+                    <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                  </div>
+                  <div className="crm-inline-actions" style={{ gap: 8 }}>
+                    <StatusBadge label={dealTypeLabel(deal.dealType)} tone="default" />
+                    {deal.lead?.source ? (
+                      <StatusBadge label={sourceChannelLabel(deal.lead.source)} tone={sourceChannelTone(deal.lead.source)} />
+                    ) : null}
+                    {deal.lead?.lead_temp ? (
+                      <StatusBadge label={deal.lead.lead_temp} tone={leadTempTone(deal.lead.lead_temp)} />
+                    ) : null}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, color: "var(--ink-faint)" }}>
+                    <span>Last touch {formatTimeAgo(deal.updatedAt)}</span>
+                    <span>{deal.expectedCloseDate ? `Target ${formatDate(deal.expectedCloseDate)}` : "No close date"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
 
-          <div className="crm-inline-actions">
-            <Link href="/app/intake" className="crm-btn crm-btn-primary">
-              Open intake setup
-            </Link>
-            <Link href="/demo" className="crm-btn crm-btn-secondary">
-              View demo workspace
-            </Link>
-          </div>
-
-          <div className="crm-card-muted" style={{ padding: 14, display: "grid", gap: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 13 }}>What to do first</div>
-            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>1. Copy your intake link from the intake page</div>
-            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>2. Place it on your website, bio link, blast, or QR code</div>
-            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>3. Your first inbound inquiry will appear here automatically</div>
-          </div>
-        </section>
-      ) : null}
-
-      <DashboardPanel
-        hot={hot}
-        newCount={newCount}
-        activeDeals={activeDeals}
-        underContract={underContract}
-        closingThisMonth={closingThisMonth}
-        allLeads={sortedLeadRows}
-        recommendations={recommendations}
-        rightRail={
-          <DashboardRightRail
-            activeDeals={activeDeals}
-            underContract={underContract}
-            closingThisMonth={closingThisMonth}
-            priorityDeals={priorityDeals}
-          />
-        }
-      />
+          <article className="crm-card crm-section-card crm-stack-10">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">Hot / Stale / Due</h2>
+                <p className="crm-section-subtitle">What matters now without turning this page into a dashboard wall.</p>
+              </div>
+            </div>
+            <div className="crm-stack-8">
+              <div className="crm-inline-actions" style={{ gap: 8 }}>
+                <span className="crm-chip crm-chip-danger">Hot inbound: {hotLeads.length}</span>
+                <span className="crm-chip crm-chip-warn">Due today: {contactToday.length}</span>
+                <span className="crm-chip">Stale deals: {staleDeals.length}</span>
+              </div>
+              {staleDeals.slice(0, 3).map((deal) => (
+                <div key={deal.id} className="crm-card-muted" style={{ padding: 12 }}>
+                  <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead)}</div>
+                  <div style={{ marginTop: 4, color: "var(--ink-muted)", fontSize: 13 }}>
+                    No movement since {formatTimeAgo(deal.updatedAt)}. It likely needs a quick update or follow-up.
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+      </section>
     </main>
   );
 }

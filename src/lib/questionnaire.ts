@@ -1,4 +1,10 @@
-export type QuestionnaireInputType = "text" | "email" | "tel" | "textarea";
+export type QuestionnaireInputType =
+  | "text"
+  | "email"
+  | "tel"
+  | "textarea"
+  | "select"
+  | "radio";
 
 export type QuestionnaireQuestion = {
   id: string;
@@ -8,6 +14,7 @@ export type QuestionnaireQuestion = {
   crm_field: string;
   required: boolean;
   input_type: QuestionnaireInputType;
+  options?: string[];
 };
 
 export type QuestionnaireConfig = {
@@ -30,12 +37,14 @@ export const CORE_FIELD_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "timeline", label: "Timeline" },
   { value: "budget_range", label: "Budget Range" },
   { value: "location_area", label: "Location / Area" },
+  { value: "property_context", label: "Property / Context" },
   { value: "contact_preference", label: "Contact Preference" },
-  { value: "next_step", label: "Next Step" },
-  { value: "notes", label: "Notes" },
-  { value: "tags", label: "Tags" },
-  { value: "external_id", label: "External ID" },
   { value: "source", label: "Source" },
+  { value: "notes", label: "Notes" },
+  { value: "financing_status", label: "Financing Status" },
+  { value: "seller_readiness", label: "Seller Readiness" },
+  { value: "agency_status", label: "Working With Agent" },
+  { value: "property_type", label: "Property Type" },
 ];
 
 const CORE_FIELD_SET = new Set(CORE_FIELD_OPTIONS.map((item) => item.value));
@@ -45,123 +54,127 @@ const INPUT_TYPE_SET = new Set<QuestionnaireInputType>([
   "email",
   "tel",
   "textarea",
+  "select",
+  "radio",
 ]);
 
 const MAX_QUESTIONS = 30;
 
 export const PREBUILT_QUESTIONNAIRE_CONFIG: QuestionnaireConfig = {
   version: 1,
-  title: "Lead Intake Form",
+  title: "Real Estate Intake",
   description:
-    "Answer a few quick questions so our team can follow up with the best next step.",
-  submit_label: "Submit Intake",
+    "Share a few details so the agent can review your inquiry and follow up with the right next step.",
+  submit_label: "Submit inquiry",
   success_message:
-    "Thanks, we received your details and will reach out with next steps shortly.",
+    "Thanks, your inquiry is in. The agent will review it and follow up with the best next step.",
   questions: [
     {
+      id: "intent",
+      label: "What are you looking to do?",
+      prompt: "What are you looking to do?",
+      placeholder: "Select one",
+      crm_field: "intent",
+      required: true,
+      input_type: "select",
+      options: ["Buy", "Sell", "Rent", "Invest", "Not sure"],
+    },
+    {
+      id: "timeline",
+      label: "When are you hoping to move or act?",
+      prompt: "When are you hoping to move or act?",
+      placeholder: "Select one",
+      crm_field: "timeline",
+      required: true,
+      input_type: "select",
+      options: ["ASAP", "0-30 days", "1-3 months", "3-6 months", "6+ months"],
+    },
+    {
+      id: "location_area",
+      label: "What area, neighborhood, or property is this about?",
+      prompt: "What area, neighborhood, or property is this about?",
+      placeholder: "East Nashville, Brentwood, or 123 Main St",
+      crm_field: "location_area",
+      required: true,
+      input_type: "text",
+    },
+    {
+      id: "budget_range",
+      label: "What budget or price range are you thinking about?",
+      prompt: "What budget or price range are you thinking about?",
+      placeholder: "Select one",
+      crm_field: "budget_range",
+      required: false,
+      input_type: "select",
+      options: [
+        "Under $250k",
+        "$250k-$500k",
+        "$500k-$750k",
+        "$750k-$1M",
+        "$1M+",
+      ],
+    },
+    {
       id: "full_name",
-      label: "Full Name",
+      label: "Full name",
       prompt: "What is your full name?",
-      placeholder: "Jane Doe",
+      placeholder: "Jordan Mitchell",
       crm_field: "full_name",
       required: true,
       input_type: "text",
     },
     {
-      id: "ig_username",
-      label: "Instagram Handle",
-      prompt: "What is your Instagram handle? (optional)",
-      placeholder: "@janedoe",
-      crm_field: "ig_username",
-      required: false,
-      input_type: "text",
-    },
-    {
-      id: "email",
-      label: "Email",
-      prompt: "What email should we use?",
-      placeholder: "jane@email.com",
-      crm_field: "email",
-      required: true,
-      input_type: "email",
-    },
-    {
       id: "phone",
-      label: "Phone",
-      prompt: "What is the best phone number?",
-      placeholder: "(555) 555-5555",
+      label: "Best phone number",
+      prompt: "What is the best phone number to reach you?",
+      placeholder: "(615) 555-0182",
       crm_field: "phone",
       required: true,
       input_type: "tel",
     },
     {
-      id: "intent",
-      label: "Intent",
-      prompt: "What are you looking for exactly (buy/sell/invest)?",
-      placeholder: "Buy a primary home",
-      crm_field: "intent",
+      id: "email",
+      label: "Email",
+      prompt: "What email should we use?",
+      placeholder: "jordan@email.com",
+      crm_field: "email",
       required: false,
-      input_type: "text",
+      input_type: "email",
     },
     {
       id: "contact_preference",
-      label: "Contact Preference",
-      prompt: "How do you prefer us to follow up?",
-      placeholder: "Text first, then email",
+      label: "Preferred contact method",
+      prompt: "How should the agent follow up?",
+      placeholder: "Select one",
       crm_field: "contact_preference",
-      required: false,
-      input_type: "text",
-    },
-    {
-      id: "next_step",
-      label: "Next Step",
-      prompt: "What is the best next step for you right now?",
-      placeholder: "Schedule a call this week",
-      crm_field: "next_step",
-      required: false,
-      input_type: "text",
+      required: true,
+      input_type: "radio",
+      options: ["Call", "Text", "Email"],
     },
     {
       id: "source",
       label: "How did you find us?",
-      prompt: "Where did you hear about us?",
-      placeholder: "Instagram, referral, Zillow, Google, etc.",
+      prompt: "How did you find us?",
+      placeholder: "Select one",
       crm_field: "source",
       required: false,
-      input_type: "text",
-    },
-    {
-      id: "timeline",
-      label: "Timeline",
-      prompt: "What is your ideal timeline to move?",
-      placeholder: "30-60 days",
-      crm_field: "timeline",
-      required: false,
-      input_type: "text",
-    },
-    {
-      id: "budget_range",
-      label: "Budget Range",
-      prompt: "What budget range are you targeting?",
-      placeholder: "$400k - $550k",
-      crm_field: "budget_range",
-      required: false,
-      input_type: "text",
-    },
-    {
-      id: "location_area",
-      label: "Location",
-      prompt: "Which location or neighborhood is best for you?",
-      placeholder: "Austin - South Congress",
-      crm_field: "location_area",
-      required: false,
-      input_type: "text",
+      input_type: "select",
+      options: [
+        "Instagram",
+        "Facebook",
+        "TikTok",
+        "Website",
+        "Open House",
+        "Referral",
+        "Call/Text",
+        "Other",
+      ],
     },
     {
       id: "notes",
-      label: "Anything Else We Should Know?",
-      prompt: "Share any additional context that helps us support you better.",
-      placeholder: "Must have 4 bedrooms, near good schools, open to fixer-upper.",
+      label: "Anything else we should know?",
+      prompt: "Anything else we should know?",
+      placeholder: "Anything helpful before the agent follows up.",
       crm_field: "notes",
       required: false,
       input_type: "textarea",
@@ -174,7 +187,10 @@ export const DEFAULT_QUESTIONNAIRE_CONFIG: QuestionnaireConfig = PREBUILT_QUESTI
 export function cloneQuestionnaireConfig(config: QuestionnaireConfig): QuestionnaireConfig {
   return {
     ...config,
-    questions: config.questions.map((question) => ({ ...question })),
+    questions: config.questions.map((question) => ({
+      ...question,
+      options: question.options ? [...question.options] : undefined,
+    })),
   };
 }
 
@@ -194,7 +210,7 @@ function sanitizeLegacyTitle(value: string): string {
     normalized === "get matched with off-market opportunities" ||
     normalized.includes("off-market")
   ) {
-    return "Lead Intake Form";
+    return "Real Estate Intake";
   }
   return value;
 }
@@ -208,6 +224,15 @@ function normalizeInputType(value: unknown, fallback: QuestionnaireInputType): Q
   const normalized = value.trim().toLowerCase() as QuestionnaireInputType;
   if (INPUT_TYPE_SET.has(normalized)) return normalized;
   return fallback;
+}
+
+function normalizeOptions(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const options = value
+    .map((item) => safeText(item, 80))
+    .filter((item) => item.length > 0)
+    .slice(0, 12);
+  return options.length > 0 ? options : undefined;
 }
 
 function normalizeCrmField(value: unknown, fallback: string): string {
@@ -237,10 +262,11 @@ function normalizeQuestion(
   const raw = isRecord(input) ? input : {};
   const label = safeText(raw.label, 60) || fallback.label;
   const prompt = safeText(raw.prompt, 240) || label;
-  const placeholder = safeText(raw.placeholder, 120);
+  const placeholder = safeText(raw.placeholder, 120) || fallback.placeholder;
   const crmField = normalizeCrmField(raw.crm_field, fallback.crm_field);
   const inputType = normalizeInputType(raw.input_type, fallback.input_type);
   const required = Boolean(raw.required);
+  const options = normalizeOptions(raw.options) || fallback.options;
 
   const baseId = slugify(safeText(raw.id, 60)) || slugify(label) || `question_${index + 1}`;
   let id = baseId;
@@ -261,6 +287,7 @@ function normalizeQuestion(
     crm_field: crmField,
     required,
     input_type: inputType,
+    options,
   };
 }
 
@@ -280,9 +307,9 @@ export function normalizeQuestionnaireConfig(input: unknown): QuestionnaireConfi
   const resolvedQuestions =
     questions.length > 0
       ? questions
-      : DEFAULT_QUESTIONNAIRE_CONFIG.questions.map((question, index) =>
-          normalizeQuestion(question, index, ids)
-        ).filter((question): question is QuestionnaireQuestion => question !== null);
+      : DEFAULT_QUESTIONNAIRE_CONFIG.questions
+          .map((question, index) => normalizeQuestion(question, index, ids))
+          .filter((question): question is QuestionnaireQuestion => question !== null);
 
   const normalizedTitle = sanitizeLegacyTitle(safeText(raw.title, 120));
 

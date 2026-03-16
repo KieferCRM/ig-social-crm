@@ -3,9 +3,9 @@
 import { type ReactNode, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase/browser";
-import { PRODUCT_NAME } from "@/lib/features";
 import MerlynMascot from "@/components/branding/merlyn-mascot";
+import { PRODUCT_NAME } from "@/lib/features";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -22,9 +22,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   const navItems = [
-    { href: "/app", label: "Dashboard", active: pathname === "/app" },
-    { href: "/app/list", label: "Leads", active: pathname.startsWith("/app/list") },
-    { href: "/app/kanban", label: "Pipeline", active: pathname.startsWith("/app/kanban") },
+    { href: "/app", label: "Today", active: pathname === "/app" },
     { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals") },
     {
       href: "/app/intake",
@@ -35,6 +33,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         pathname.startsWith("/app/import"),
     },
     {
+      href: "/app/priorities",
+      label: "Priorities",
+      active: pathname.startsWith("/app/priorities"),
+    },
+    {
       href: "/app/settings/receptionist",
       label: "Concierge",
       active: pathname.startsWith("/app/settings/receptionist"),
@@ -42,56 +45,55 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     {
       href: "/app/settings",
       label: "Settings",
-      active: pathname.startsWith("/app/settings") && !pathname.startsWith("/app/settings/receptionist"),
+      active:
+        pathname.startsWith("/app/settings") && !pathname.startsWith("/app/settings/receptionist"),
     },
   ];
 
   const pageMeta = useMemo(() => {
-    if (pathname.startsWith("/app/list")) {
-      return {
-        title: "Leads",
-        subtitle: "Scan every inquiry, filter fast, and open the right record without losing context.",
-      };
-    }
-    if (pathname.startsWith("/app/kanban")) {
-      return {
-        title: "Pipeline",
-        subtitle: "See which leads need a response, what stage they are in, and what should move next.",
-      };
-    }
     if (pathname.startsWith("/app/deals")) {
       return {
         title: "Deals",
-        subtitle: "Track active transactions, close dates, and the next step without spreadsheet sprawl.",
+        subtitle:
+          "Work the pipeline from one board: move stages fast, scan context quickly, and keep the next step visible.",
       };
     }
-    if (pathname.startsWith("/app/onboarding")) {
+    if (
+      pathname.startsWith("/app/intake") ||
+      pathname.startsWith("/app/ingestion") ||
+      pathname.startsWith("/app/import")
+    ) {
       return {
-        title: "Setup",
-        subtitle: "Get your intake link live and make sure the first lead lands in the right place.",
+        title: "Intake",
+        subtitle:
+          "Review new inbound inquiries, confirm what the system created, and keep source context clear.",
       };
     }
-    if (pathname.startsWith("/app/intake") || pathname.startsWith("/app/ingestion") || pathname.startsWith("/app/import")) {
+    if (pathname.startsWith("/app/priorities")) {
       return {
-        title: "Lead Intake",
-        subtitle: "Share your form, review submissions, and make sure new inquiries enter Merlyn cleanly.",
+        title: "Priorities",
+        subtitle:
+          "Quiet operational guidance for what needs contact now, what needs an update, and what can wait.",
       };
     }
     if (pathname.startsWith("/app/settings/receptionist")) {
       return {
         title: "Concierge",
-        subtitle: "Set up missed-call text-back and direct calling or texting unlocks so inbound opportunities do not go cold.",
+        subtitle:
+          "Missed-call capture and follow-up intake feed the same workspace without creating a separate CRM path.",
       };
     }
     if (pathname.startsWith("/app/settings")) {
       return {
         title: "Settings",
-        subtitle: "Keep the workspace understandable, compliant, and ready to use without extra setup debt.",
+        subtitle:
+          "Keep intake, compliance, and workspace behavior clear without adding extra setup complexity.",
       };
     }
     return {
       title: "Today",
-      subtitle: "Start with the leads and deals that need attention first.",
+      subtitle:
+        "Start with the deals, hot inquiries, and follow-ups that matter right now.",
     };
   }, [pathname]);
 
@@ -102,7 +104,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <MerlynMascot decorative />
           <div>
             <div className="crm-sidebar-brand-name">{PRODUCT_NAME.toUpperCase()}</div>
-            <div className="crm-sidebar-brand-tag">Inbound lead CRM for solo agents</div>
+            <div className="crm-sidebar-brand-tag">Inbound CRM for solo real estate agents</div>
           </div>
         </div>
 
@@ -119,7 +121,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="crm-sidebar-footer">
-          <span className="crm-chip crm-chip-ok crm-sidebar-mode-chip">LIVE WORKSPACE</span>
+          <span className="crm-chip crm-sidebar-mode-chip">LIVE WORKSPACE</span>
           <button onClick={handleLogout} className="crm-btn crm-btn-secondary crm-sidebar-logout">
             Logout
           </button>
@@ -129,15 +131,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <div className="crm-workspace">
         <header className="crm-topbar">
           <div>
-            <div className="crm-topbar-kicker">MERLYN</div>
+            <div className="crm-topbar-kicker">Inbound Workspace</div>
             <h1 className="crm-topbar-title">{pageMeta.title}</h1>
             <p className="crm-topbar-subtitle">{pageMeta.subtitle}</p>
           </div>
           <div className="crm-topbar-signal">
             <span className="crm-topbar-sigil" aria-hidden />
             <div>
-              <div className="crm-topbar-signal-title">Workspace ready</div>
-              <div className="crm-topbar-signal-subtitle">Intake, leads, and deals are in one place.</div>
+              <div className="crm-topbar-signal-title">Capture once, work the deal</div>
+              <div className="crm-topbar-signal-subtitle">
+                Intake, priorities, and deals stay in one operating system.
+              </div>
             </div>
           </div>
         </header>
