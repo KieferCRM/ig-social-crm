@@ -29,10 +29,23 @@ export async function POST() {
   }
 
   const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
+  const alreadyInitialized =
+    onboardingState.has_completed_onboarding && onboardingState.has_seeded_sample_workspace_data;
+
+  if (alreadyInitialized) {
+    return NextResponse.json({
+      ok: true,
+      already_initialized: true,
+      seeded_sample_workspace_data: false,
+    });
+  }
+
+  let seededSampleWorkspaceData = false;
 
   if (!onboardingState.has_seeded_sample_workspace_data) {
     try {
       await seedSampleWorkspaceForAgent(admin, auth.context.user.id);
+      seededSampleWorkspaceData = true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not seed sample workspace data.";
       return NextResponse.json({ error: message }, { status: 500 });
@@ -54,10 +67,16 @@ export async function POST() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  revalidatePath("/app");
-  revalidatePath("/app/intake");
-  revalidatePath("/app/deals");
-  revalidatePath("/app/priorities");
+  if (seededSampleWorkspaceData || !onboardingState.has_completed_onboarding) {
+    revalidatePath("/app");
+    revalidatePath("/app/intake");
+    revalidatePath("/app/deals");
+    revalidatePath("/app/priorities");
+  }
 
-  return NextResponse.json({ ok: true, seeded_sample_workspace_data: true });
+  return NextResponse.json({
+    ok: true,
+    already_initialized: false,
+    seeded_sample_workspace_data: seededSampleWorkspaceData,
+  });
 }

@@ -10,6 +10,13 @@ import { FEATURE_SIGNUP_ENABLED, PRODUCT_NAME } from "@/lib/features";
 type AuthMode = "sign_in" | "sign_up" | "recovery";
 type BusyAction = "sign_in" | "sign_up" | "forgot" | "reset" | null;
 
+type BootstrapResponse = {
+  ok?: boolean;
+  already_initialized?: boolean;
+  seeded_sample_workspace_data?: boolean;
+  error?: string;
+};
+
 const valueBullets = [
   "Capture website, social, and QR-code inquiries automatically",
   "Turn inbound details into organized deals without manual re-entry",
@@ -44,6 +51,7 @@ export default function AuthPage() {
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showContinueToWorkspace, setShowContinueToWorkspace] = useState(false);
 
   const createAccountLabel = FEATURE_SIGNUP_ENABLED ? "Create Account" : "Request Early Access";
   const isBusy = busyAction !== null;
@@ -85,6 +93,7 @@ export default function AuthPage() {
     setMode(nextMode);
     setError(null);
     setMessage(null);
+    setShowContinueToWorkspace(false);
     setPassword("");
     setConfirmPassword("");
   }
@@ -101,12 +110,37 @@ export default function AuthPage() {
     return false;
   }
 
+  async function bootstrapWorkspace(): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      const response = await fetch("/api/onboarding/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = (await response.json()) as BootstrapResponse;
+      if (!response.ok || !data.ok) {
+        return {
+          ok: false,
+          error:
+            data.error ||
+            "Your account is ready, but sample workspace setup did not finish.",
+        };
+      }
+      return { ok: true };
+    } catch {
+      return {
+        ok: false,
+        error: "Your account is ready, but sample workspace setup did not finish.",
+      };
+    }
+  }
+
   async function handleSignIn() {
     if (!validateEmail() || !validatePassword()) return;
 
     setBusyAction("sign_in");
     setError(null);
     setMessage(null);
+    setShowContinueToWorkspace(false);
 
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -115,6 +149,14 @@ export default function AuthPage() {
 
     if (authError) {
       setError(toFriendlyError(authError.message));
+      setBusyAction(null);
+      return;
+    }
+
+    const bootstrap = await bootstrapWorkspace();
+    if (!bootstrap.ok) {
+      setMessage(`${bootstrap.error} You can still enter the workspace now.`);
+      setShowContinueToWorkspace(true);
       setBusyAction(null);
       return;
     }
@@ -128,6 +170,7 @@ export default function AuthPage() {
     setBusyAction("sign_up");
     setError(null);
     setMessage(null);
+    setShowContinueToWorkspace(false);
 
     const { data, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -141,6 +184,13 @@ export default function AuthPage() {
     }
 
     if (data.session) {
+      const bootstrap = await bootstrapWorkspace();
+      if (!bootstrap.ok) {
+        setMessage(`${bootstrap.error} You can still enter the workspace now.`);
+        setShowContinueToWorkspace(true);
+        setBusyAction(null);
+        return;
+      }
       router.push("/app");
       return;
     }
@@ -155,6 +205,7 @@ export default function AuthPage() {
     setBusyAction("forgot");
     setError(null);
     setMessage(null);
+    setShowContinueToWorkspace(false);
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/auth`,
@@ -180,6 +231,7 @@ export default function AuthPage() {
     setBusyAction("reset");
     setError(null);
     setMessage(null);
+    setShowContinueToWorkspace(false);
 
     const { error: updateError } = await supabase.auth.updateUser({ password });
 
@@ -222,13 +274,13 @@ export default function AuthPage() {
     mode === "recovery"
       ? "Create a new password to get back into your workspace."
       : mode === "sign_up"
-        ? "Set up your workspace, capture inbound inquiries automatically, and review sample deals in your real CRM."
+        ? "Create your workspace, capture inbound inquiries automatically, and open with sample deals so you can see how it works."
         : "Sign in to review new inquiries, update deals faster, and keep follow-up clear.";
   const modeHelper =
     mode === "recovery"
       ? "Use the same email on your account."
       : mode === "sign_up"
-        ? "New here? Create your workspace and start with the real intake, deals, and priorities flow."
+        ? "New here? Create your workspace and go straight into the real intake, deals, and priorities flow."
         : "Already have an account? Your intake queue, deals, and priorities will be waiting.";
   const primaryLabel =
     busyAction === "sign_in"
@@ -352,6 +404,16 @@ export default function AuthPage() {
             <button type="submit" disabled={isBusy} className="crm-btn crm-btn-primary crm-auth-submit">
               {primaryLabel}
             </button>
+
+            {showContinueToWorkspace ? (
+              <button
+                type="button"
+                className="crm-btn crm-btn-secondary crm-auth-submit"
+                onClick={() => router.push("/app")}
+              >
+                Enter Workspace
+              </button>
+            ) : null}
           </form>
 
           {mode !== "recovery" ? (

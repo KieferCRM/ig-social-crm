@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import EmptyState from "@/components/ui/empty-state";
 import KpiCard from "@/components/ui/kpi-card";
 import StatusBadge from "@/components/ui/status-badge";
 import {
@@ -197,6 +198,7 @@ export default async function AppHome() {
   const hotLeads = leads.filter((lead) => String(lead.lead_temp || "").toLowerCase() === "hot");
   const staleDeals = activeDeals.filter((deal) => isStale(deal.updatedAt, 5));
   const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
+  const trueEmptyWorkspace = leads.length === 0 && deals.length === 0 && recommendations.length === 0;
 
   const hotLeadMap = new Map(leads.map((lead) => [lead.id, lead]));
   const attentionRows = recommendations.slice(0, 5).map((item) => {
@@ -262,6 +264,29 @@ export default async function AppHome() {
           compact
         />
       </section>
+
+      {trueEmptyWorkspace ? (
+        <section className="crm-card crm-section-card">
+          <EmptyState
+            eyebrow="First workspace view"
+            title="Your workspace is ready."
+            body="We did not find any deals, contacts, or follow-up items yet. Start by opening intake or sharing a buyer or seller form so the workspace has something real to work with."
+            action={
+              <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
+                <Link href="/app/intake" className="crm-btn crm-btn-primary">
+                  Open intake
+                </Link>
+                <Link href="/buyer" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
+                  Buyer form
+                </Link>
+                <Link href="/seller" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
+                  Seller form
+                </Link>
+              </div>
+            }
+          />
+        </section>
+      ) : null}
 
       <section className="crm-today-grid">
         <article className="crm-card crm-section-card crm-stack-10">
