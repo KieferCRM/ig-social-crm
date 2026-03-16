@@ -77,16 +77,19 @@ const DEAL_TYPE_LABELS: Record<DealType, string> = {
   listing: "Seller",
 };
 
-const DEAL_STAGE_TONES: Record<DealStage, "default" | "ok" | "warn" | "danger"> = {
-  new: "default",
-  showing: "warn",
-  offer_made: "warn",
-  under_contract: "warn",
-  inspection: "warn",
-  appraisal: "warn",
-  closing: "ok",
-  closed: "ok",
-  lost: "danger",
+const DEAL_STAGE_TONES: Record<
+  DealStage,
+  "stage-new" | "stage-qualified" | "stage-active" | "stage-contract" | "stage-closed" | "stage-lost"
+> = {
+  new: "stage-new",
+  showing: "stage-active",
+  offer_made: "stage-qualified",
+  under_contract: "stage-contract",
+  inspection: "stage-contract",
+  appraisal: "stage-contract",
+  closing: "stage-contract",
+  closed: "stage-closed",
+  lost: "stage-lost",
 };
 
 export function normalizeDealStage(value: string | null | undefined): DealStage {
@@ -116,18 +119,19 @@ export function dealTypeLabel(type: DealType): string {
   return DEAL_TYPE_LABELS[type];
 }
 
-export function dealStageTone(stage: DealStage): "default" | "ok" | "warn" | "danger" {
+export function dealStageTone(
+  stage: DealStage
+): "stage-new" | "stage-qualified" | "stage-active" | "stage-contract" | "stage-closed" | "stage-lost" {
   return DEAL_STAGE_TONES[stage];
 }
 
 export function leadTempTone(
   value: string | null | undefined
-): "default" | "ok" | "warn" | "danger" {
+): "lead-hot" | "lead-warm" | "lead-cold" {
   const normalized = String(value || "").trim().toLowerCase();
-  if (normalized === "hot") return "danger";
-  if (normalized === "warm") return "warn";
-  if (normalized === "cold") return "default";
-  return "default";
+  if (normalized === "hot") return "lead-hot";
+  if (normalized === "warm") return "lead-warm";
+  return "lead-cold";
 }
 
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {

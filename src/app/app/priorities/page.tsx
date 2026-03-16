@@ -116,7 +116,7 @@ export default async function PrioritiesPage() {
             const source = typeof metadata.source_channel === "string" ? metadata.source_channel : null;
             const temperature = typeof metadata.temperature === "string" ? metadata.temperature : null;
             return (
-              <div key={item.id} className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
+              <div key={item.id} className="crm-card-muted crm-ai-panel crm-stack-8" style={{ padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                   <div style={{ fontWeight: 700 }}>{item.title}</div>
                   <StatusBadge label={item.priority === "urgent" ? "Now" : "Today"} tone={recommendationTone(item.priority)} />
@@ -126,7 +126,18 @@ export default async function PrioritiesPage() {
                   {source ? (
                     <StatusBadge label={sourceChannelLabel(source)} tone={sourceChannelTone(source)} />
                   ) : null}
-                  {temperature ? <StatusBadge label={temperature} tone={temperature === "Hot" ? "danger" : "warn"} /> : null}
+                  {temperature ? (
+                    <StatusBadge
+                      label={temperature}
+                      tone={
+                        temperature === "Hot"
+                          ? "lead-hot"
+                          : temperature === "Warm"
+                            ? "lead-warm"
+                            : "lead-cold"
+                      }
+                    />
+                  ) : null}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Due {formatDate(item.due_at)}</div>
               </div>
@@ -168,7 +179,7 @@ export default async function PrioritiesPage() {
             </div>
           ) : null}
           {canWait.map((item) => (
-            <div key={item.id} className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
+              <div key={item.id} className="crm-card-muted crm-ai-panel crm-stack-8" style={{ padding: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                 <div style={{ fontWeight: 700 }}>{item.title}</div>
                 <StatusBadge label="Later" tone="default" />

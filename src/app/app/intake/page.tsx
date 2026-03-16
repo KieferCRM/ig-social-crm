@@ -39,11 +39,11 @@ function formatDate(value: string | null): string {
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
 
-function temperatureTone(value: string): "default" | "warn" | "danger" {
+function temperatureTone(value: string): "lead-hot" | "lead-warm" | "lead-cold" {
   const normalized = value.trim().toLowerCase();
-  if (normalized === "hot") return "danger";
-  if (normalized === "warm") return "warn";
-  return "default";
+  if (normalized === "hot") return "lead-hot";
+  if (normalized === "warm") return "lead-warm";
+  return "lead-cold";
 }
 
 export default function IntakeWorkspacePage() {

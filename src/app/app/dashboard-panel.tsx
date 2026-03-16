@@ -334,7 +334,7 @@ export default function DashboardPanel({
                   return (
                     <div
                       key={item.id}
-                      className={`crm-card-muted crm-focus-row${focusCount > 0 ? " crm-focus-row-alert" : ""}${!hasNewQueue && !hasHotQueue && recommendations[0]?.id === item.id ? " crm-focus-row-primary" : ""}`}
+                      className={`crm-card-muted crm-focus-row crm-ai-panel${focusCount > 0 ? " crm-focus-row-alert" : ""}${!hasNewQueue && !hasHotQueue && recommendations[0]?.id === item.id ? " crm-focus-row-primary" : ""}`}
                       style={{ padding: 8 }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

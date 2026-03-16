@@ -4,7 +4,7 @@ import Link from "next/link";
 import EmptyState from "@/components/ui/empty-state";
 import StatusBadge from "@/components/ui/status-badge";
 import { formatCurrency, parsePositiveDecimal } from "@/lib/deal-metrics";
-import { dealStageLabel, normalizeDealStage, type DealStage } from "@/lib/deals";
+import { dealStageLabel, dealStageTone, normalizeDealStage, type DealStage } from "@/lib/deals";
 
 type PriorityDeal = {
   id: string;
@@ -15,15 +15,6 @@ type PriorityDeal = {
   expected_close_date: string | null;
   updated_at: string | null;
 };
-
-function dealStageTone(stage: DealStage): "default" | "ok" | "warn" | "danger" {
-  if (stage === "lost") return "danger";
-  if (stage === "closed") return "ok";
-  if (stage === "under_contract" || stage === "inspection" || stage === "appraisal" || stage === "closing") {
-    return "warn";
-  }
-  return "default";
-}
 
 function formatDealCloseDate(value: string | null): string {
   if (!value) return "No close date";

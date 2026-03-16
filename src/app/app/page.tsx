@@ -278,7 +278,7 @@ export default async function AppHome() {
             ) : null}
 
             {attentionRows.map((item) => (
-              <div key={item.id} className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
+              <div key={item.id} className="crm-card-muted crm-ai-panel crm-stack-8" style={{ padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                   <div className="crm-stack-4">
                     <div style={{ fontWeight: 700 }}>{item.title}</div>
