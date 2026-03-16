@@ -45,11 +45,12 @@ export async function GET() {
         60 * 60
       );
 
-    signedUrlMap = new Map(
-      (signedRows || [])
-        .filter((row) => row.path && row.signedUrl)
-        .map((row) => [row.path, row.signedUrl])
-    );
+    const signedEntries = (signedRows || []).flatMap((row) => {
+      if (!row.path || !row.signedUrl) return [] as Array<[string, string]>;
+      return [[row.path, row.signedUrl] as [string, string]];
+    });
+
+    signedUrlMap = new Map<string, string>(signedEntries);
   } catch {
     signedUrlMap = new Map();
   }
