@@ -1,3 +1,5 @@
+import { TIMEFRAME_OPTIONS } from "@/lib/inbound";
+
 export type QuestionnaireInputType =
   | "text"
   | "email"
@@ -81,13 +83,13 @@ export const PREBUILT_QUESTIONNAIRE_CONFIG: QuestionnaireConfig = {
     },
     {
       id: "timeline",
-      label: "When are you hoping to move or act?",
-      prompt: "When are you hoping to move or act?",
+      label: "What's your timeframe?",
+      prompt: "What's your timeframe?",
       placeholder: "Select one",
       crm_field: "timeline",
       required: true,
       input_type: "select",
-      options: ["ASAP", "0-30 days", "1-3 months", "3-6 months", "6+ months"],
+      options: [...TIMEFRAME_OPTIONS],
     },
     {
       id: "location_area",

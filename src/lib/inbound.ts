@@ -10,9 +10,16 @@ export const SOURCE_CHANNEL_VALUES = [
   "other",
 ] as const;
 
+export const TIMEFRAME_OPTIONS = [
+  "0-3 months",
+  "3-6 months",
+  "6+ months",
+] as const;
+
 export type SourceChannel = (typeof SOURCE_CHANNEL_VALUES)[number];
 export type LeadTemperature = "Cold" | "Warm" | "Hot";
 export type RecommendationPriority = "low" | "medium" | "high" | "urgent";
+export type TimeframeBucket = (typeof TIMEFRAME_OPTIONS)[number];
 
 export type InboundQualificationInput = {
   intent?: string | null;
@@ -48,6 +55,10 @@ function compact(value: string | null | undefined): string {
 
 function includesAny(value: string, matches: string[]): boolean {
   return matches.some((match) => value.includes(match));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 export function normalizeSourceChannel(value: string | null | undefined): SourceChannel | null {
@@ -89,21 +100,126 @@ export function sourceChannelTone(
   return "default";
 }
 
+export function normalizeTimeframeBucket(
+  value: string | null | undefined
+): TimeframeBucket | null {
+  const timeline = compact(value).toLowerCase();
+  if (!timeline) return null;
+
+  if (
+    includesAny(timeline, [
+      "0-3",
+      "0 to 3",
+      "0-30",
+      "0 to 30",
+      "1-3",
+      "1 to 3",
+      "asap",
+      "ready now",
+      "today",
+      "this week",
+      "next week",
+      "this month",
+      "next month",
+      "immediately",
+      "urgent",
+      "right away",
+    ])
+  ) {
+    return "0-3 months";
+  }
+
+  if (
+    includesAny(timeline, [
+      "3-6",
+      "3 to 6",
+      "4 month",
+      "5 month",
+    ])
+  ) {
+    return "3-6 months";
+  }
+
+  if (
+    includesAny(timeline, [
+      "6+",
+      "6 plus",
+      "6-plus",
+      "6 months+",
+      "6 months +",
+      "over 6",
+      "more than 6",
+      "later",
+      "long term",
+      "long-term",
+      "not sure",
+      "someday",
+      "eventually",
+      "next year",
+      "12 month",
+      "year",
+    ])
+  ) {
+    return "6+ months";
+  }
+
+  const monthMatch = timeline.match(/\b(\d{1,2})\s*(month|months|mo)\b/);
+  if (monthMatch?.[1]) {
+    const months = Number(monthMatch[1]);
+    if (Number.isFinite(months)) {
+      if (months <= 3) return "0-3 months";
+      if (months <= 6) return "3-6 months";
+      return "6+ months";
+    }
+  }
+
+  const weekMatch = timeline.match(/\b(\d{1,2})\s*(week|weeks|wk|wks)\b/);
+  if (weekMatch?.[1]) {
+    const weeks = Number(weekMatch[1]);
+    if (Number.isFinite(weeks)) {
+      if (weeks <= 13) return "0-3 months";
+      if (weeks <= 26) return "3-6 months";
+      return "6+ months";
+    }
+  }
+
+  const dayMatch = timeline.match(/\b(\d{1,3})\s*(day|days)\b/);
+  if (dayMatch?.[1]) {
+    const days = Number(dayMatch[1]);
+    if (Number.isFinite(days)) {
+      if (days <= 90) return "0-3 months";
+      if (days <= 180) return "3-6 months";
+      return "6+ months";
+    }
+  }
+
+  return null;
+}
+
+export function leadTemperatureFromTimeframe(
+  value: string | null | undefined
+): LeadTemperature | null {
+  const bucket = normalizeTimeframeBucket(value);
+  if (bucket === "0-3 months") return "Hot";
+  if (bucket === "3-6 months") return "Warm";
+  if (bucket === "6+ months") return "Cold";
+  return null;
+}
+
 export function inferLeadTemperature(input: InboundQualificationInput): QualificationResult {
   let score = 0;
   const reasons: string[] = [];
+  const timeframe = normalizeTimeframeBucket(input.timeline);
 
-  const timeline = compact(input.timeline).toLowerCase();
-  if (
-    includesAny(timeline, ["asap", "today", "this week", "0-30", "30 days", "immediately"])
-  ) {
-    score += 3;
-    reasons.push("near-term timeline");
-  } else if (includesAny(timeline, ["1-3", "1 to 3", "60", "90"])) {
-    score += 2;
-    reasons.push("clear timeline");
-  } else if (timeline) {
-    score += 1;
+  if (timeframe === "0-3 months") {
+    score = 8;
+    reasons.push("timeframe is 0-3 months");
+  } else if (timeframe === "3-6 months") {
+    score = 5;
+    reasons.push("timeframe is 3-6 months");
+  } else if (timeframe === "6+ months") {
+    score = 2;
+    reasons.push("timeframe is 6+ months");
   }
 
   const readiness = `${compact(input.financingStatus)} ${compact(input.sellerReadiness)}`.toLowerCase();
@@ -149,25 +265,36 @@ export function inferLeadTemperature(input: InboundQualificationInput): Qualific
     reasons.push("already working with another agent");
   }
 
-  const normalizedScore = Math.max(0, Math.min(score, 10));
-  if (normalizedScore >= 7) {
+  const normalizedScore = timeframe
+    ? timeframe === "0-3 months"
+      ? clamp(score, 7, 10)
+      : timeframe === "3-6 months"
+        ? clamp(score, 4, 6)
+        : clamp(score, 0, 3)
+    : clamp(score, 0, 10);
+
+  const directTemperature =
+    leadTemperatureFromTimeframe(input.timeline) ||
+    (normalizedScore >= 7 ? "Hot" : normalizedScore >= 4 ? "Warm" : "Cold");
+
+  if (directTemperature === "Hot") {
     return {
       temperature: "Hot",
       score: normalizedScore,
-      reasons: reasons.length > 0 ? reasons : ["high-intent inquiry"],
+      reasons: reasons.length > 0 ? reasons : ["timeframe is 0-3 months"],
     };
   }
-  if (normalizedScore >= 4) {
+  if (directTemperature === "Warm") {
     return {
       temperature: "Warm",
       score: normalizedScore,
-      reasons: reasons.length > 0 ? reasons : ["qualified enough for follow-up"],
+      reasons: reasons.length > 0 ? reasons : ["timeframe is 3-6 months"],
     };
   }
   return {
     temperature: "Cold",
     score: normalizedScore,
-    reasons: reasons.length > 0 ? reasons : ["early or incomplete inquiry"],
+    reasons: reasons.length > 0 ? reasons : ["timeframe is 6+ months"],
   };
 }
 

@@ -11,15 +11,15 @@ type AuthMode = "sign_in" | "sign_up" | "recovery";
 type BusyAction = "sign_in" | "sign_up" | "forgot" | "reset" | null;
 
 const valueBullets = [
-  "Capture website, bio-link, and QR-code inquiries automatically",
-  "Turn missed calls into qualified leads with Concierge",
+  "Capture website, social, and QR-code inquiries automatically",
+  "Turn inbound details into organized deals without manual re-entry",
   "See what needs follow-up today without digging through tabs",
 ];
 
 const previewRows = [
-  { source: "Website form", detail: "New buyer inquiry enters the pipeline automatically", status: "Captured", tone: "ok" },
-  { source: "Open house QR", detail: "Seller details arrive ready for review", status: "Ready", tone: "warn" },
-  { source: "Missed call text-back", detail: "Concierge collects the basics and creates the lead", status: "In progress", tone: "default" },
+  { source: "Instagram", detail: "Buyer inquiry enters the workspace with a deal and next step", status: "Captured", tone: "ok" },
+  { source: "Open house QR", detail: "Seller details arrive ready for intake review", status: "Ready", tone: "warn" },
+  { source: "Concierge", detail: "Missed-call follow-up collects the basics automatically", status: "In progress", tone: "default" },
 ] as const;
 
 function toFriendlyError(message: string): string {
@@ -119,7 +119,7 @@ export default function AuthPage() {
       return;
     }
 
-    router.push("/app");
+    router.push("/app/onboarding");
   }
 
   async function handleSignUp() {
@@ -141,7 +141,7 @@ export default function AuthPage() {
     }
 
     if (data.session) {
-      router.push("/app");
+      router.push("/app/onboarding");
       return;
     }
 
@@ -222,14 +222,14 @@ export default function AuthPage() {
     mode === "recovery"
       ? "Create a new password to get back into your workspace."
       : mode === "sign_up"
-        ? "Set up your workspace, capture serious inquiries automatically, and keep follow-up clear from day one."
-        : "Sign in to review new inquiries, follow up faster, and keep deals moving.";
+        ? "Set up your workspace, capture inbound inquiries automatically, and review sample deals in your real CRM."
+        : "Sign in to review new inquiries, update deals faster, and keep follow-up clear.";
   const modeHelper =
     mode === "recovery"
       ? "Use the same email on your account."
       : mode === "sign_up"
-        ? "New here? Create your workspace and start organizing serious inquiries in one place."
-        : "Already have an account? Your dashboard, leads, and intake tools will be waiting.";
+        ? "New here? Create your workspace and start with the real intake, deals, and priorities flow."
+        : "Already have an account? Your intake queue, deals, and priorities will be waiting.";
   const primaryLabel =
     busyAction === "sign_in"
       ? "Signing In..."
@@ -377,10 +377,10 @@ export default function AuthPage() {
         </section>
 
         <aside className="crm-card crm-auth-trust-panel">
-          <div className="crm-auth-panel-kicker">Inbound lead CRM for solo real estate agents</div>
-          <h2 className="crm-auth-panel-title">Stop manually re-entering serious inquiries.</h2>
+          <div className="crm-auth-panel-kicker">Inbound CRM for solo real estate agents</div>
+          <h2 className="crm-auth-panel-title">Stop manually re-entering inbound inquiries.</h2>
           <p className="crm-auth-panel-body">
-            Merlyn captures inbound form submissions and missed-call follow-up details, then keeps leads, next steps, and deals in one calm workspace.
+            Merlyn captures social, form, open-house, and Concierge inquiries, then turns them into organized deals with a clear next action.
           </p>
 
           <div className="crm-auth-value-list">
@@ -416,15 +416,14 @@ export default function AuthPage() {
           <div className="crm-auth-next-steps">
             <div className="crm-auth-next-steps-title">What happens after you sign in</div>
             <div className="crm-auth-next-steps-list">
-              <div>1. Finish your workspace setup</div>
-              <div>2. Review your first lead</div>
-              <div>3. Work the pipeline from one place</div>
+              <div>1. Finish workspace setup</div>
+              <div>2. Review seeded sample leads and deals</div>
+              <div>3. Share your intake link and QR code</div>
             </div>
           </div>
 
           <div className="crm-auth-links">
             <Link href="/">Back to overview</Link>
-            <Link href="/demo">View demo workspace</Link>
           </div>
         </aside>
       </div>

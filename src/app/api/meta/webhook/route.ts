@@ -89,7 +89,7 @@ const DEFAULT_SETTINGS: SettingsRow = {
   intent_enabled: true,
   intent_question: "What are you looking for exactly (buy/sell/invest)?",
   timeline_enabled: true,
-  timeline_question: "What is your ideal timeline to move?",
+  timeline_question: "What's your timeframe?",
   budget_range_enabled: true,
   budget_range_question: "What budget range are you targeting?",
   location_area_enabled: true,

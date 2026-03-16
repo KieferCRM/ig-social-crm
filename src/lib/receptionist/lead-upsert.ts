@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { normalizeTimeframeBucket } from "@/lib/inbound";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof supabaseAdmin>;
@@ -75,7 +76,7 @@ const QUALIFICATION_SEQUENCE: QualificationQuestion[] = [
     field: "intent",
     prompt: "Are you looking to buy, sell, buy and sell, rent, or invest?",
   },
-  { field: "timeline", prompt: "What is your ideal timeline?" },
+  { field: "timeline", prompt: "What's your timeframe?" },
   { field: "budget_range", prompt: "What budget range should we work with?" },
   { field: "location_area", prompt: "Which area or neighborhood are you focused on?" },
   {
@@ -249,13 +250,9 @@ export function extractStructuredFieldsFromSms(text: string): ReceptionistLeadIn
     output.intent = "Rent";
   }
 
-  if (/\b(asap|ready now|today|immediately)\b/i.test(lower)) {
-    output.timeline = "ASAP";
-  } else if (/\bthis week\b/i.test(lower)) {
-    output.timeline = "This week";
-  } else {
-    const timeline = raw.match(/\b(\d+\s*(day|week|month)s?)\b/i)?.[1] || null;
-    if (timeline) output.timeline = timeline;
+  const timeframe = normalizeTimeframeBucket(raw);
+  if (timeframe) {
+    output.timeline = timeframe;
   }
 
   const budgetCandidates = raw.match(/\$?\d[\d,]*(?:\.\d+)?\s*[kKmM]?/g) || [];

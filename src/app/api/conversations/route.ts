@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { loadAccessContext, ownerFilter } from "@/lib/access-context";
+import { normalizeTimeframeBucket } from "@/lib/inbound";
 
 type ConversationRow = {
   id: string;
@@ -70,11 +71,7 @@ function inferIntent(texts: string[]): string | null {
 }
 
 function inferTimeline(texts: string[]): string | null {
-  const joined = texts.join(" ").toLowerCase();
-  if (joined.includes("asap")) return "ASAP";
-  if (joined.includes("soon")) return "soon";
-  const match = joined.match(/\b(\d+\s*(day|week|month)s?)\b/);
-  return match?.[1] ?? null;
+  return normalizeTimeframeBucket(texts.join(" "));
 }
 
 function inferLocation(texts: string[]): string | null {

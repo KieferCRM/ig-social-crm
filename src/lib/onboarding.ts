@@ -9,6 +9,7 @@ export const ONBOARDING_SETTINGS_KEY = "onboarding";
 export type OnboardingState = {
   has_completed_onboarding: boolean;
   completed_at: string;
+  has_seeded_sample_workspace_data: boolean;
 };
 
 function slugify(value: string): string {
@@ -47,6 +48,10 @@ export function readOnboardingStateFromAgentSettings(settings: unknown): Onboard
   return {
     has_completed_onboarding: hasCompleted,
     completed_at: completedAt,
+    has_seeded_sample_workspace_data:
+      typeof raw?.has_seeded_sample_workspace_data === "boolean"
+        ? raw.has_seeded_sample_workspace_data
+        : false,
   };
 }
 

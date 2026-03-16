@@ -629,44 +629,42 @@ td {
 
 /* Merlyn landing brand system */
 .merlyn-marketing {
-  --merlyn-bg-900: #0b0f14;
-  --merlyn-bg-800: #0e131a;
-  --merlyn-bg-700: #121821;
-  --merlyn-panel: #121821;
-  --merlyn-panel-2: #18212b;
-  --merlyn-panel-soft: rgba(24, 33, 43, 0.84);
-  --merlyn-panel-strong: rgba(18, 24, 33, 0.96);
-  --merlyn-panel-glass: rgba(20, 29, 39, 0.78);
-  --merlyn-panel-deep: rgba(17, 24, 33, 0.94);
-  --merlyn-surface-top: rgba(24, 33, 43, 0.92);
-  --merlyn-surface-bottom: rgba(18, 24, 33, 0.98);
-  --merlyn-border: rgba(110, 124, 137, 0.34);
-  --merlyn-border-strong: rgba(125, 154, 180, 0.44);
-  --merlyn-text-primary: #f3f7fa;
-  --merlyn-text-secondary: #9fb0c0;
-  --merlyn-text-muted: #6e7c89;
-  --merlyn-accent: #22c55e;
-  --merlyn-accent-hover: #16a34a;
-  --merlyn-accent-bright: #4ade80;
-  --merlyn-accent-soft: rgba(34, 197, 94, 0.12);
-  --merlyn-glow: rgba(34, 197, 94, 0.24);
-  --merlyn-overlay: rgba(255, 255, 255, 0.03);
-  --merlyn-overlay-strong: rgba(255, 255, 255, 0.04);
+  --merlyn-bg-900: #f7f5f1;
+  --merlyn-bg-800: #f3f0ea;
+  --merlyn-bg-700: #eeebe4;
+  --merlyn-panel: #ffffff;
+  --merlyn-panel-2: #faf8f4;
+  --merlyn-panel-soft: rgba(250, 248, 244, 0.96);
+  --merlyn-panel-strong: rgba(255, 255, 255, 0.98);
+  --merlyn-panel-glass: rgba(255, 255, 255, 0.9);
+  --merlyn-panel-deep: rgba(247, 245, 241, 0.98);
+  --merlyn-surface-top: rgba(255, 255, 255, 0.98);
+  --merlyn-surface-bottom: rgba(250, 248, 244, 0.98);
+  --merlyn-border: rgba(70, 62, 54, 0.12);
+  --merlyn-border-strong: rgba(70, 62, 54, 0.2);
+  --merlyn-text-primary: #171614;
+  --merlyn-text-secondary: #66625c;
+  --merlyn-text-muted: #938f88;
+  --merlyn-accent: #1f2328;
+  --merlyn-accent-hover: #161a1e;
+  --merlyn-accent-bright: #2c3238;
+  --merlyn-accent-soft: rgba(31, 35, 40, 0.06);
+  --merlyn-glow: rgba(31, 35, 40, 0.08);
+  --merlyn-overlay: rgba(23, 22, 20, 0.02);
+  --merlyn-overlay-strong: rgba(23, 22, 20, 0.03);
   --merlyn-button-shadow:
-    0 16px 28px rgba(0, 0, 0, 0.32),
-    0 0 0 1px rgba(34, 197, 94, 0.12) inset,
-    0 0 28px rgba(34, 197, 94, 0.14);
+    0 12px 26px rgba(23, 22, 20, 0.08),
+    0 0 0 1px rgba(23, 22, 20, 0.08) inset;
   --merlyn-button-shadow-hover:
-    0 18px 32px rgba(0, 0, 0, 0.38),
-    0 0 0 1px rgba(34, 197, 94, 0.16) inset,
-    0 0 32px rgba(34, 197, 94, 0.18);
-  --merlyn-shadow: 0 32px 60px rgba(0, 0, 0, 0.42);
+    0 14px 30px rgba(23, 22, 20, 0.1),
+    0 0 0 1px rgba(23, 22, 20, 0.08) inset;
+  --merlyn-shadow: 0 20px 42px rgba(23, 22, 20, 0.08);
   position: relative;
   min-height: 100%;
   color: var(--merlyn-text-primary);
   background:
-    radial-gradient(circle at 12% 0%, rgba(34, 197, 94, 0.08), transparent 30%),
-    radial-gradient(circle at 88% 12%, rgba(68, 84, 102, 0.24), transparent 24%),
+    radial-gradient(circle at 12% 0%, rgba(31, 35, 40, 0.04), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(115, 112, 105, 0.08), transparent 24%),
     linear-gradient(180deg, var(--merlyn-bg-900) 0%, var(--merlyn-bg-800) 52%, var(--merlyn-bg-700) 100%);
   overflow: hidden;
 }
@@ -681,13 +679,13 @@ td {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 55% 22%, rgba(255, 255, 255, 0.03), transparent 22%),
-    linear-gradient(140deg, rgba(34, 197, 94, 0.05), transparent 24%),
-    linear-gradient(320deg, rgba(34, 197, 94, 0.025), transparent 30%),
+    radial-gradient(circle at 55% 22%, rgba(255, 255, 255, 0.3), transparent 22%),
+    linear-gradient(140deg, rgba(31, 35, 40, 0.03), transparent 24%),
+    linear-gradient(320deg, rgba(31, 35, 40, 0.02), transparent 30%),
     repeating-linear-gradient(
       115deg,
-      rgba(255, 255, 255, 0.018) 0px,
-      rgba(255, 255, 255, 0.018) 1px,
+      rgba(23, 22, 20, 0.018) 0px,
+      rgba(23, 22, 20, 0.018) 1px,
       transparent 1px,
       transparent 24px
     );
@@ -1100,6 +1098,14 @@ h1, h2, h3, h4 {
   align-items: start;
 }
 
+.crm-intake-share-grid,
+.crm-manual-lead-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
 .crm-priorities-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1128,6 +1134,9 @@ h1, h2, h3, h4 {
 .crm-filter-field input,
 .crm-filter-field select,
 .crm-filter-field textarea,
+.crm-manual-lead-grid input,
+.crm-manual-lead-grid select,
+.crm-section-card textarea,
 .crm-public-intake-field input,
 .crm-public-intake-field select,
 .crm-public-intake-field textarea {
@@ -1143,6 +1152,7 @@ h1, h2, h3, h4 {
 }
 
 .crm-filter-field textarea,
+.crm-section-card textarea,
 .crm-public-intake-field textarea {
   min-height: 112px;
   resize: vertical;
@@ -1151,11 +1161,73 @@ h1, h2, h3, h4 {
 .crm-filter-field input:focus,
 .crm-filter-field select:focus,
 .crm-filter-field textarea:focus,
+.crm-manual-lead-grid input:focus,
+.crm-manual-lead-grid select:focus,
+.crm-section-card textarea:focus,
 .crm-public-intake-field input:focus,
 .crm-public-intake-field select:focus,
 .crm-public-intake-field textarea:focus {
   border-color: #a8b3be;
   box-shadow: 0 0 0 3px rgba(168, 179, 190, 0.22);
+}
+
+.crm-intake-link-box,
+.crm-intake-qr-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+
+.crm-intake-link-box {
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.crm-intake-link-box code {
+  display: block;
+  word-break: break-all;
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.crm-intake-placement-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.crm-intake-placement-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.crm-intake-qr-card {
+  padding: 16px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+}
+
+.crm-intake-qr-image {
+  width: min(220px, 100%);
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+}
+
+.crm-intake-qr-caption {
+  color: var(--ink-muted);
+  font-size: 12px;
 }
 
 .crm-board-columns {
@@ -3085,7 +3157,7 @@ input:focus, textarea:focus, select:focus {
   padding: 6px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(18, 24, 33, 0.78);
+  background: rgba(250, 248, 244, 0.9);
 }
 
 .crm-auth-tab {
@@ -3114,8 +3186,8 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
   width: fit-content;
   border-radius: 999px;
-  border: 1px solid rgba(var(--accent-strong-rgb), 0.28);
-  background: rgba(39, 46, 55, 0.88);
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
+  background: rgba(233, 237, 241, 0.88);
   color: var(--foreground);
   padding: 6px 12px;
   font-size: 12px;
@@ -3156,7 +3228,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .crm-auth-link:hover {
-  color: #f3f5f7;
+  color: var(--accent-hover);
 }
 
 .crm-auth-link:disabled {
@@ -3172,14 +3244,14 @@ input:focus, textarea:focus, select:focus {
 }
 
 .crm-auth-feedback-error {
-  border-color: rgba(239, 68, 68, 0.26);
-  background: rgba(72, 22, 22, 0.56);
-  color: #fecaca;
+  border-color: rgba(177, 95, 88, 0.24);
+  background: #f8ecea;
+  color: #8b514c;
 }
 
 .crm-auth-feedback-success {
-  border-color: rgba(var(--accent-rgb), 0.24);
-  background: rgba(39, 46, 55, 0.7);
+  border-color: rgba(var(--accent-rgb), 0.18);
+  background: #eef1f4;
   color: var(--foreground);
 }
 
@@ -3235,7 +3307,7 @@ input:focus, textarea:focus, select:focus {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #edf4fa;
+  color: var(--foreground);
   font-weight: 600;
 }
 
@@ -3243,7 +3315,7 @@ input:focus, textarea:focus, select:focus {
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #f3f5f7, #c8d0da);
+  background: linear-gradient(135deg, #1f2328, #727982);
   box-shadow: 0 0 0 5px rgba(var(--accent-rgb), 0.12);
 }
 
@@ -3313,7 +3385,7 @@ input:focus, textarea:focus, select:focus {
 .crm-auth-next-steps-list {
   display: grid;
   gap: 6px;
-  color: #edf4fa;
+  color: var(--foreground);
   font-size: 13px;
 }
 
@@ -4232,7 +4304,7 @@ input:focus, textarea:focus, select:focus {
 
 .merlyn-button-primary {
   color: var(--merlyn-text-primary);
-  border-color: rgba(34, 197, 94, 0.52);
+  border-color: rgba(23, 22, 20, 0.12);
   background: linear-gradient(180deg, var(--merlyn-accent) 0%, var(--merlyn-accent-hover) 100%);
   box-shadow: var(--merlyn-button-shadow);
 }
@@ -4259,7 +4331,7 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid var(--merlyn-border);
   background:
     linear-gradient(180deg, var(--merlyn-surface-top), var(--merlyn-surface-bottom)),
-    linear-gradient(135deg, rgba(34, 197, 94, 0.05), transparent 42%);
+    linear-gradient(135deg, rgba(23, 22, 20, 0.03), transparent 42%);
   box-shadow:
     var(--merlyn-shadow),
     inset 0 1px 0 var(--merlyn-overlay-strong);
@@ -4396,7 +4468,7 @@ input:focus, textarea:focus, select:focus {
   display: grid;
   gap: 8px;
   background:
-    linear-gradient(135deg, rgba(34, 197, 94, 0.1), var(--merlyn-panel-strong)),
+    linear-gradient(135deg, rgba(23, 22, 20, 0.05), var(--merlyn-panel-strong)),
     linear-gradient(180deg, var(--merlyn-panel-strong), var(--merlyn-panel-soft));
   box-shadow: inset 0 1px 0 var(--merlyn-overlay-strong);
 }
@@ -5246,6 +5318,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 @media (max-width: 1080px) {
+  .crm-intake-share-grid,
+  .crm-manual-lead-grid,
   .crm-onboarding-simple-grid,
   .crm-onboarding-workflow-grid {
     grid-template-columns: 1fr;
@@ -5413,6 +5487,8 @@ input:focus, textarea:focus, select:focus {
   .crm-shell-v2,
   .crm-today-grid,
   .crm-intake-grid,
+  .crm-intake-share-grid,
+  .crm-manual-lead-grid,
   .crm-public-intake-grid,
   .crm-two-column-form {
     grid-template-columns: 1fr;

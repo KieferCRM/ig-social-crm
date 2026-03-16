@@ -1,12 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { TIMEFRAME_OPTIONS, sourceChannelLabel, type SourceChannel } from "@/lib/inbound";
 import type { LeadListRow } from "./lead-list-table";
 
 type CreateLeadResponse = {
   lead?: LeadListRow;
   error?: string;
 };
+
+const SOURCE_OPTIONS: SourceChannel[] = [
+  "manual",
+  "instagram",
+  "facebook",
+  "tiktok",
+  "website_form",
+  "open_house",
+  "concierge",
+  "referral",
+  "other",
+];
 
 export default function ManualLeadForm({
   onSaved,
@@ -18,13 +31,14 @@ export default function ManualLeadForm({
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [tags, setTags] = useState("");
   const [igUsername, setIgUsername] = useState("");
-  const [intent, setIntent] = useState("");
-  const [timeline, setTimeline] = useState("");
-  const [source, setSource] = useState("manual");
-  const [stage, setStage] = useState("New");
-  const [leadTemp, setLeadTemp] = useState("Warm");
+  const [intent, setIntent] = useState("Buy");
+  const [timeline, setTimeline] = useState<(typeof TIMEFRAME_OPTIONS)[number]>(TIMEFRAME_OPTIONS[0]);
+  const [source, setSource] = useState<SourceChannel>("manual");
+  const [budgetRange, setBudgetRange] = useState("");
+  const [locationArea, setLocationArea] = useState("");
+  const [contactPreference, setContactPreference] = useState("Text");
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -51,12 +65,13 @@ export default function ManualLeadForm({
           full_name: cleanName || null,
           email: cleanEmail || null,
           phone: cleanPhone || null,
-          tags: tags.trim() || null,
           intent: intent || null,
-          timeline: timeline || null,
-          source: source || "manual",
-          lead_temp: leadTemp || "Warm",
-          stage: stage || "New",
+          timeline,
+          source,
+          budget_range: budgetRange.trim() || null,
+          location_area: locationArea.trim() || null,
+          contact_preference: contactPreference || null,
+          notes: notes.trim() || null,
         }),
       });
 
@@ -70,10 +85,14 @@ export default function ManualLeadForm({
       setFullName("");
       setEmail("");
       setPhone("");
-      setTags("");
       setIgUsername("");
-      setIntent("");
-      setTimeline("");
+      setIntent("Buy");
+      setTimeline(TIMEFRAME_OPTIONS[0]);
+      setSource("manual");
+      setBudgetRange("");
+      setLocationArea("");
+      setContactPreference("Text");
+      setNotes("");
       onSaved?.(data.lead);
     } catch {
       setMessage("Could not save lead.");
@@ -85,40 +104,71 @@ export default function ManualLeadForm({
   return (
     <section className="crm-card crm-section-card crm-stack-10">
       <div className="crm-section-head">
-        <h2 className="crm-section-title">Add Lead Manually</h2>
+        <h2 className="crm-section-title">Add lead manually</h2>
       </div>
       <div className="crm-section-subtitle">
-        Add a lead from referrals, calls, web forms, or direct outreach.
+        Use this for referrals, direct calls, walk-ins, or any inquiry that needs to enter the same intake
+        workflow by hand.
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
+      <div className="crm-manual-lead-grid">
         <input placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
         <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <input placeholder="Tags (comma separated)" value={tags} onChange={(e) => setTags(e.target.value)} />
-        <input placeholder="IG handle (optional)" value={igUsername} onChange={(e) => setIgUsername(e.target.value)} />
-        <select value={stage} onChange={(e) => setStage(e.target.value)}>
-          <option value="New">New</option>
-          <option value="Contacted">Contacted</option>
-          <option value="Qualified">Qualified</option>
-          <option value="Closed">Closed</option>
+        <input placeholder="Social handle (optional)" value={igUsername} onChange={(e) => setIgUsername(e.target.value)} />
+
+        <select value={intent} onChange={(e) => setIntent(e.target.value)}>
+          <option value="Buy">Buy</option>
+          <option value="Sell">Sell</option>
+          <option value="Rent">Rent</option>
+          <option value="Invest">Invest</option>
+          <option value="Not sure">Not sure</option>
         </select>
+
+        <select value={timeline} onChange={(e) => setTimeline(e.target.value as (typeof TIMEFRAME_OPTIONS)[number])}>
+          {TIMEFRAME_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+
+        <select value={source} onChange={(e) => setSource(e.target.value as SourceChannel)}>
+          {SOURCE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {sourceChannelLabel(option)}
+            </option>
+          ))}
+        </select>
+
+        <select value={contactPreference} onChange={(e) => setContactPreference(e.target.value)}>
+          <option value="Text">Text</option>
+          <option value="Call">Call</option>
+          <option value="Email">Email</option>
+        </select>
+
+        <input
+          placeholder="Budget or price range"
+          value={budgetRange}
+          onChange={(e) => setBudgetRange(e.target.value)}
+        />
+        <input
+          placeholder="Area, neighborhood, or property"
+          value={locationArea}
+          onChange={(e) => setLocationArea(e.target.value)}
+        />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
-        <input placeholder="Intent" value={intent} onChange={(e) => setIntent(e.target.value)} />
-        <input placeholder="Timeline" value={timeline} onChange={(e) => setTimeline(e.target.value)} />
-        <input placeholder="Source" value={source} onChange={(e) => setSource(e.target.value)} />
-        <select value={leadTemp} onChange={(e) => setLeadTemp(e.target.value)}>
-          <option value="Cold">Cold</option>
-          <option value="Warm">Warm</option>
-          <option value="Hot">Hot</option>
-        </select>
-      </div>
+      <textarea
+        placeholder="Notes or context"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={4}
+      />
 
       <div className="crm-inline-actions">
         <button onClick={() => void saveLead()} disabled={saving} className="crm-btn crm-btn-primary">
-          {saving ? "Saving..." : "Add Lead"}
+          {saving ? "Saving..." : "Add lead"}
         </button>
         {onCancel ? (
           <button type="button" onClick={onCancel} className="crm-btn crm-btn-secondary">
@@ -128,7 +178,10 @@ export default function ManualLeadForm({
       </div>
 
       {message ? (
-        <div className={`crm-chip ${message.includes("Could") || message.includes("required") ? "crm-chip-danger" : "crm-chip-ok"}`} style={{ marginTop: 10, width: "fit-content" }}>
+        <div
+          className={`crm-chip ${message.includes("Could") || message.includes("identity field") ? "crm-chip-danger" : "crm-chip-ok"}`}
+          style={{ marginTop: 10, width: "fit-content" }}
+        >
           {message}
         </div>
       ) : null}

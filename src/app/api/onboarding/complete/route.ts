@@ -1,11 +1,17 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { loadAccessContext } from "@/lib/access-context";
-import { mergeOnboardingIntoAgentSettings } from "@/lib/onboarding";
+import {
+  mergeOnboardingIntoAgentSettings,
+  readOnboardingStateFromAgentSettings,
+} from "@/lib/onboarding";
+import { seedSampleWorkspaceForAgent } from "@/lib/sample-workspace";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST() {
   const supabase = await supabaseServer();
+  const admin = supabaseAdmin();
   const auth = await loadAccessContext(supabase);
 
   if (!auth.ok) {
@@ -22,9 +28,21 @@ export async function POST() {
     return NextResponse.json({ error: agentError.message }, { status: 500 });
   }
 
+  const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
+
+  if (!onboardingState.has_seeded_sample_workspace_data) {
+    try {
+      await seedSampleWorkspaceForAgent(admin, auth.context.user.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not seed sample workspace data.";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
   const nextSettings = mergeOnboardingIntoAgentSettings(agentRow?.settings || null, {
     has_completed_onboarding: true,
     completed_at: new Date().toISOString(),
+    has_seeded_sample_workspace_data: true,
   });
 
   const { error } = await supabase
@@ -38,6 +56,9 @@ export async function POST() {
 
   revalidatePath("/app");
   revalidatePath("/app/onboarding");
+  revalidatePath("/app/intake");
+  revalidatePath("/app/deals");
+  revalidatePath("/app/priorities");
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, seeded_sample_workspace_data: true });
 }

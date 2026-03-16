@@ -5,6 +5,16 @@ import { loadAccessContext, ownerFilter } from "@/lib/access-context";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizeConsent } from "@/lib/consent";
 import {
+  buildPropertyContext,
+  buildTemperatureReason,
+  inferDealType,
+  inferLeadStage,
+  inferLeadTemperature,
+  inferNextAction,
+  normalizeSourceChannel,
+  sourceChannelLabel,
+} from "@/lib/inbound";
+import {
   buildSyntheticLeadHandle,
   findExistingLeadByIdentity,
   normalizeLeadEmail,
@@ -45,6 +55,9 @@ type CreateLeadBody = {
   intent?: string | null;
   timeline?: string | null;
   budget_range?: string | null;
+  location_area?: string | null;
+  property_context?: string | null;
+  contact_preference?: string | null;
   notes?: string | null;
   consent_to_email?: boolean | string | null;
   consent_to_sms?: boolean | string | null;
@@ -92,6 +105,9 @@ export async function POST(request: Request) {
     (externalId ? `ext_${externalId}` : "") ||
     (displayName ? `name_${displayName.toLowerCase()}` : "");
   const source = optionalString(body.source) || "manual";
+  const locationArea = optionalString(body.location_area);
+  const propertyContext = optionalString(body.property_context);
+  const contactPreference = optionalString(body.contact_preference);
 
   if (!identity) {
     return NextResponse.json(
@@ -120,6 +136,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "lead_temp is invalid." }, { status: 400 });
   }
 
+  const qualification = inferLeadTemperature({
+    intent: optionalString(body.intent),
+    timeline: optionalString(body.timeline),
+    budgetRange: optionalString(body.budget_range),
+    locationArea,
+    propertyContext,
+    phone,
+    email,
+    contactPreference,
+    notes: optionalString(body.notes),
+  });
+  const sourceChannel = normalizeSourceChannel(source) || "manual";
+  const nextAction = inferNextAction(
+    {
+      intent: optionalString(body.intent),
+      timeline: optionalString(body.timeline),
+      budgetRange: optionalString(body.budget_range),
+      locationArea,
+      propertyContext,
+      phone,
+      email,
+      contactPreference,
+      notes: optionalString(body.notes),
+    },
+    qualification
+  );
+
   const resolvedIg =
     ig ||
     existingLead?.ig_username ||
@@ -134,6 +177,9 @@ export async function POST(request: Request) {
   if (tags) sourceDetailPatch.tags = tags;
   if (externalId) sourceDetailPatch.external_id = externalId;
   sourceDetailPatch.manual_identity = identity;
+  sourceDetailPatch.source_channel = sourceChannel;
+  sourceDetailPatch.source_channel_label = sourceChannelLabel(sourceChannel);
+  sourceDetailPatch.qualification_reason = buildTemperatureReason(qualification);
   const existingSourceDetail =
     existingLead?.source_detail &&
     typeof existingLead.source_detail === "object" &&
@@ -158,8 +204,8 @@ export async function POST(request: Request) {
     owner_user_id: existingLead?.owner_user_id || auth.context.user.id,
     assignee_user_id: existingLead?.assignee_user_id || auth.context.user.id,
     ig_username: resolvedIg,
-    stage: stageInput || existingLead?.stage || "New",
-    lead_temp: leadTempInput || existingLead?.lead_temp || "Warm",
+    stage: stageInput || existingLead?.stage || inferLeadStage(qualification.temperature),
+    lead_temp: leadTempInput || existingLead?.lead_temp || qualification.temperature,
     source,
     time_last_updated: nowIso,
     latest_source_method: "manual",
@@ -204,7 +250,22 @@ export async function POST(request: Request) {
   if (intent) payload.intent = intent;
   if (timeline) payload.timeline = timeline;
   if (budgetRange) payload.budget_range = budgetRange;
+  if (locationArea) payload.location_area = locationArea;
+  if (contactPreference) payload.contact_preference = contactPreference;
   if (notes) payload.notes = notes;
+
+  const existingCustomFields =
+    existingLead?.custom_fields &&
+    typeof existingLead.custom_fields === "object" &&
+    !Array.isArray(existingLead.custom_fields)
+      ? existingLead.custom_fields
+      : {};
+  payload.custom_fields = {
+    ...existingCustomFields,
+    next_action_title: nextAction.title,
+    next_action_description: nextAction.description,
+    property_context: propertyContext,
+  };
 
   const { data, error } = await supabase
     .from("leads")
@@ -218,7 +279,77 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  let dealId: string | null = null;
+  const { data: existingDeal } = await admin
+    .from("deals")
+    .select("id")
+    .eq("agent_id", auth.context.user.id)
+    .eq("lead_id", data.id)
+    .neq("stage", "closed")
+    .neq("stage", "lost")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingDeal?.id) {
+    dealId = String(existingDeal.id);
+  } else {
+    const { data: insertedDeal } = await admin
+      .from("deals")
+      .insert({
+        agent_id: auth.context.user.id,
+        lead_id: data.id,
+        property_address: buildPropertyContext({
+          intent,
+          locationArea,
+          propertyContext,
+        }),
+        deal_type: inferDealType(intent),
+        stage: "new",
+        notes: notes || `${sourceChannelLabel(sourceChannel)} lead added manually.`,
+      })
+      .select("id")
+      .single();
+
+    if (insertedDeal?.id) {
+      dealId = String(insertedDeal.id);
+    }
+  }
+
+  const { data: existingRecommendation } = await admin
+    .from("lead_recommendations")
+    .select("id")
+    .eq("lead_id", data.id)
+    .eq("status", "open")
+    .limit(1)
+    .maybeSingle();
+
+  if (!existingRecommendation) {
+    await admin.from("lead_recommendations").insert({
+      agent_id: auth.context.user.id,
+      owner_user_id: auth.context.user.id,
+      lead_id: data.id,
+      person_id: null,
+      source_event_id: null,
+      reason_code: qualification.temperature === "Hot" ? "hot_manual_inbound" : "manual_next_action",
+      title: nextAction.title,
+      description: nextAction.description,
+      priority: nextAction.priority,
+      due_at: nextAction.dueAt,
+      metadata: {
+        source_channel: sourceChannel,
+        source_label: sourceChannelLabel(sourceChannel),
+        temperature: qualification.temperature,
+        deal_id: dealId,
+        created_from: "manual_lead_form",
+      },
+    });
+  }
+
   revalidatePath("/app");
+  revalidatePath("/app/intake");
+  revalidatePath("/app/deals");
+  revalidatePath("/app/priorities");
   revalidatePath("/app/list");
   revalidatePath("/app/kanban");
   revalidatePath(`/app/leads/${data.id}`);

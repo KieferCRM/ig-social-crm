@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "@/components/ui/status-badge";
+import IntakeShareKit from "@/components/intake/intake-share-kit";
+import ManualLeadForm from "@/app/app/list/manual-lead-form";
 import { sourceChannelTone } from "@/lib/inbound";
 
 type Submission = {
   id: string;
   lead_name: string;
   source: string;
+  is_sample_workspace?: boolean;
   intent: string;
   timeline: string;
   temperature: string;
@@ -48,19 +51,17 @@ export default function IntakeWorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("");
-  const [shareLink, setShareLink] = useState("/intake");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setShareLink(`${window.location.origin}/intake`);
-    }
-  }, []);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [sampleBusy, setSampleBusy] = useState(false);
+  const [sampleMessage, setSampleMessage] = useState("");
 
   useEffect(() => {
     let active = true;
 
     async function loadSubmissions() {
       try {
+        setLoading(true);
         const response = await fetch("/api/intake/submissions", { cache: "no-store" });
         const data = (await response.json()) as IntakeResponse;
         if (!active) return;
@@ -71,7 +72,9 @@ export default function IntakeWorkspacePage() {
         }
         const nextSubmissions = data.submissions || [];
         setSubmissions(nextSubmissions);
-        setSelectedId((current) => current || nextSubmissions[0]?.id || "");
+        setSelectedId((current) =>
+          nextSubmissions.some((item) => item.id === current) ? current : nextSubmissions[0]?.id || ""
+        );
         setError(null);
       } catch {
         if (active) setError("Could not load intake.");
@@ -84,12 +87,38 @@ export default function IntakeWorkspacePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadToken]);
 
   const selectedSubmission = useMemo(
     () => submissions.find((item) => item.id === selectedId) || submissions[0] || null,
     [selectedId, submissions]
   );
+
+  const hotCount = submissions.filter((item) => item.temperature === "Hot").length;
+  const convertedCount = submissions.filter((item) => item.deal_id).length;
+  const sampleCount = submissions.filter((item) => item.is_sample_workspace).length;
+
+  async function handleClearSampleData() {
+    if (sampleBusy) return;
+    setSampleBusy(true);
+    setSampleMessage("");
+
+    try {
+      const response = await fetch("/api/onboarding/sample-workspace", { method: "DELETE" });
+      const data = (await response.json()) as { ok?: boolean; removed?: number; error?: string };
+      if (!response.ok) {
+        setSampleMessage(data.error || "Could not remove sample data.");
+        return;
+      }
+
+      setSampleMessage(`Removed ${data.removed || 0} sample lead${data.removed === 1 ? "" : "s"}.`);
+      setReloadToken((value) => value + 1);
+    } catch {
+      setSampleMessage("Could not remove sample data.");
+    } finally {
+      setSampleBusy(false);
+    }
+  }
 
   return (
     <main className="crm-page crm-page-wide crm-stack-12">
@@ -97,32 +126,74 @@ export default function IntakeWorkspacePage() {
         <div className="crm-page-header">
           <div className="crm-page-header-main">
             <p className="crm-page-kicker">Intake</p>
-            <h1 className="crm-page-title">Inbound review queue</h1>
+            <h1 className="crm-page-title">Inbound capture hub</h1>
             <p className="crm-page-subtitle">
-              This is where new social, form, open-house, and Concierge inquiries land before you work the deal.
+              Share your intake, review what just came in, add something manually when needed, and clean up
+              sample data after onboarding.
             </p>
           </div>
           <div className="crm-page-actions">
             <Link href="/intake" target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
               Open public form
             </Link>
-            <Link href="/app/intake/code" className="crm-btn crm-btn-primary">
-              Share intake
-            </Link>
+            <button
+              type="button"
+              className="crm-btn crm-btn-primary"
+              onClick={() => setShowManualForm((value) => !value)}
+            >
+              {showManualForm ? "Close manual entry" : "Add lead manually"}
+            </button>
+            {sampleCount > 0 ? (
+              <button
+                type="button"
+                className="crm-btn crm-btn-secondary"
+                onClick={() => void handleClearSampleData()}
+                disabled={sampleBusy}
+              >
+                {sampleBusy ? "Removing samples..." : "Remove sample data"}
+              </button>
+            ) : null}
           </div>
         </div>
 
         <div className="crm-inline-actions" style={{ gap: 10, flexWrap: "wrap" }}>
-          <span className="crm-chip">Share link: {shareLink}</span>
           <span className="crm-chip">New today: {submissions.length}</span>
-          <span className="crm-chip crm-chip-danger">
-            Hot: {submissions.filter((item) => item.temperature === "Hot").length}
-          </span>
-          <span className="crm-chip crm-chip-ok">
-            Converted: {submissions.filter((item) => item.deal_id).length}
-          </span>
+          <span className="crm-chip crm-chip-danger">Hot: {hotCount}</span>
+          <span className="crm-chip crm-chip-ok">Converted: {convertedCount}</span>
+          {sampleCount > 0 ? <span className="crm-chip">Sample records: {sampleCount}</span> : null}
         </div>
+
+        {sampleMessage ? (
+          <div className={`crm-chip ${sampleMessage.includes("Could not") ? "crm-chip-danger" : "crm-chip-ok"}`}>
+            {sampleMessage}
+          </div>
+        ) : null}
       </section>
+
+      <IntakeShareKit
+        intakePath="/intake"
+        title="Create one QR-ready intake that works everywhere."
+        description="Use this share link and QR code for open houses, business cards, flyers, and social profiles."
+        openLabel="Preview public intake"
+        downloadName="merlyn-intake-qr.png"
+        placementSuggestions={[
+          "Open house sign-in table",
+          "Business card",
+          "Flyer",
+          "Sign rider",
+          "Instagram bio",
+          "Facebook profile",
+        ]}
+      />
+
+      {showManualForm ? (
+        <ManualLeadForm
+          onSaved={() => {
+            setReloadToken((value) => value + 1);
+          }}
+          onCancel={() => setShowManualForm(false)}
+        />
+      ) : null}
 
       {loading ? (
         <section className="crm-card crm-section-card">
@@ -145,7 +216,8 @@ export default function IntakeWorkspacePage() {
             <div className="crm-stack-8">
               {submissions.length === 0 ? (
                 <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
-                  No inbound submissions yet. Social, forms, open house, and Concierge traffic will appear here.
+                  No inbound submissions yet. New form, social, open house, and Concierge traffic will appear
+                  here.
                 </div>
               ) : null}
               {submissions.map((submission) => (
@@ -164,9 +236,10 @@ export default function IntakeWorkspacePage() {
                     </div>
                     <StatusBadge label={submission.temperature} tone={temperatureTone(submission.temperature)} />
                   </div>
-                  <div className="crm-inline-actions" style={{ gap: 6 }}>
+                  <div className="crm-inline-actions" style={{ gap: 6, flexWrap: "wrap" }}>
                     <StatusBadge label={submission.source} tone={sourceChannelTone(submission.source)} />
                     <StatusBadge label={submission.intent} tone="default" />
+                    {submission.is_sample_workspace ? <StatusBadge label="Sample" tone="default" /> : null}
                   </div>
                   <div style={{ color: "var(--ink-faint)", fontSize: 12 }}>{formatDate(submission.timestamp)}</div>
                 </button>
@@ -179,7 +252,7 @@ export default function IntakeWorkspacePage() {
               <div>
                 <h2 className="crm-section-title">Mapped intake</h2>
                 <p className="crm-section-subtitle">
-                  See what the system understood and which deal it created.
+                  See what the system understood, which deal it created, and what should happen next.
                 </p>
               </div>
             </div>
@@ -194,9 +267,10 @@ export default function IntakeWorkspacePage() {
                         {selectedSubmission.property_context}
                       </div>
                     </div>
-                    <div className="crm-inline-actions" style={{ gap: 8 }}>
+                    <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                       <StatusBadge label={selectedSubmission.source} tone={sourceChannelTone(selectedSubmission.source)} />
                       <StatusBadge label={selectedSubmission.temperature} tone={temperatureTone(selectedSubmission.temperature)} />
+                      {selectedSubmission.is_sample_workspace ? <StatusBadge label="Sample" tone="default" /> : null}
                     </div>
                   </div>
 
@@ -206,7 +280,7 @@ export default function IntakeWorkspacePage() {
                       <div>{selectedSubmission.intent}</div>
                     </div>
                     <div>
-                      <div className="crm-detail-label">Timeline</div>
+                      <div className="crm-detail-label">Timeframe</div>
                       <div>{selectedSubmission.timeline}</div>
                     </div>
                     <div>
@@ -245,7 +319,11 @@ export default function IntakeWorkspacePage() {
                   ) : null}
                 </div>
               </>
-            ) : null}
+            ) : (
+              <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
+                Select a submission to inspect how it mapped into the CRM.
+              </div>
+            )}
           </article>
         </section>
       ) : null}

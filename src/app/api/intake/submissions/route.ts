@@ -139,6 +139,7 @@ export async function GET() {
       id: lead.id,
       lead_name: leadDisplayName(lead),
       source: sourceChannelLabel(lead.source),
+      is_sample_workspace: Boolean(sourceDetail?.sample_workspace),
       intent: firstNonEmpty(lead.intent) || "Not specified",
       timeline: firstNonEmpty(lead.timeline) || "Not specified",
       temperature: firstNonEmpty(lead.lead_temp) || "Warm",

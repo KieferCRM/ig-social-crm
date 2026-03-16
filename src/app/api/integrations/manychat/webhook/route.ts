@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { normalizeConsent } from "@/lib/consent";
 import { getClientIp, parseJsonBody } from "@/lib/http";
+import { normalizeTimeframeBucket } from "@/lib/inbound";
 import { takeRateLimit } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -166,23 +167,7 @@ function extractBudget(text: string): { min: number | null; max: number | null }
 }
 
 function extractTimeline(text: string): string | null {
-  const normalized = text.toLowerCase();
-  if (/\b(asap|immediately|right away|urgent)\b/.test(normalized)) return "ASAP";
-  if (/\bthis week\b/.test(normalized)) return "this week";
-  if (/\bnext week\b/.test(normalized)) return "next week";
-  if (/\bthis month\b/.test(normalized)) return "this month";
-  if (/\bnext month\b/.test(normalized)) return "next month";
-
-  const range = normalized.match(/\b(\d{1,2}\s*(?:day|days|week|weeks|month|months))\b/);
-  if (range?.[1]) return range[1];
-
-  const quarter = normalized.match(/\bq([1-4])\b/i);
-  if (quarter?.[1]) return `Q${quarter[1]}`;
-
-  const season = normalized.match(/\b(this\s+)?(spring|summer|fall|autumn|winter)\b/);
-  if (season?.[0]) return season[0].trim();
-
-  return null;
+  return normalizeTimeframeBucket(text);
 }
 
 function extractLocation(text: string): string | null {
