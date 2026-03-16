@@ -119,7 +119,7 @@ export default function AuthPage() {
       return;
     }
 
-    router.push("/app/onboarding");
+    router.push("/app");
   }
 
   async function handleSignUp() {
@@ -141,7 +141,7 @@ export default function AuthPage() {
     }
 
     if (data.session) {
-      router.push("/app/onboarding");
+      router.push("/app");
       return;
     }
 
@@ -416,9 +416,9 @@ export default function AuthPage() {
           <div className="crm-auth-next-steps">
             <div className="crm-auth-next-steps-title">What happens after you sign in</div>
             <div className="crm-auth-next-steps-list">
-              <div>1. Finish workspace setup</div>
-              <div>2. Review seeded sample leads and deals</div>
-              <div>3. Share your intake link and QR code</div>
+              <div>1. Open Today, Deals, Intake, and Priorities</div>
+              <div>2. Share your intake link and QR code</div>
+              <div>3. Start capturing and working inbound deals</div>
             </div>
           </div>
 

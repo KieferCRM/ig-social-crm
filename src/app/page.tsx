@@ -82,7 +82,7 @@ export default function HomePage() {
 
             {!FEATURE_SIGNUP_ENABLED ? (
               <p className="merlyn-hero__note">
-                New signup is currently limited while onboarding is finalized. Existing accounts can still
+                New signup is currently limited while workspace setup is finalized. Existing accounts can still
                 sign in.
               </p>
             ) : null}

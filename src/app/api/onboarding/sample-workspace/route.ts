@@ -21,7 +21,6 @@ export async function DELETE() {
     revalidatePath("/app/intake");
     revalidatePath("/app/deals");
     revalidatePath("/app/priorities");
-    revalidatePath("/app/onboarding");
 
     return NextResponse.json({ ok: true, removed: result.removed });
   } catch (error) {

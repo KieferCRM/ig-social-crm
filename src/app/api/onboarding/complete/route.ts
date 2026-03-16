@@ -55,7 +55,6 @@ export async function POST() {
   }
 
   revalidatePath("/app");
-  revalidatePath("/app/onboarding");
   revalidatePath("/app/intake");
   revalidatePath("/app/deals");
   revalidatePath("/app/priorities");

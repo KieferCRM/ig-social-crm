@@ -129,7 +129,7 @@ export default function IntakeWorkspacePage() {
             <h1 className="crm-page-title">Inbound capture hub</h1>
             <p className="crm-page-subtitle">
               Share your intake, review what just came in, add something manually when needed, and clean up
-              sample data after onboarding.
+              sample data if you seeded test records.
             </p>
           </div>
           <div className="crm-page-actions">
