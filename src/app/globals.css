@@ -713,21 +713,24 @@ td {
    ========================================================= */
 
 :root {
-  --background: #0b0f14;
-  --surface: #121821;
-  --surface-2: #18212b;
-  --border: #263241;
-  --foreground: #f3f7fa;
-  --ink-muted: #9fb0c0;
-  --ink-faint: #6e7c89;
-  --accent: #22c55e;
-  --accent-hover: #16a34a;
-  --accent-soft: #0f2a1b;
-  --warn: #d4a72c;
-  --danger: #ef4444;
-  --ok: #22c55e;
-  --line: #263241;
-  --line-strong: #324356;
+  --background: #0c0f12;
+  --surface: #14181d;
+  --surface-2: #1c2128;
+  --border: #353e4a;
+  --foreground: #f7f8fa;
+  --ink-muted: #b8c1cb;
+  --ink-faint: #8892a0;
+  --accent: #eef2f6;
+  --accent-hover: #dfe5ec;
+  --accent-soft: #2b3139;
+  --accent-ink: #0d1115;
+  --accent-rgb: 238, 242, 246;
+  --accent-strong-rgb: 223, 229, 236;
+  --warn: #d4b06d;
+  --danger: #df6b6b;
+  --ok: #eef2f6;
+  --line: #353e4a;
+  --line-strong: #495463;
   --shadow-soft: 0 22px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(38, 50, 65, 0.45);
   --font-sans: "Satoshi", "Avenir Next", "SF Pro Text", "Segoe UI", sans-serif;
   --font-display: "Sora", "Avenir Next Demi Bold", "SF Pro Display", "Segoe UI", sans-serif;
@@ -736,9 +739,9 @@ td {
 body {
   color: var(--foreground);
   background:
-    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.08), transparent 26%),
-    radial-gradient(circle at 100% 0%, rgba(68, 84, 102, 0.26), transparent 36%),
-    linear-gradient(180deg, #0b0f14 0%, #0e131a 100%);
+    radial-gradient(circle at 0% 0%, rgba(var(--accent-rgb), 0.06), transparent 24%),
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.03), transparent 34%),
+    linear-gradient(180deg, #0c0f12 0%, #11161c 100%);
   font-family: var(--font-sans);
 }
 
@@ -749,8 +752,8 @@ h1, h2, h3, h4 {
 .crm-shell {
   min-height: 100%;
   background:
-    radial-gradient(circle at 12% -5%, rgba(34, 197, 94, 0.08), transparent 34%),
-    linear-gradient(180deg, #0b0f14 0%, #0e131a 100%);
+    radial-gradient(circle at 12% -5%, rgba(var(--accent-rgb), 0.05), transparent 32%),
+    linear-gradient(180deg, #0c0f12 0%, #11161c 100%);
 }
 
 .crm-shell-v2 {
@@ -842,10 +845,10 @@ h1, h2, h3, h4 {
 }
 
 .crm-sidebar-nav-link-active {
-  color: #eafff0;
-  border-color: rgba(34, 197, 94, 0.45);
-  background: linear-gradient(180deg, rgba(15, 42, 27, 0.92), rgba(12, 33, 22, 0.86));
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.16);
+  color: var(--foreground);
+  border-color: rgba(var(--accent-strong-rgb), 0.42);
+  background: linear-gradient(180deg, rgba(39, 46, 55, 0.96), rgba(31, 37, 45, 0.9));
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.08);
 }
 
 .crm-sidebar-nav-link-locked {
@@ -978,10 +981,10 @@ h1, h2, h3, h4 {
   height: 14px;
   border-radius: 999px;
   flex: 0 0 auto;
-  border: 1px solid rgba(34, 197, 94, 0.34);
+  border: 1px solid rgba(var(--accent-strong-rgb), 0.34);
   background:
-    radial-gradient(circle at 38% 34%, rgba(196, 255, 220, 0.9), rgba(34, 197, 94, 0.68) 48%, rgba(34, 197, 94, 0.08) 80%);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.08);
+    radial-gradient(circle at 38% 34%, rgba(255, 255, 255, 0.92), rgba(var(--accent-rgb), 0.72) 48%, rgba(var(--accent-rgb), 0.08) 80%);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.08);
 }
 
 .crm-topbar-signal-title {
@@ -1111,7 +1114,7 @@ h1, h2, h3, h4 {
   gap: 18px;
   flex-wrap: wrap;
   background:
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.12), transparent 34%),
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.12), transparent 34%),
     linear-gradient(180deg, rgba(18, 24, 33, 0.98), rgba(15, 21, 29, 0.96));
 }
 
@@ -1247,9 +1250,9 @@ h1, h2, h3, h4 {
 .crm-kanban-card-selected {
   border-color: var(--accent);
   background:
-    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.12), transparent 28%),
     rgba(133, 179, 255, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.12);
 }
 
 .crm-kanban-card-head {
@@ -1299,7 +1302,7 @@ h1, h2, h3, h4 {
   gap: 12px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.08), transparent 26%),
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.08), transparent 26%),
     linear-gradient(180deg, rgba(17, 24, 34, 0.99), rgba(12, 18, 26, 0.995));
 }
 
@@ -1371,7 +1374,7 @@ h1, h2, h3, h4 {
   border-radius: 18px;
   border: 1px solid rgba(71, 89, 111, 0.74);
   background:
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.1), transparent 32%),
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.1), transparent 32%),
     linear-gradient(180deg, rgba(17, 24, 34, 0.99), rgba(12, 18, 26, 0.995));
   box-shadow:
     0 28px 80px rgba(0, 0, 0, 0.48),
@@ -1397,7 +1400,7 @@ h1, h2, h3, h4 {
   gap: 12px;
   background:
     linear-gradient(180deg, rgba(18, 24, 33, 0.98), rgba(16, 22, 30, 0.96)),
-    radial-gradient(circle at right top, rgba(34, 197, 94, 0.09), transparent 28%);
+    radial-gradient(circle at right top, rgba(var(--accent-rgb), 0.09), transparent 28%);
 }
 
 .crm-lead-command-next-copy {
@@ -1618,7 +1621,7 @@ h1, h2, h3, h4 {
   gap: 10px;
   background:
     linear-gradient(180deg, rgba(18, 24, 33, 0.98), rgba(15, 21, 29, 0.96)),
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.08), transparent 32%);
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.08), transparent 32%);
 }
 
 .crm-public-intake-kicker {
@@ -1661,7 +1664,7 @@ h1, h2, h3, h4 {
   display: grid;
   gap: 14px;
   background:
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.11), transparent 30%),
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.11), transparent 30%),
     linear-gradient(180deg, rgba(22, 30, 40, 0.98), rgba(16, 22, 30, 0.96));
 }
 
@@ -1697,7 +1700,7 @@ h1, h2, h3, h4 {
   min-height: 100%;
   background:
     linear-gradient(180deg, rgba(24, 33, 43, 0.96), rgba(18, 24, 33, 0.98)),
-    radial-gradient(circle at top right, rgba(34, 197, 94, 0.05), transparent 30%);
+    radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.05), transparent 30%);
 }
 
 .crm-intake-install-card__head {
@@ -1783,7 +1786,7 @@ h1, h2, h3, h4 {
   border-radius: 18px;
   border: 1px solid var(--line-strong);
   background:
-    radial-gradient(circle at top, rgba(34, 197, 94, 0.08), transparent 42%),
+    radial-gradient(circle at top, rgba(var(--accent-rgb), 0.08), transparent 42%),
     rgba(10, 16, 24, 0.74);
 }
 
@@ -1853,8 +1856,8 @@ h1, h2, h3, h4 {
   width: fit-content;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(34, 197, 94, 0.28);
-  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(var(--accent-strong-rgb), 0.28);
+  background: rgba(var(--accent-rgb), 0.12);
   color: var(--foreground);
   font-size: 11px;
   font-weight: 700;
@@ -1869,7 +1872,7 @@ h1, h2, h3, h4 {
   border: 1px solid var(--line-strong);
   background:
     linear-gradient(180deg, rgba(22, 30, 40, 0.98), rgba(16, 22, 30, 0.98)),
-    radial-gradient(circle at top right, rgba(34, 197, 94, 0.06), transparent 28%);
+    radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.06), transparent 28%);
   box-shadow: var(--shadow-soft);
 }
 
@@ -2147,7 +2150,7 @@ h1, h2, h3, h4 {
 }
 
 .crm-data-table tr:hover td {
-  background: rgba(34, 197, 94, 0.05);
+  background: rgba(var(--accent-rgb), 0.05);
 }
 
 .crm-truncate-cell {
@@ -2373,7 +2376,7 @@ h1, h2, h3, h4 {
   gap: 16px;
   flex-wrap: wrap;
   background:
-    radial-gradient(circle at 0% -10%, rgba(34, 197, 94, 0.16), transparent 38%),
+    radial-gradient(circle at 0% -10%, rgba(var(--accent-rgb), 0.16), transparent 38%),
     linear-gradient(180deg, rgba(24, 33, 43, 0.96), rgba(18, 24, 33, 0.98));
   box-shadow: var(--shadow-soft);
 }
@@ -2440,7 +2443,7 @@ h1, h2, h3, h4 {
 }
 
 .crm-dashboard-primary-card {
-  border-color: rgba(34, 197, 94, 0.22);
+  border-color: rgba(var(--accent-rgb), 0.22);
 }
 
 .crm-dashboard-secondary-card {
@@ -2474,7 +2477,7 @@ h1, h2, h3, h4 {
 
 .crm-card::before,
 .crm-card-muted::before {
-  background: linear-gradient(120deg, rgba(34, 197, 94, 0.05), transparent 48%);
+  background: linear-gradient(120deg, rgba(var(--accent-rgb), 0.05), transparent 48%);
 }
 
 .crm-btn {
@@ -2485,10 +2488,10 @@ h1, h2, h3, h4 {
 }
 
 .crm-btn-primary {
-  color: #ecfff1;
-  border-color: rgba(34, 197, 94, 0.52);
-  background: linear-gradient(180deg, #22c55e, #16a34a);
-  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.2);
+  color: var(--accent-ink);
+  border-color: rgba(var(--accent-strong-rgb), 0.82);
+  background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.2);
 }
 
 .crm-btn-primary:hover {
@@ -2523,9 +2526,9 @@ h1, h2, h3, h4 {
 }
 
 .crm-chip-ok {
-  color: #dcffe8;
-  border-color: rgba(34, 197, 94, 0.4);
-  background: rgba(15, 42, 27, 0.95);
+  color: var(--foreground);
+  border-color: rgba(var(--accent-strong-rgb), 0.4);
+  background: rgba(39, 46, 55, 0.95);
 }
 
 .crm-chip-warn {
@@ -2587,8 +2590,8 @@ input::placeholder, textarea::placeholder {
 }
 
 input:focus, textarea:focus, select:focus {
-  outline: 2px solid rgba(34, 197, 94, 0.3);
-  border-color: rgba(34, 197, 94, 0.52);
+  outline: 2px solid rgba(var(--accent-rgb), 0.3);
+  border-color: rgba(var(--accent-strong-rgb), 0.52);
 }
 
 .crm-kpi-card {
@@ -2616,11 +2619,11 @@ input:focus, textarea:focus, select:focus {
 
 .crm-kpi-card-link:hover {
   transform: translateY(-2px);
-  border-color: rgba(140, 170, 255, 0.18);
+  border-color: rgba(var(--accent-rgb), 0.22);
   box-shadow:
     0 20px 42px rgba(0, 0, 0, 0.46),
     0 0 0 1px rgba(255, 255, 255, 0.025),
-    0 0 0 1px rgba(34, 197, 94, 0.08);
+    0 0 0 1px rgba(var(--accent-rgb), 0.08);
 }
 
 .crm-kpi-card-link:active {
@@ -2629,9 +2632,9 @@ input:focus, textarea:focus, select:focus {
 
 .crm-kpi-card-link:focus-visible {
   outline: none;
-  border-color: rgba(34, 197, 94, 0.52);
+  border-color: rgba(var(--accent-strong-rgb), 0.52);
   box-shadow:
-    0 0 0 2px rgba(34, 197, 94, 0.22),
+    0 0 0 2px rgba(var(--accent-rgb), 0.22),
     0 18px 40px rgba(0, 0, 0, 0.44);
 }
 
@@ -2700,22 +2703,22 @@ input:focus, textarea:focus, select:focus {
   text-align: left;
   background:
     linear-gradient(180deg, rgba(24, 33, 43, 0.94), rgba(18, 24, 33, 0.96));
-  border-color: rgba(34, 197, 94, 0.18);
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.06);
+  border-color: rgba(var(--accent-rgb), 0.18);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.06);
   transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
   cursor: pointer;
 }
 
 .crm-focus-row:hover,
 .crm-focus-row:focus-visible {
-  border-color: rgba(34, 197, 94, 0.28);
+  border-color: rgba(var(--accent-rgb), 0.28);
   box-shadow:
-    inset 0 0 0 1px rgba(34, 197, 94, 0.1),
+    inset 0 0 0 1px rgba(var(--accent-rgb), 0.1),
     0 10px 24px rgba(4, 10, 22, 0.24);
 }
 
 .crm-focus-row:focus-visible {
-  outline: 2px solid rgba(34, 197, 94, 0.38);
+  outline: 2px solid rgba(var(--accent-rgb), 0.38);
   outline-offset: 3px;
 }
 
@@ -2806,9 +2809,9 @@ input:focus, textarea:focus, select:focus {
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  border: 1px solid rgba(34, 197, 94, 0.35);
+  border: 1px solid rgba(var(--accent-strong-rgb), 0.35);
   background:
-    radial-gradient(circle at 45% 40%, rgba(210, 255, 227, 0.96), rgba(34, 197, 94, 0.9) 52%, rgba(34, 197, 94, 0.05) 85%);
+    radial-gradient(circle at 45% 40%, rgba(255, 255, 255, 0.96), rgba(var(--accent-rgb), 0.9) 52%, rgba(var(--accent-rgb), 0.05) 85%);
 }
 
 .crm-empty-state-eyebrow {
@@ -2921,9 +2924,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .crm-auth-tab-active {
-  background: rgba(34, 197, 94, 0.14);
+  background: rgba(var(--accent-rgb), 0.14);
   color: var(--foreground);
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.18);
 }
 
 .crm-auth-recovery-banner {
@@ -2931,9 +2934,9 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
   width: fit-content;
   border-radius: 999px;
-  border: 1px solid rgba(34, 197, 94, 0.28);
-  background: rgba(15, 42, 27, 0.88);
-  color: rgba(213, 255, 229, 0.9);
+  border: 1px solid rgba(var(--accent-strong-rgb), 0.28);
+  background: rgba(39, 46, 55, 0.88);
+  color: var(--foreground);
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 700;
@@ -2965,7 +2968,7 @@ input:focus, textarea:focus, select:focus {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #b8f1cb;
+  color: var(--accent);
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
@@ -2973,7 +2976,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .crm-auth-link:hover {
-  color: #d6ffe3;
+  color: #f3f5f7;
 }
 
 .crm-auth-link:disabled {
@@ -2995,9 +2998,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .crm-auth-feedback-success {
-  border-color: rgba(34, 197, 94, 0.24);
-  background: rgba(15, 42, 27, 0.7);
-  color: #d1fae5;
+  border-color: rgba(var(--accent-rgb), 0.24);
+  background: rgba(39, 46, 55, 0.7);
+  color: var(--foreground);
 }
 
 .crm-auth-submit {
@@ -3028,7 +3031,7 @@ input:focus, textarea:focus, select:focus {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(193, 255, 219, 0.84);
+  color: rgba(var(--accent-rgb), 0.84);
 }
 
 .crm-auth-panel-title {
@@ -3060,8 +3063,8 @@ input:focus, textarea:focus, select:focus {
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #77f5a7, #22c55e);
-  box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.12);
+  background: linear-gradient(135deg, #f3f5f7, #c8d0da);
+  box-shadow: 0 0 0 5px rgba(var(--accent-rgb), 0.12);
 }
 
 .crm-auth-preview-card {
@@ -3692,9 +3695,9 @@ input:focus, textarea:focus, select:focus {
   z-index: 120;
   max-width: 320px;
   border-radius: 14px;
-  border: 1px solid rgba(34, 197, 94, 0.28);
-  background: rgba(15, 42, 27, 0.96);
-  color: #dff7e8;
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  background: rgba(39, 46, 55, 0.96);
+  color: var(--foreground);
   padding: 12px 14px;
   box-shadow: var(--shadow-soft);
   font-size: 13px;
@@ -3729,7 +3732,7 @@ input:focus, textarea:focus, select:focus {
 
 .crm-quick-add-card {
   padding: 12px;
-  border-color: rgba(34, 197, 94, 0.2);
+  border-color: rgba(var(--accent-rgb), 0.2);
 }
 
 .crm-quick-add-title {
@@ -3763,8 +3766,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .crm-icon-btn:hover {
-  border-color: rgba(34, 197, 94, 0.46);
-  color: #eff7ff;
+  border-color: rgba(var(--accent-strong-rgb), 0.46);
+  color: #eff2f6;
 }
 
 .crm-icon-btn-danger:hover {
