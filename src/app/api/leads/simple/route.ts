@@ -178,7 +178,7 @@ export async function POST(request: Request) {
     existingLead?.ig_username ||
     buildSyntheticLeadHandle(identity ? "manual_lead" : "manual", identity || "manual_lead");
 
-  const sourceDetailPatch: Record<string, string> = {};
+  const sourceDetailPatch: Record<string, unknown> = {};
   if (firstName) sourceDetailPatch.first_name = firstName;
   if (lastName) sourceDetailPatch.last_name = lastName;
   if (fullName) sourceDetailPatch.full_name = fullName;
