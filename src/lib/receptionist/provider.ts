@@ -326,7 +326,7 @@ async function startTwilioBridgeCall(input: CallBridgeInput): Promise<CallBridge
     };
   }
 
-  const twiml = `<Response><Say voice=\"alice\">Connecting your Merlyn call now.</Say><Dial callerId=\"${fromPhone}\">${leadPhone}</Dial></Response>`;
+  const twiml = `<Response><Say voice=\"alice\">Connecting your LockboxHQ call now.</Say><Dial callerId=\"${fromPhone}\">${leadPhone}</Dial></Response>`;
 
   const params = new URLSearchParams();
   params.set("To", forwardingPhone);

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import MerlynMascot from "@/components/branding/merlyn-mascot";
+import LockboxMark from "@/components/branding/lockbox-mark";
 import { FEATURE_SIGNUP_ENABLED, PRODUCT_NAME } from "@/lib/features";
 
 type AuthMode = "sign_in" | "sign_up" | "recovery";
@@ -330,7 +330,7 @@ export default function AuthPage() {
       <div className="crm-auth-layout">
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
-            <MerlynMascot className="crm-auth-logo" variant="full" decorative />
+            <LockboxMark className="crm-auth-logo" variant="full" decorative />
             <div className="crm-auth-kicker">For solo real estate agents</div>
           </div>
 
@@ -438,7 +438,7 @@ export default function AuthPage() {
 
           {mode !== "recovery" ? (
             <div className="crm-auth-footer">
-              <span>{mode === "sign_in" ? "New to Merlyn?" : "Already have an account?"}</span>
+              <span>{mode === "sign_in" ? "New to LockboxHQ?" : "Already have an account?"}</span>
               <button
                 type="button"
                 className="crm-auth-link"
@@ -462,7 +462,7 @@ export default function AuthPage() {
           <div className="crm-auth-panel-kicker">Inbound CRM for solo real estate agents</div>
           <h2 className="crm-auth-panel-title">Stop manually re-entering inbound inquiries.</h2>
           <p className="crm-auth-panel-body">
-            Merlyn captures social, form, open-house, and Concierge inquiries, then turns them into organized deals with a clear next action.
+            LockboxHQ captures social, form, open-house, and Concierge inquiries, then turns them into organized deals with a clear next action.
           </p>
 
           <div className="crm-auth-value-list">
@@ -476,7 +476,7 @@ export default function AuthPage() {
 
           <div className="crm-card-muted crm-auth-preview-card">
             <div className="crm-auth-preview-head">
-              <span className="crm-auth-preview-label">How leads enter Merlyn</span>
+              <span className="crm-auth-preview-label">How inquiries enter LockboxHQ</span>
               <span className="crm-chip crm-chip-ok">Built in</span>
             </div>
 

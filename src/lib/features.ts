@@ -1,5 +1,5 @@
-export const PRODUCT_NAME = "Merlyn";
-export const PRODUCT_STAGE_LABEL = "Early Access";
+export const PRODUCT_NAME = "LockboxHQ";
+export const PRODUCT_STAGE_LABEL = "Self-Filling CRM";
 
 export const FEATURE_SIGNUP_ENABLED = true;
 export const FEATURE_AUTOMATION_UI_ENABLED = false;

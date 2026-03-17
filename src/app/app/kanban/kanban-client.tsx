@@ -484,7 +484,7 @@ export default function KanbanClient() {
             <div className="crm-page-header-main">
               <h1 className="crm-page-title">Pipeline</h1>
               <p className="crm-page-subtitle">
-                Leads will appear here once your intake form or imports start feeding Merlyn.
+                Leads will appear here once your intake form or imports start feeding LockboxHQ.
               </p>
             </div>
             <div className="crm-page-actions">
@@ -495,7 +495,7 @@ export default function KanbanClient() {
 
         <EmptyState
           title="No leads in the pipeline yet"
-          body="Share your intake link or import an existing list so Merlyn has real inquiries to organize."
+          body="Share your intake link or import an existing list so LockboxHQ has real inquiries to organize."
           action={
             <div className="crm-inline-actions">
               <Link href="/app/intake" className="crm-btn crm-btn-primary">Open intake</Link>

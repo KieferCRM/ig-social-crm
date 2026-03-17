@@ -1,6 +1,6 @@
 export const RECEPTIONIST_SETTINGS_KEY = "receptionist_settings";
 
-export type ReceptionistPhoneSetupPath = "merlyn_number" | "existing_number";
+export type ReceptionistPhoneSetupPath = "lockbox_number" | "existing_number";
 export type ReceptionistPhoneSetupStatus =
   | "unassigned"
   | "assigned"
@@ -53,7 +53,7 @@ export const DEFAULT_RECEPTIONIST_SETTINGS: ReceptionistSettings = {
   custom_greeting: "",
   notification_phone_number: "",
   escalation_keywords: DEFAULT_ESCALATION_KEYWORDS,
-  phone_setup_path: "merlyn_number",
+  phone_setup_path: "lockbox_number",
   phone_setup_status: "unassigned",
   business_number_provider: "",
   existing_number_submitted_at: "",
@@ -116,8 +116,11 @@ function normalizePhoneSetupPath(
 ): ReceptionistPhoneSetupPath {
   if (typeof value !== "string") return fallback;
   const normalized = value.trim().toLowerCase();
-  if (normalized === "merlyn_number" || normalized === "existing_number") {
+  if (normalized === "lockbox_number" || normalized === "existing_number") {
     return normalized;
+  }
+  if (normalized.endsWith("_number") && normalized !== "existing_number") {
+    return "lockbox_number";
   }
   return fallback;
 }
@@ -146,12 +149,15 @@ export function normalizeReceptionistSettings(input: unknown): ReceptionistSetti
   const raw = asRecord(input) || {};
   const businessPhoneNumber = readString(raw.business_phone_number);
   const hasBusinessPhone = businessPhoneNumber.length > 0;
-  const inferredPath: ReceptionistPhoneSetupPath = hasBusinessPhone
-    ? "existing_number"
-    : DEFAULT_RECEPTIONIST_SETTINGS.phone_setup_path;
+  const inferredPath: ReceptionistPhoneSetupPath =
+    businessPhoneNumber.length > 0 && readString(raw.business_number_provider).length > 0
+      ? "lockbox_number"
+      : hasBusinessPhone
+        ? "existing_number"
+        : DEFAULT_RECEPTIONIST_SETTINGS.phone_setup_path;
   const phoneSetupPath = normalizePhoneSetupPath(raw.phone_setup_path, inferredPath);
   const inferredStatus: ReceptionistPhoneSetupStatus = hasBusinessPhone
-    ? phoneSetupPath === "merlyn_number"
+    ? phoneSetupPath === "lockbox_number"
       ? "assigned"
       : "existing_ready"
     : DEFAULT_RECEPTIONIST_SETTINGS.phone_setup_status;

@@ -3,7 +3,7 @@
 import { type ReactNode, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import MerlynMascot from "@/components/branding/merlyn-mascot";
+import LockboxMark from "@/components/branding/lockbox-mark";
 import { PRODUCT_NAME } from "@/lib/features";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
@@ -133,10 +133,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <div className="crm-shell crm-shell-v2">
       <aside className="crm-sidebar">
         <div className="crm-sidebar-brand">
-          <MerlynMascot decorative />
+          <LockboxMark decorative />
           <div>
             <div className="crm-sidebar-brand-name">{PRODUCT_NAME.toUpperCase()}</div>
-            <div className="crm-sidebar-brand-tag">Inbound CRM for solo real estate agents</div>
+            <div className="crm-sidebar-brand-tag">Self-filling CRM for inbound real estate agents</div>
           </div>
         </div>
 

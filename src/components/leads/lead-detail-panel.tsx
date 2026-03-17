@@ -574,7 +574,7 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     return "Queue a follow-up touchpoint to keep momentum.";
   }, [displayLead, pendingReminders.length]);
 
-  const merlynGuidance = useMemo(() => {
+  const lockboxGuidance = useMemo(() => {
     if (!displayLead) return [] as string[];
     const items: string[] = [];
     const stage = (displayLead.stage || "").trim().toLowerCase();
@@ -959,8 +959,8 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                       </div>
                     </div>
                     <div className="crm-card crm-detail-action-card">
-                      <div className="crm-detail-action-label">Merlyn Insight</div>
-                      <div className="crm-detail-action-copy">{merlynGuidance[0] || "Keep follow-up tight and make the next step obvious."}</div>
+                      <div className="crm-detail-action-label">LockboxHQ Insight</div>
+                      <div className="crm-detail-action-copy">{lockboxGuidance[0] || "Keep follow-up tight and make the next step obvious."}</div>
                     </div>
                   </div>
                 </div>

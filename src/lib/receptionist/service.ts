@@ -399,7 +399,7 @@ export async function processInboundSms(input: {
 
     await maybeSendNotificationSms({
       context,
-      body: `Merlyn urgent lead alert: ${lead.full_name || lead.canonical_phone || "Lead"} asked for immediate help.`,
+      body: `LockboxHQ urgent lead alert: ${lead.full_name || lead.canonical_phone || "Lead"} asked for immediate help.`,
     });
   }
 

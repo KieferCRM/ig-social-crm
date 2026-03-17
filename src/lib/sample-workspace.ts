@@ -96,7 +96,7 @@ async function insertLead(
 export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: string) {
   const hotLead = await insertLead(admin, agentId, "hot_buyer", {
     fullName: "[Sample] Mia Parker",
-    email: "sample.mia@merlyncrm.test",
+    email: "sample.mia@lockboxhq.test",
     phone: "(615) 555-0101",
     intent: "Buy",
     timeline: "0-3 months",
@@ -111,7 +111,7 @@ export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: s
 
   const warmLead = await insertLead(admin, agentId, "warm_seller", {
     fullName: "[Sample] Daniel Brooks",
-    email: "sample.daniel@merlyncrm.test",
+    email: "sample.daniel@lockboxhq.test",
     phone: "(615) 555-0102",
     intent: "Sell",
     timeline: "3-6 months",
@@ -126,7 +126,7 @@ export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: s
 
   const coldLead = await insertLead(admin, agentId, "cold_referral", {
     fullName: "[Sample] Chloe Bennett",
-    email: "sample.chloe@merlyncrm.test",
+    email: "sample.chloe@lockboxhq.test",
     phone: "(615) 555-0103",
     intent: "Invest",
     timeline: "6+ months",

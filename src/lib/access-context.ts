@@ -16,7 +16,7 @@ export function canDeleteOwnedRecord(context: AccessContext, ownerUserId?: strin
 }
 
 declare global {
-  var __merlyn_warned_agents_bootstrap__: boolean | undefined;
+  var __lockbox_warned_agents_bootstrap__: boolean | undefined;
 }
 
 function maybeFullName(user: User): string | null {
@@ -39,8 +39,8 @@ async function ensureAgentRow(supabase: SupabaseClient, user: User): Promise<voi
     .from("agents")
     .upsert(payload, { onConflict: "id", ignoreDuplicates: true });
 
-  if (error && !globalThis.__merlyn_warned_agents_bootstrap__) {
-    globalThis.__merlyn_warned_agents_bootstrap__ = true;
+  if (error && !globalThis.__lockbox_warned_agents_bootstrap__) {
+    globalThis.__lockbox_warned_agents_bootstrap__ = true;
     console.warn("[access] agent bootstrap skipped", { error: error.message });
   }
 }

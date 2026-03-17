@@ -213,7 +213,7 @@ export default function LeadCommandWorkspace({
     stageLabel.toLowerCase() === "contacted"
       ? "Confirm motivation, timeline, and buying/selling plan."
       : recommendedAction;
-  const merlynInsight =
+  const lockboxInsight =
     stageLabel.toLowerCase() === "contacted"
       ? "Leads in \"Contacted\" stage convert best when a follow-up happens within 24 hours."
       : "Quick follow-up keeps serious inquiries moving while intent is still fresh.";
@@ -337,7 +337,7 @@ export default function LeadCommandWorkspace({
                 </div>
                 {!conciergeEnabled ? (
                   <div className="crm-lead-command-action-helper">
-                    Enable Concierge to call and text leads directly from Merlyn.
+                    Enable Concierge to call and text leads directly from LockboxHQ.
                   </div>
                 ) : null}
                 <div className="crm-lead-command-inline-note">
@@ -364,8 +364,8 @@ export default function LeadCommandWorkspace({
               </div>
 
               <div className="crm-card-muted crm-lead-command-action-block">
-                <div className="crm-lead-command-mini-label">Merlyn Insight</div>
-                <div className="crm-lead-command-action-copy">{merlynInsight}</div>
+                <div className="crm-lead-command-mini-label">LockboxHQ Insight</div>
+                <div className="crm-lead-command-action-copy">{lockboxInsight}</div>
               </div>
             </div>
           </section>

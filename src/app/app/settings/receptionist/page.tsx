@@ -118,9 +118,9 @@ function textToKeywords(value: string): string[] {
 function phoneSetupStatusMeta(status: ReceptionistPhoneSetupStatus): StatusMeta {
   if (status === "assigned") {
     return {
-      label: "Merlyn number assigned",
+      label: "LockboxHQ number assigned",
       toneClass: "crm-chip crm-chip-ok",
-      helper: "Your public business number is active in Merlyn.",
+      helper: "Your public business number is active in LockboxHQ.",
     };
   }
 
@@ -160,7 +160,7 @@ function phoneSetupStatusMeta(status: ReceptionistPhoneSetupStatus): StatusMeta 
     return {
       label: "Ported",
       toneClass: "crm-chip crm-chip-ok",
-      helper: "Your existing number has been ported and is ready to use in Merlyn.",
+      helper: "Your existing number has been ported and is ready to use in LockboxHQ.",
     };
   }
 
@@ -243,7 +243,7 @@ export default function ReceptionistSettingsPage() {
     ];
   }, [settings.office_hours_timezone]);
 
-  const isMerlynPath = settings.phone_setup_path !== "existing_number";
+  const isLockboxPath = settings.phone_setup_path !== "existing_number";
   const businessPhone = settings.business_phone_number.trim();
   const forwardingPhone = settings.forwarding_phone_number.trim();
   const hasBusinessPhone = businessPhone.length > 0;
@@ -288,7 +288,7 @@ export default function ReceptionistSettingsPage() {
         phone_setup_path: nextPath,
       };
 
-      if (nextPath === "merlyn_number") {
+      if (nextPath === "lockbox_number") {
         next.phone_setup_status = previous.business_phone_number.trim() ? "assigned" : "unassigned";
         if (!next.business_number_provider) {
           next.business_number_provider = "";
@@ -310,7 +310,7 @@ export default function ReceptionistSettingsPage() {
     });
   }
 
-  async function assignMerlynNumber() {
+  async function assignLockboxNumber() {
     setAssigningNumber(true);
     setMessage("");
 
@@ -323,15 +323,15 @@ export default function ReceptionistSettingsPage() {
 
       const data = (await response.json()) as NumberAssignResponse;
       if (!response.ok || !data.ok || !data.settings) {
-        setMessage(data.error || data.assignment?.error || "Could not assign a Merlyn number.");
+        setMessage(data.error || data.assignment?.error || "Could not assign a LockboxHQ number.");
         return;
       }
 
       setSettings(data.settings);
       const mode = data.assignment?.mode === "mock" ? " (mock provider mode)" : "";
-      setMessage(`Merlyn business number assigned${mode}.`);
+      setMessage(`LockboxHQ business number assigned${mode}.`);
     } catch {
-      setMessage("Could not assign a Merlyn number.");
+      setMessage("Could not assign a LockboxHQ number.");
     } finally {
       setAssigningNumber(false);
     }
@@ -350,7 +350,7 @@ export default function ReceptionistSettingsPage() {
       let nextSubmittedAt = settings.existing_number_submitted_at;
       let nextProvider = settings.business_number_provider;
 
-      if (settings.phone_setup_path === "merlyn_number") {
+      if (settings.phone_setup_path === "lockbox_number") {
         nextStatus = trimmedBusinessPhone ? "assigned" : "unassigned";
         nextSubmittedAt = "";
       } else {
@@ -427,7 +427,7 @@ export default function ReceptionistSettingsPage() {
             <div className="crm-concierge-brew-banner__eyebrow">Being Brewed</div>
             <div className="crm-concierge-brew-banner__title">Concierge is under construction right now.</div>
             <div className="crm-concierge-brew-banner__copy">
-              This upgrade will unlock calling, texting, and missed-call follow-up inside Merlyn. For now, the setup page is view-only while the workflow is still being finished.
+              This upgrade will unlock calling, texting, and missed-call follow-up inside LockboxHQ. For now, the setup page is view-only while the workflow is still being finished.
             </div>
           </div>
         ) : null}
@@ -454,7 +454,7 @@ export default function ReceptionistSettingsPage() {
             </span>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55 }}>
-            Once Concierge is active, your Merlyn business number can power missed-call text-back, direct SMS
+            Once Concierge is active, your LockboxHQ business number can power missed-call text-back, direct SMS
             conversations, captured lead details, and urgent alerts without bouncing you across separate tools.
           </p>
           <ol
@@ -468,8 +468,8 @@ export default function ReceptionistSettingsPage() {
             }}
           >
             <li>Lead calls or texts your business number.</li>
-            <li>Merlyn records the interaction and links it to a lead record.</li>
-            <li>If the call is missed, Merlyn can send your starter SMS automatically.</li>
+            <li>LockboxHQ records the interaction and links it to a lead record.</li>
+            <li>If the call is missed, LockboxHQ can send your starter SMS automatically.</li>
             <li>Lead replies are captured and qualification data updates the CRM.</li>
             <li>Urgent language can trigger high-priority alerts.</li>
           </ol>
@@ -500,7 +500,7 @@ export default function ReceptionistSettingsPage() {
           <div className="crm-grid-cards-3">
             <ToggleCard
               title="Concierge Active"
-              description="Master switch for the Concierge upgrade. Turn this on to unlock Merlyn communication workflows."
+              description="Master switch for the Concierge upgrade. Turn this on to unlock LockboxHQ communication workflows."
               checked={settings.receptionist_enabled}
               onChange={(next) =>
                 setSettings((previous) => ({ ...previous, receptionist_enabled: next }))
@@ -508,7 +508,7 @@ export default function ReceptionistSettingsPage() {
             />
             <ToggleCard
               title="Messaging Active"
-              description="Allows SMS send and receive inside Merlyn after Concierge is enabled."
+              description="Allows SMS send and receive inside LockboxHQ after Concierge is enabled."
               helper="Tip: Concierge Active and Messaging Active both need to be on for automatic responses."
               checked={settings.communications_enabled}
               onChange={(next) =>
@@ -533,25 +533,25 @@ export default function ReceptionistSettingsPage() {
           </div>
 
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-            Choose how Concierge should handle your public-facing business number. A new Merlyn number is the fastest path to activation.
+            Choose how Concierge should handle your public-facing business number. A new LockboxHQ number is the fastest path to activation.
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
             <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0, fontSize: 14 }}>Get a New Merlyn Number</h3>
+              <h3 style={{ margin: 0, fontSize: 14 }}>Get a New LockboxHQ Number</h3>
                 <span className="crm-chip crm-chip-ok">Recommended</span>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
-                Fastest upgrade setup. Merlyn assigns a business number so Concierge can start handling calls and texts quickly.
+                Fastest upgrade setup. LockboxHQ assigns a business number so Concierge can start handling calls and texts quickly.
               </p>
               <button
                 type="button"
-                className={isMerlynPath ? "crm-btn crm-btn-primary" : "crm-btn crm-btn-secondary"}
-                onClick={() => selectPhoneSetupPath("merlyn_number")}
+                className={isLockboxPath ? "crm-btn crm-btn-primary" : "crm-btn crm-btn-secondary"}
+                onClick={() => selectPhoneSetupPath("lockbox_number")}
                 style={{ width: "fit-content" }}
               >
-                {isMerlynPath ? "Selected" : "Choose This Path"}
+                {isLockboxPath ? "Selected" : "Choose This Path"}
               </button>
             </div>
 
@@ -565,16 +565,16 @@ export default function ReceptionistSettingsPage() {
               </p>
               <button
                 type="button"
-                className={!isMerlynPath ? "crm-btn crm-btn-primary" : "crm-btn crm-btn-secondary"}
+                className={!isLockboxPath ? "crm-btn crm-btn-primary" : "crm-btn crm-btn-secondary"}
                 onClick={() => selectPhoneSetupPath("existing_number")}
                 style={{ width: "fit-content" }}
               >
-                {!isMerlynPath ? "Selected" : "Choose This Path"}
+                {!isLockboxPath ? "Selected" : "Choose This Path"}
               </button>
             </div>
           </div>
 
-          {isMerlynPath ? (
+          {isLockboxPath ? (
             <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
               <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
                 This path does not require manually typing a business number.
@@ -583,7 +583,7 @@ export default function ReceptionistSettingsPage() {
               {hasBusinessPhone ? (
                 <div style={{ display: "grid", gap: 8 }}>
                   <Field
-                    label="Merlyn Business Number"
+                    label="LockboxHQ Business Number"
                     helper="This is your public-facing number for lead calls and texts."
                   >
                     <input value={businessPhone} readOnly />
@@ -599,16 +599,16 @@ export default function ReceptionistSettingsPage() {
               ) : (
                 <div style={{ display: "grid", gap: 8 }}>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <span className="crm-chip crm-chip-warn">No Merlyn number assigned yet</span>
+                    <span className="crm-chip crm-chip-warn">No LockboxHQ number assigned yet</span>
                   </div>
                   <button
                     type="button"
                     className="crm-btn crm-btn-primary"
-                    onClick={() => void assignMerlynNumber()}
+                    onClick={() => void assignLockboxNumber()}
                     disabled={assigningNumber}
                     style={{ width: "fit-content" }}
                   >
-                    {assigningNumber ? "Assigning..." : "Get My Merlyn Number"}
+                    {assigningNumber ? "Assigning..." : "Get My LockboxHQ Number"}
                   </button>
                 </div>
               )}
@@ -616,7 +616,7 @@ export default function ReceptionistSettingsPage() {
           ) : (
             <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
               <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
-                Already using a business number? Keep it. Merlyn supports existing-number onboarding, and some cases may
+                Already using a business number? Keep it. LockboxHQ supports existing-number onboarding, and some cases may
                 require porting or manual configuration.
               </p>
               <Field
@@ -665,7 +665,7 @@ export default function ReceptionistSettingsPage() {
           <div className="crm-grid-cards-3">
             <Field
               label="Forwarding Phone"
-              helper="This is your real phone that rings when Merlyn bridges inbound/outbound calls."
+              helper="This is your real phone that rings when LockboxHQ bridges inbound and outbound calls."
             >
               <input
                 value={settings.forwarding_phone_number}
@@ -778,7 +778,7 @@ export default function ReceptionistSettingsPage() {
           </div>
 
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-            If a lead uses phrases like "asap", "tour", or "ready now", Merlyn can flag that conversation as urgent
+            If a lead uses phrases like "asap", "tour", or "ready now", LockboxHQ can flag that conversation as urgent
             and surface alerts faster.
           </p>
 

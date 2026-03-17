@@ -59,7 +59,7 @@ export default function SettingsPage() {
         <section className="crm-card crm-section-card crm-stack-10">
           <div style={{ fontWeight: 700 }}>Legal pages</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
-            Review the customer-facing privacy and terms pages before sharing Merlyn publicly.
+            Review the customer-facing privacy and terms pages before sharing LockboxHQ publicly.
           </p>
           <div className="crm-inline-actions">
             <Link href="/privacy" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Privacy</Link>

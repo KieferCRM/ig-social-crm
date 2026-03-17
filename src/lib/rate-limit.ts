@@ -16,14 +16,14 @@ type RateLimitResult = {
 };
 
 declare global {
-  var __merlyn_rate_limit_store__: Map<string, Bucket> | undefined;
-  var __merlyn_rate_limit_warned_redis__: boolean | undefined;
+  var __lockbox_rate_limit_store__: Map<string, Bucket> | undefined;
+  var __lockbox_rate_limit_warned_redis__: boolean | undefined;
 }
 
-const store = globalThis.__merlyn_rate_limit_store__ || new Map<string, Bucket>();
-globalThis.__merlyn_rate_limit_store__ = store;
-globalThis.__merlyn_rate_limit_warned_redis__ =
-  globalThis.__merlyn_rate_limit_warned_redis__ || false;
+const store = globalThis.__lockbox_rate_limit_store__ || new Map<string, Bucket>();
+globalThis.__lockbox_rate_limit_store__ = store;
+globalThis.__lockbox_rate_limit_warned_redis__ =
+  globalThis.__lockbox_rate_limit_warned_redis__ || false;
 
 function redisConfig() {
   const url = process.env.RATE_LIMIT_REDIS_REST_URL?.trim() || "";
@@ -72,7 +72,7 @@ async function takeRedisRateLimit({ key, limit, windowMs }: RateLimitInput): Pro
   const config = redisConfig();
   if (!config) return null;
 
-  const redisKey = `merlyn:rl:${key}`;
+  const redisKey = `lockbox:rl:${key}`;
   const pipelineUrl = `${config.url.replace(/\/$/, "")}/pipeline`;
 
   try {
@@ -111,8 +111,8 @@ async function takeRedisRateLimit({ key, limit, windowMs }: RateLimitInput): Pro
       retryAfterSec,
     };
   } catch (error) {
-    if (!globalThis.__merlyn_rate_limit_warned_redis__) {
-      globalThis.__merlyn_rate_limit_warned_redis__ = true;
+    if (!globalThis.__lockbox_rate_limit_warned_redis__) {
+      globalThis.__lockbox_rate_limit_warned_redis__ = true;
       console.warn("[rate-limit] Redis unavailable, falling back to in-memory buckets", {
         error: error instanceof Error ? error.message : "unknown",
       });

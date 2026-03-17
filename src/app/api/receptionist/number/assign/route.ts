@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   }
 
   const nextPatch: Partial<ReceptionistSettings> & Record<string, unknown> = {
-    phone_setup_path: "merlyn_number",
+    phone_setup_path: "lockbox_number",
     phone_setup_status: "assigned",
     business_phone_number: assignment.businessPhoneNumber,
     business_number_provider: assignment.provider,

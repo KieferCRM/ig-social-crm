@@ -178,7 +178,7 @@ export default function IntakeWorkspacePage() {
         title="Share the buyer form anywhere."
         description="Use this buyer intake link and QR code for Instagram bio links, TikTok bio, Facebook posts, business cards, and open-house handouts."
         openLabel="Preview buyer form"
-        downloadName="merlyn-buyer-form-qr.png"
+        downloadName="lockboxhq-buyer-form-qr.png"
         placementSuggestions={[
           "Open house sign-in table",
           "Business card",
@@ -194,7 +194,7 @@ export default function IntakeWorkspacePage() {
         title="Share the seller form when qualification matters."
         description="Use this seller intake link and QR code for acquisition posts, seller lead magnets, direct outreach follow-up, and QR placements."
         openLabel="Preview seller form"
-        downloadName="merlyn-seller-form-qr.png"
+        downloadName="lockboxhq-seller-form-qr.png"
         placementSuggestions={[
           "Facebook seller post",
           "Instagram bio",

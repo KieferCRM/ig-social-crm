@@ -4,7 +4,8 @@ import { PRODUCT_NAME, PRODUCT_STAGE_LABEL } from "@/lib/features";
 
 export const metadata: Metadata = {
   title: `${PRODUCT_NAME} • ${PRODUCT_STAGE_LABEL}`,
-  description: "Social-first lead ops CRM for solo operators managing inbound leads and disciplined follow-up.",
+  description:
+    "LockboxHQ is the self-filling CRM for inbound real estate agents who want organized deals without manual entry.",
 };
 
 export default function RootLayout({

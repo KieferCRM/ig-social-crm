@@ -4,7 +4,7 @@ export default function IntakePage() {
   return (
     <main className="crm-public-intake-page">
       <section className="crm-card crm-public-intake-hero">
-        <div className="crm-public-intake-kicker">Merlyn lead intake</div>
+        <div className="crm-public-intake-kicker">LockboxHQ intake</div>
         <h1>Choose the form that fits.</h1>
         <p>
           Use the buyer form for simple inbound interest, or the seller form for property-specific

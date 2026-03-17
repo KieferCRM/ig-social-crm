@@ -38,7 +38,7 @@ export default function IntakeShareKit({
   downloadName = "intake-qr.png",
   placementSuggestions,
 }: IntakeShareKitProps) {
-  const [intakeUrl, setIntakeUrl] = useState(`https://merlyncrm.com${intakePath}`);
+  const [intakeUrl, setIntakeUrl] = useState(`https://lockboxhq.com${intakePath}`);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
