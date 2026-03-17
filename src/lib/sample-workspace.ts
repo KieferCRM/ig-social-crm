@@ -1,4 +1,5 @@
 import { buildSyntheticLeadHandle } from "@/lib/leads/identity";
+import { normalizeLeadSourceChannel } from "@/lib/inbound";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof supabaseAdmin>;
@@ -36,6 +37,7 @@ async function insertLead(
   label: string,
   input: SeedLeadInput
 ): Promise<SeedLeadResult> {
+  const leadSourceChannel = normalizeLeadSourceChannel(input.source) || "other";
   const { data, error } = await admin
     .from("leads")
     .upsert(
@@ -61,8 +63,8 @@ async function insertLead(
         time_last_updated: new Date().toISOString(),
         latest_source_method: "sample_workspace",
         first_source_method: "sample_workspace",
-        first_source_channel: input.source,
-        latest_source_channel: input.source,
+        first_source_channel: leadSourceChannel,
+        latest_source_channel: leadSourceChannel,
         source_detail: {
           sample_workspace: true,
           sample_workspace_label: label,

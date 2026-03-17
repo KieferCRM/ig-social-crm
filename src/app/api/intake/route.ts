@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeConsent } from "@/lib/consent";
 import {
   buildPropertyContext,
+  normalizeLeadSourceChannel,
   buildTemperatureReason,
   inferDealType,
   inferLeadStage,
@@ -382,8 +383,11 @@ export async function POST(request: Request) {
     consent_timestamp: existingLead?.consent_timestamp || consent.consent_timestamp,
     consent_text_snapshot:
       existingLead?.consent_text_snapshot || consent.consent_text_snapshot || null,
-    first_source_channel: existingLead?.first_source_channel || sourceChannel,
-    latest_source_channel: sourceChannel,
+    first_source_channel:
+      normalizeLeadSourceChannel(existingLead?.first_source_channel) ||
+      normalizeLeadSourceChannel(sourceChannel) ||
+      "other",
+    latest_source_channel: normalizeLeadSourceChannel(sourceChannel) || "other",
   };
 
   if (email) {

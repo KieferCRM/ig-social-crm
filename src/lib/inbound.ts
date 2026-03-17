@@ -10,6 +10,18 @@ export const SOURCE_CHANNEL_VALUES = [
   "other",
 ] as const;
 
+export const LEAD_SOURCE_CHANNEL_VALUES = [
+  "ig",
+  "fb",
+  "webform",
+  "website",
+  "email",
+  "phone",
+  "manual",
+  "import_csv",
+  "other",
+] as const;
+
 export const TIMEFRAME_OPTIONS = [
   "0-3 months",
   "3-6 months",
@@ -17,6 +29,7 @@ export const TIMEFRAME_OPTIONS = [
 ] as const;
 
 export type SourceChannel = (typeof SOURCE_CHANNEL_VALUES)[number];
+export type LeadSourceChannel = (typeof LEAD_SOURCE_CHANNEL_VALUES)[number];
 export type LeadTemperature = "Cold" | "Warm" | "Hot";
 export type RecommendationPriority = "low" | "medium" | "high" | "urgent";
 export type TimeframeBucket = (typeof TIMEFRAME_OPTIONS)[number];
@@ -73,6 +86,35 @@ export function normalizeSourceChannel(value: string | null | undefined): Source
   if (includesAny(source, ["referral", "referred"])) return "referral";
   if (includesAny(source, ["manual", "import"])) return "manual";
   if (includesAny(source, ["web", "form", "site", "landing"])) return "website_form";
+  return "other";
+}
+
+export function normalizeLeadSourceChannel(
+  value: string | null | undefined
+): LeadSourceChannel | null {
+  const source = compact(value).toLowerCase();
+  if (!source) return null;
+
+  if (
+    source === "ig" ||
+    source === "fb" ||
+    source === "webform" ||
+    source === "website" ||
+    source === "email" ||
+    source === "phone" ||
+    source === "manual" ||
+    source === "import_csv" ||
+    source === "other"
+  ) {
+    return source;
+  }
+
+  const normalized = normalizeSourceChannel(source);
+  if (normalized === "instagram") return "ig";
+  if (normalized === "facebook") return "fb";
+  if (normalized === "website_form") return "webform";
+  if (normalized === "concierge") return "phone";
+  if (normalized === "manual") return "manual";
   return "other";
 }
 

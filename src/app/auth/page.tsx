@@ -52,7 +52,6 @@ export default function AuthPage() {
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [showContinueToWorkspace, setShowContinueToWorkspace] = useState(false);
 
   const createAccountLabel = FEATURE_SIGNUP_ENABLED ? "Create Account" : "Request Early Access";
   const isBusy = busyAction !== null;
@@ -63,8 +62,7 @@ export default function AuthPage() {
 
     const bootstrap = await bootstrapWorkspace();
     if (!bootstrap.ok) {
-      setMessage(`${bootstrap.error} You can still enter the workspace now.`);
-      setShowContinueToWorkspace(true);
+      setError(bootstrap.error);
       setBusyAction(null);
       isEnteringWorkspaceRef.current = false;
       return;
@@ -135,7 +133,6 @@ export default function AuthPage() {
     setMode(nextMode);
     setError(null);
     setMessage(null);
-    setShowContinueToWorkspace(false);
     setPassword("");
     setConfirmPassword("");
   }
@@ -182,7 +179,6 @@ export default function AuthPage() {
     setBusyAction("sign_in");
     setError(null);
     setMessage(null);
-    setShowContinueToWorkspace(false);
 
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -204,7 +200,6 @@ export default function AuthPage() {
     setBusyAction("sign_up");
     setError(null);
     setMessage(null);
-    setShowContinueToWorkspace(false);
 
     const { data, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -222,6 +217,16 @@ export default function AuthPage() {
       return;
     }
 
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (!signInError) {
+      await enterTodayPage();
+      return;
+    }
+
     setMessage("Check your email to confirm your account, then sign in to your workspace.");
     setBusyAction(null);
   }
@@ -232,7 +237,6 @@ export default function AuthPage() {
     setBusyAction("forgot");
     setError(null);
     setMessage(null);
-    setShowContinueToWorkspace(false);
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/auth`,
@@ -258,7 +262,6 @@ export default function AuthPage() {
     setBusyAction("reset");
     setError(null);
     setMessage(null);
-    setShowContinueToWorkspace(false);
 
     const { error: updateError } = await supabase.auth.updateUser({ password });
 
@@ -431,16 +434,6 @@ export default function AuthPage() {
             <button type="submit" disabled={isBusy} className="crm-btn crm-btn-primary crm-auth-submit">
               {primaryLabel}
             </button>
-
-            {showContinueToWorkspace ? (
-              <button
-                type="button"
-                className="crm-btn crm-btn-secondary crm-auth-submit"
-                onClick={() => router.replace("/app")}
-              >
-                Enter Workspace
-              </button>
-            ) : null}
           </form>
 
           {mode !== "recovery" ? (
