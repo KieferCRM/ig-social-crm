@@ -1,28 +1,14 @@
 // middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { PREVIEW_COOKIE_NAME } from "@/lib/preview-mode";
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const pathname = req.nextUrl.pathname;
-  const previewParam = req.nextUrl.searchParams.get("preview");
   const isPingRoute = pathname === "/ping";
   const isAppRoute = pathname.startsWith("/app");
   const isHomeRoute = pathname === "/";
   const isLegacySelectWorkspaceRoute = pathname === "/app/select-workspace";
-  const previewEnabled =
-    previewParam === "1" || req.cookies.get(PREVIEW_COOKIE_NAME)?.value === "1";
-
-  if (previewParam === "1") {
-    res.cookies.set(PREVIEW_COOKIE_NAME, "1", {
-      path: "/",
-      sameSite: "lax",
-      httpOnly: false,
-      maxAge: 60 * 60 * 24 * 7,
-      secure: req.nextUrl.protocol === "https:",
-    });
-  }
 
   if (process.env.NODE_ENV === "production" && isPingRoute) {
     return new NextResponse("Not Found", { status: 404 });
@@ -36,10 +22,6 @@ export async function middleware(req: NextRequest) {
     isAppRoute || ((isHomeRoute || isLegacySelectWorkspaceRoute) && hasSupabaseAuthCookie);
 
   if (!shouldCheckSession) {
-    return res;
-  }
-
-  if (previewEnabled && isAppRoute) {
     return res;
   }
 

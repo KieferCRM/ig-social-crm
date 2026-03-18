@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PREVIEW_WORKSPACE_SETTINGS } from "@/lib/preview-data";
 import type {
   HotLeadNotificationMode,
   SocialScript,
@@ -37,11 +36,9 @@ function emptySettings(): WorkspaceSettings {
   };
 }
 
-export default function WorkspaceSettingsClient({ preview = false }: { preview?: boolean }) {
-  const [settings, setSettings] = useState<WorkspaceSettings>(
-    preview ? PREVIEW_WORKSPACE_SETTINGS : emptySettings()
-  );
-  const [loading, setLoading] = useState(!preview);
+export default function WorkspaceSettingsClient() {
+  const [settings, setSettings] = useState<WorkspaceSettings>(emptySettings());
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [origin, setOrigin] = useState("");
@@ -56,13 +53,6 @@ export default function WorkspaceSettingsClient({ preview = false }: { preview?:
     let active = true;
 
     async function loadSettings() {
-      if (preview) {
-        setSettings(PREVIEW_WORKSPACE_SETTINGS);
-        setMessage("Preview mode only.");
-        setLoading(false);
-        return;
-      }
-
       try {
         const response = await fetch("/api/workspace/settings", { cache: "no-store" });
         const data = (await response.json()) as SettingsResponse;
@@ -85,7 +75,7 @@ export default function WorkspaceSettingsClient({ preview = false }: { preview?:
     return () => {
       active = false;
     };
-  }, [preview]);
+  }, []);
 
   const scriptRows = useMemo(() => settings.saved_scripts || [], [settings.saved_scripts]);
 
@@ -99,11 +89,6 @@ export default function WorkspaceSettingsClient({ preview = false }: { preview?:
   }
 
   async function saveSettings() {
-    if (preview) {
-      setMessage("Preview mode only.");
-      return;
-    }
-
     setSaving(true);
     setMessage("");
 

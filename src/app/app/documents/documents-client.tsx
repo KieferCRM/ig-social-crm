@@ -49,16 +49,12 @@ function formatDate(value: string): string {
 export default function DocumentsClient({
   deals,
   leads,
-  preview = false,
-  initialDocuments = [],
 }: {
   deals: DealOption[];
   leads: LeadOption[];
-  preview?: boolean;
-  initialDocuments?: WorkspaceDocumentRow[];
 }) {
-  const [documents, setDocuments] = useState<WorkspaceDocumentRow[]>(initialDocuments);
-  const [loading, setLoading] = useState(!preview);
+  const [documents, setDocuments] = useState<WorkspaceDocumentRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedDealId, setSelectedDealId] = useState("");
@@ -69,13 +65,6 @@ export default function DocumentsClient({
   const [file, setFile] = useState<File | null>(null);
 
   async function loadDocuments() {
-    if (preview) {
-      setDocuments(initialDocuments);
-      setMessage("Preview mode only.");
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       const response = await fetch("/api/documents", { cache: "no-store" });
@@ -95,16 +84,11 @@ export default function DocumentsClient({
 
   useEffect(() => {
     void loadDocuments();
-  }, [initialDocuments, preview]);
+  }, []);
 
   const recentDocuments = useMemo(() => documents.slice(0, 12), [documents]);
 
   async function uploadDocument() {
-    if (preview) {
-      setMessage("Preview mode only.");
-      return;
-    }
-
     if (!file) {
       setMessage("Choose a file first.");
       return;
@@ -148,11 +132,6 @@ export default function DocumentsClient({
   }
 
   async function deleteDocument(id: string) {
-    if (preview) {
-      setMessage("Preview mode only.");
-      return;
-    }
-
     try {
       const response = await fetch("/api/documents", {
         method: "DELETE",

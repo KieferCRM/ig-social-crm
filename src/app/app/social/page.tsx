@@ -2,12 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import StatusBadge from "@/components/ui/status-badge";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
-import {
-  PREVIEW_LEADS,
-  PREVIEW_RECOMMENDATIONS,
-  PREVIEW_WORKSPACE_SETTINGS,
-} from "@/lib/preview-data";
-import { isPreviewModeServer } from "@/lib/preview-mode";
 import { supabaseServer } from "@/lib/supabase/server";
 import { tagsFromSourceDetail } from "@/lib/tags";
 import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
@@ -57,54 +51,40 @@ function formatDate(value: string | null): string {
 }
 
 export default async function SocialPage() {
-  const preview = await isPreviewModeServer();
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !preview) {
+  if (!user) {
     redirect("/auth");
   }
 
-  let settings = PREVIEW_WORKSPACE_SETTINGS;
-  let socialLeads: LeadRow[] = [];
-  let socialRecommendations: RecommendationRow[] = [];
+  const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  if (preview && !user) {
-    socialLeads = ([...PREVIEW_LEADS] as unknown as LeadRow[]).filter((lead) =>
-      isSocialSource(lead.source)
-    );
-    socialRecommendations = ([...PREVIEW_RECOMMENDATIONS] as unknown as RecommendationRow[]).filter((item) => {
-      const source = typeof item.metadata?.source_channel === "string" ? item.metadata.source_channel : "";
-      return isSocialSource(source);
-    });
-  } else if (user) {
-    const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
-    const [{ data: agentRow }, { data: leadData }, { data: recommendationData }] = await Promise.all([
-      supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("leads")
-        .select("id,full_name,canonical_phone,canonical_email,ig_username,source,lead_temp,time_last_updated,source_detail")
-        .eq("agent_id", user.id)
-        .order("time_last_updated", { ascending: false })
-        .limit(40),
-      supabase
-        .from("lead_recommendations")
-        .select("id,title,description,priority,due_at,metadata")
-        .or(recommendationOwnerFilter)
-        .eq("status", "open")
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+  const [{ data: agentRow }, { data: leadData }, { data: recommendationData }] = await Promise.all([
+    supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("leads")
+      .select("id,full_name,canonical_phone,canonical_email,ig_username,source,lead_temp,time_last_updated,source_detail")
+      .eq("agent_id", user.id)
+      .order("time_last_updated", { ascending: false })
+      .limit(40),
+    supabase
+      .from("lead_recommendations")
+      .select("id,title,description,priority,due_at,metadata")
+      .or(recommendationOwnerFilter)
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
 
-    settings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings || null);
-    socialLeads = ((leadData || []) as LeadRow[]).filter((lead) => isSocialSource(lead.source));
-    socialRecommendations = ((recommendationData || []) as RecommendationRow[]).filter((item) => {
-      const source = typeof item.metadata?.source_channel === "string" ? item.metadata.source_channel : "";
-      return isSocialSource(source);
-    });
-  }
+  const settings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings || null);
+  const socialLeads = ((leadData || []) as LeadRow[]).filter((lead) => isSocialSource(lead.source));
+  const socialRecommendations = ((recommendationData || []) as RecommendationRow[]).filter((item) => {
+    const source = typeof item.metadata?.source_channel === "string" ? item.metadata.source_channel : "";
+    return isSocialSource(source);
+  });
 
   const responseBuckets = {
     noResponse: socialLeads.filter((lead) => String(lead.lead_temp || "").toLowerCase() === "cold").length,
