@@ -200,8 +200,8 @@ export default function AuthPage() {
     }
 
     if (data.session) {
-      router.replace(`/setup/account-type${track === "off_market_agent" ? "?track=off_market_agent" : "?track=solo_agent"}`);
-      router.refresh();
+      setBusyAction(null);
+      await enterWorkspace();
       return;
     }
 
@@ -211,8 +211,8 @@ export default function AuthPage() {
     });
 
     if (!signInError) {
-      router.replace(`/setup/account-type${track === "off_market_agent" ? "?track=off_market_agent" : "?track=solo_agent"}`);
-      router.refresh();
+      setBusyAction(null);
+      await enterWorkspace();
       return;
     }
 
