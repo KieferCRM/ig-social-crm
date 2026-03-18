@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "@/components/ui/status-badge";
 import IntakeShareKit from "@/components/intake/intake-share-kit";
 import ManualLeadForm from "@/app/app/list/manual-lead-form";
+import FormShareSection from "@/components/forms/FormShareSection";
 import { sourceChannelTone } from "@/lib/inbound";
 
 type Submission = {
@@ -53,6 +54,7 @@ export default function IntakeWorkspacePage() {
   const [selectedId, setSelectedId] = useState<string>("");
   const [reloadToken, setReloadToken] = useState(0);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [showFormLibrary, setShowFormLibrary] = useState(false);
   const [sampleBusy, setSampleBusy] = useState(false);
   const [sampleMessage, setSampleMessage] = useState("");
 
@@ -141,6 +143,13 @@ export default function IntakeWorkspacePage() {
             </Link>
             <button
               type="button"
+              className="crm-btn crm-btn-secondary"
+              onClick={() => setShowFormLibrary((value) => !value)}
+            >
+              {showFormLibrary ? "Hide form library" : "Form library"}
+            </button>
+            <button
+              type="button"
               className="crm-btn crm-btn-primary"
               onClick={() => setShowManualForm((value) => !value)}
             >
@@ -204,6 +213,8 @@ export default function IntakeWorkspacePage() {
           "Seller outreach follow-up",
         ]}
       />
+
+      {showFormLibrary ? <FormShareSection /> : null}
 
       {showManualForm ? (
         <ManualLeadForm

@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import IntakeForm from "@/app/intake/intake-form";
+import LockboxMark from "@/components/branding/lockbox-mark";
+import FormRenderer from "@/components/forms/FormRenderer";
+import { FORM_ROUTER_OPTIONS, FORM_TEMPLATES } from "@/lib/forms/templates";
 
 export const dynamic = "force-dynamic";
 
@@ -22,19 +25,71 @@ export default async function AgentIntakePage({
   const { agentSlug } = await params;
   const { form } = await searchParams;
   const normalizedSlug = normalizeSlug(decodeURIComponent(agentSlug || ""));
-  const variant = String(form || "").toLowerCase() === "seller" ? "seller" : "buyer";
 
   if (!normalizedSlug) {
     notFound();
   }
 
+  // If a specific form type is requested, render it directly
+  if (form && FORM_TEMPLATES[form]) {
+    return (
+      <main style={{ minHeight: "100vh", background: "#f8fafc", padding: "24px 16px 48px" }}>
+        <div style={{ maxWidth: 680, margin: "0 auto" }}>
+          <div style={{ marginBottom: 16 }}>
+            <Link
+              href={`/intake/${normalizedSlug}`}
+              style={{ fontSize: 13, color: "var(--ink-muted)", textDecoration: "none" }}
+            >
+              ← Back
+            </Link>
+          </div>
+          <FormRenderer formType={form} agentSlug={normalizedSlug} />
+        </div>
+      </main>
+    );
+  }
+
+  // Default: show the 7-option router
   return (
-    <main className="crm-container" style={{ padding: "12px 0 24px", maxWidth: 760 }}>
-      <h1 style={{ margin: 0 }}>{variant === "seller" ? "Seller inquiry" : "Buyer inquiry"}</h1>
-      <p style={{ marginTop: 8, color: "var(--ink-muted)" }}>
-        Share a few quick details and we&apos;ll follow up with the next best step.
-      </p>
-      <IntakeForm defaultSource={`lead_link_${normalizedSlug}`} variant={variant} />
+    <main style={{ minHeight: "100vh", background: "#f8fafc", padding: "40px 16px 64px" }}>
+      <div style={{ maxWidth: 600, margin: "0 auto" }}>
+        <div style={{ marginBottom: 32, textAlign: "center" }}>
+          <LockboxMark variant="full" decorative style={{ height: 36, marginBottom: 24 }} />
+          <h1 style={{ margin: "0 0 8px", fontSize: "clamp(1.6rem, 4vw, 2.2rem)" }}>
+            What best describes you?
+          </h1>
+          <p style={{ margin: 0, color: "var(--ink-muted, #64748b)", fontSize: 16 }}>
+            Select the option that fits your situation and we&apos;ll get you the right form.
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gap: 12 }}>
+          {FORM_ROUTER_OPTIONS.map((option) => (
+            <Link
+              key={option.form_type}
+              href={`/intake/${normalizedSlug}?form=${option.form_type}`}
+              style={{
+                display: "block",
+                padding: "18px 24px",
+                background: "#ffffff",
+                border: "1.5px solid #e2e8f0",
+                borderRadius: 12,
+                textDecoration: "none",
+                color: "#0f172a",
+                fontWeight: 600,
+                fontSize: 16,
+                transition: "border-color 0.15s, box-shadow 0.15s",
+              }}
+            >
+              {option.label}
+            </Link>
+          ))}
+        </div>
+
+        <p style={{ marginTop: 32, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>
+          Powered by LockboxHQ
+        </p>
+      </div>
     </main>
   );
 }
