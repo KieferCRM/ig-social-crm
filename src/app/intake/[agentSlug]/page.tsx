@@ -54,7 +54,7 @@ export default async function AgentIntakePage({
     <main style={{ minHeight: "100vh", background: "#f8fafc", padding: "40px 16px 64px" }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
         <div style={{ marginBottom: 32, textAlign: "center" }}>
-          <LockboxMark variant="full" decorative style={{ height: 36, marginBottom: 24 }} />
+          <LockboxMark variant="full" decorative />
           <h1 style={{ margin: "0 0 8px", fontSize: "clamp(1.6rem, 4vw, 2.2rem)" }}>
             What best describes you?
           </h1>

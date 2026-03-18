@@ -22,7 +22,7 @@ export default async function FormPage({
     <main style={{ minHeight: "100vh", background: "#f8fafc", padding: "24px 16px 48px" }}>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
         <div style={{ marginBottom: 24 }}>
-          <LockboxMark variant="full" decorative style={{ height: 32 }} />
+          <LockboxMark variant="full" decorative />
         </div>
         <h1 style={{ margin: "0 0 8px", fontSize: "clamp(1.5rem, 3vw, 2rem)" }}>
           {template.title}
