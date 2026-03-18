@@ -2,8 +2,6 @@
 
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function submitDemoRequest(formData: FormData): Promise<{ success: boolean; error?: string }> {
   const name = (formData.get("name") as string)?.trim();
   const email = (formData.get("email") as string)?.trim();
@@ -13,7 +11,13 @@ export async function submitDemoRequest(formData: FormData): Promise<{ success: 
     return { success: false, error: "Name and email are required." };
   }
 
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { success: false, error: "Email service not configured." };
+  }
+
   try {
+    const resend = new Resend(apiKey);
     await resend.emails.send({
       from: "LockboxHQ <onboarding@resend.dev>",
       to: "lockboxhq1@gmail.com",
@@ -22,7 +26,8 @@ export async function submitDemoRequest(formData: FormData): Promise<{ success: 
     });
 
     return { success: true };
-  } catch {
+  } catch (err) {
+    console.error("Resend error:", err);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }
