@@ -160,10 +160,7 @@ export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: s
     },
   ];
 
-  const { error: dealError } = await admin.from("deals").upsert(dealRows, {
-    onConflict: "agent_id,lead_id,property_address",
-    ignoreDuplicates: false,
-  });
+  const { error: dealError } = await admin.from("deals").insert(dealRows);
   if (dealError) {
     throw new Error(dealError.message);
   }
