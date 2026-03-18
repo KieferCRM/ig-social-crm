@@ -4,6 +4,7 @@ import StatusBadge from "@/components/ui/status-badge";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatTagsText, tagsFromSourceDetail } from "@/lib/tags";
+import AddContactPanel from "./add-contact-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,13 @@ function formatLastTouch(value: string | null): string {
   return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-export default async function ContactsPage() {
+export default async function ContactsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const showAddForm = params.add === "true";
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -119,13 +126,17 @@ export default async function ContactsPage() {
             <Link href="/app/intake" className="crm-btn crm-btn-secondary">
               Add from intake
             </Link>
-            <Link href="/app/social" className="crm-btn crm-btn-primary">
-              Open social workflow
+            <Link href="/app/contacts?add=true" className="crm-btn crm-btn-primary">
+              Add contact
             </Link>
           </div>
         </div>
 
-        <div className="crm-inline-actions" style={{ gap: 10, flexWrap: "wrap" }}>
+        {showAddForm ? (
+        <AddContactPanel />
+      ) : null}
+
+      <div className="crm-inline-actions" style={{ gap: 10, flexWrap: "wrap" }}>
           <span className="crm-chip">Contacts: {contacts.length}</span>
           <span className="crm-chip crm-chip-ok">
             With active deals: {contacts.filter((contact) => (dealsByLead.get(contact.id) || []).length > 0).length}

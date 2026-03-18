@@ -237,6 +237,9 @@ export default async function AppHome() {
           <Link href="/app/intake" className="crm-btn crm-btn-secondary">
             Review intake
           </Link>
+          <Link href="/app/contacts?add=true" className="crm-btn crm-btn-secondary">
+            Add contact
+          </Link>
         </div>
       </section>
 
