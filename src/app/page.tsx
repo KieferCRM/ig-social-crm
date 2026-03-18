@@ -5,7 +5,7 @@ import { FEATURE_SIGNUP_ENABLED } from "@/lib/features";
 const howItWorks = [
   {
     title: "Capture every inbound inquiry",
-    body: "Use one intake link across Instagram, Facebook, TikTok, your website, open houses, and QR placements.",
+    body: "Share one intake link on your social profiles, website, open houses, or anywhere you connect with clients.",
   },
   {
     title: "Organize it into a deal automatically",
@@ -20,7 +20,7 @@ const howItWorks = [
 const overviewCards = [
   {
     title: "Inbound capture",
-    body: "Shareable forms, QR-ready intake, and Concierge capture feed the same calm workspace.",
+    body: "One shareable intake link works across social profiles, your website, open houses, and QR placements.",
   },
   {
     title: "Deal-first visibility",
@@ -33,7 +33,7 @@ const overviewCards = [
 ] as const;
 
 const workflowItems = [
-  { label: "New inquiry", source: "Instagram", detail: "Buyer asks about East Nashville and wants to move within 0-3 months." },
+  { label: "New inquiry", source: "Intake form", detail: "Buyer asks about East Nashville and wants to move within 0-3 months." },
   { label: "Hot lead", source: "Open house QR", detail: "Seller gave a direct callback number and needs a quick follow-up." },
   { label: "Next action", source: "Today", detail: "Text Jordan first, then call this afternoon if there is no reply." },
 ] as const;
@@ -64,11 +64,11 @@ export default function HomePage() {
 
         <section className="lockbox-hero lockbox-hero--home">
           <div className="lockbox-hero__intro">
-            <span className="lockbox-hero__eyebrow">Inbound real estate CRM for solo agents</span>
+            <span className="lockbox-hero__eyebrow">Self-filling CRM for solo real estate agents</span>
             <h1>Capture the inquiry, create the deal, and show the next best step.</h1>
             <p className="lockbox-hero__body">
-              LockboxHQ turns inbound form submissions, social inquiries, open-house scans, and Concierge
-              conversations into organized deals without manual CRM entry.
+              LockboxHQ fills itself. Share one intake link anywhere you get clients — social profiles, your
+              website, open houses — and every inquiry lands as an organized deal without manual CRM entry.
             </p>
 
             <div className="lockbox-hero__actions lockbox-hero__actions--home">
@@ -101,10 +101,10 @@ export default function HomePage() {
               <section className="lockbox-preview-spotlight">
                 <div className="lockbox-preview-spotlight__label">Needs attention now</div>
                 <strong>Jordan Mitchell</strong>
-                <p>Buyer inquiry from Instagram. East Nashville. 0-3 month timeframe. Text first.</p>
+                <p>Buyer inquiry via intake form. East Nashville. 0-3 month timeframe. Text first.</p>
                 <div className="lockbox-preview-spotlight__meta">
                   <span>Hot lead</span>
-                  <span>Instagram</span>
+                  <span>Intake form</span>
                   <span>Deal created</span>
                 </div>
               </section>
@@ -159,10 +159,10 @@ export default function HomePage() {
 
         <section className="lockbox-concierge-band lockbox-surface">
           <div className="lockbox-concierge-band__copy">
-            <span className="lockbox-section__eyebrow">Concierge capture</span>
+            <span className="lockbox-section__eyebrow">Concierge capture — coming soon</span>
             <h2>Missed call in. Intake captured. Deal started automatically.</h2>
             <p>
-              LockboxHQ Concierge can text back after a missed call, collect the basics, and feed the same
+              LockboxHQ Concierge will text back after a missed call, collect the basics, and feed the same
               intake and deal workflow your form uses.
             </p>
           </div>
@@ -175,16 +175,16 @@ export default function HomePage() {
 
         <section className="lockbox-final-cta lockbox-surface">
           <div className="lockbox-final-cta__copy">
-            <span className="lockbox-section__eyebrow">Ready to make inbound easier?</span>
-            <h2>Start with a workspace that shows what matters now.</h2>
-            <p>Set up your intake, review seeded sample deals, and start capturing real inquiries fast.</p>
+            <span className="lockbox-section__eyebrow">Ready to see it in action?</span>
+            <h2>Get a personalized demo in minutes.</h2>
+            <p>See how LockboxHQ captures inbound inquiries and turns them into organized deals — no setup required on your end.</p>
           </div>
           <div className="lockbox-final-cta__actions">
-            <Link href={primaryHref} className="lockbox-button lockbox-button-primary">
-              Start your workspace
+            <Link href="/demo" className="lockbox-button lockbox-button-primary">
+              Request a Demo
             </Link>
-            <Link href={secondaryHref} className="lockbox-button lockbox-button-secondary">
-              Sign in
+            <Link href={primaryHref} className="lockbox-button lockbox-button-secondary">
+              Start your workspace
             </Link>
           </div>
         </section>
