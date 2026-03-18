@@ -14,6 +14,7 @@ import {
   type DealLeadSummary,
 } from "@/lib/deals";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
+import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
 import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 
@@ -187,6 +188,7 @@ export default async function AppHome() {
     .filter((deal): deal is TodayDeal => Boolean(deal));
   const recommendations = (recommendationData || []) as RecommendationRow[];
   const workspaceSettings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings || null);
+  const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
   const recentDocuments = workspaceSettings.documents.slice(0, 3);
   const socialReminders = recommendations.filter((item) => {
     const source = typeof item.metadata?.source_channel === "string" ? item.metadata.source_channel : "";
@@ -199,6 +201,17 @@ export default async function AppHome() {
   const staleDeals = activeDeals.filter((deal) => isStale(deal.updatedAt, 5));
   const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
   const trueEmptyWorkspace = leads.length === 0 && deals.length === 0 && recommendations.length === 0;
+  const isOffMarketAccount = onboardingState.account_type === "off_market_agent";
+
+  const heroTitle = isOffMarketAccount
+    ? "Keep acquisition and disposition moving without rebuilding your workflow in notes."
+    : "Keep the deals moving without manual CRM cleanup.";
+  const heroSubtitle = isOffMarketAccount
+    ? "This view keeps seller acquisition, property analysis, buyer follow-up, and the next real action in front of you."
+    : "New intake should become organized work immediately. This page keeps the next call, hottest inquiry, and most active deals in view.";
+  const emptyStateBody = isOffMarketAccount
+    ? "We did not find any deals, contacts, or follow-up items yet. Start by opening intake or sharing a seller or buyer form so the off-market workspace has real acquisition and disposition activity to work with."
+    : "We did not find any deals, contacts, or follow-up items yet. Start by opening intake or sharing a buyer or seller form so the workspace has something real to work with.";
 
   const hotLeadMap = new Map(leads.map((lead) => [lead.id, lead]));
   const attentionRows = recommendations.slice(0, 5).map((item) => {
@@ -223,12 +236,9 @@ export default async function AppHome() {
         <div>
           <p className="crm-page-kicker">Today</p>
           <h2 className="crm-page-title" style={{ marginTop: 6 }}>
-            Keep the deals moving without manual CRM cleanup.
+            {heroTitle}
           </h2>
-          <p className="crm-page-subtitle">
-            New intake should become organized work immediately. This page keeps the next call,
-            hottest inquiry, and most active deals in view.
-          </p>
+          <p className="crm-page-subtitle">{heroSubtitle}</p>
         </div>
         <div className="crm-inline-actions">
           <Link href="/app/deals" className="crm-btn crm-btn-primary">
@@ -273,7 +283,7 @@ export default async function AppHome() {
           <EmptyState
             eyebrow="First workspace view"
             title="Your workspace is ready."
-            body="We did not find any deals, contacts, or follow-up items yet. Start by opening intake or sharing a buyer or seller form so the workspace has something real to work with."
+            body={emptyStateBody}
             action={
               <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                 <Link href="/app/intake" className="crm-btn crm-btn-primary">

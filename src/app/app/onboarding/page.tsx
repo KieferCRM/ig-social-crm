@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function OnboardingRedirectPage() {
-  redirect("/app");
+  redirect("/setup/account-type");
 }

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import LockboxMark from "@/components/branding/lockbox-mark";
-import DemoRequestForm from "@/components/demo-request-form";
 import { FEATURE_SIGNUP_ENABLED } from "@/lib/features";
 
 const howItWorks = [
@@ -40,8 +39,9 @@ const workflowItems = [
 ] as const;
 
 export default function HomePage() {
-  const signInHref = "/auth";
-  const signUpHref = "/auth?mode=sign_up";
+  const signInHref = "/auth?track=solo_agent";
+  const signUpHref = "/auth?mode=sign_up&track=solo_agent";
+  const offMarketHref = "/off-market";
 
   return (
     <main className="lockbox-marketing lockbox-marketing--home">
@@ -57,22 +57,28 @@ export default function HomePage() {
             <Link href={signInHref} className="lockbox-button lockbox-button-secondary">
               Sign In
             </Link>
+            <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
+              Start Solo workspace
+            </Link>
           </div>
         </header>
 
         <section className="lockbox-hero lockbox-hero--home">
           <div className="lockbox-hero__intro">
-            <span className="lockbox-hero__eyebrow">Early access — now accepting beta testers</span>
-            <h1>The CRM that fills itself so you can focus on closing.</h1>
+            <span className="lockbox-hero__eyebrow">Solo Agent path</span>
+            <h1>The self-filling CRM for solo agents handling inbound every day.</h1>
             <p className="lockbox-hero__body">
-              LockboxHQ captures every inbound inquiry through a single intake link and automatically
-              creates organized deals — no manual data entry, no missed follow-ups.
+              LockboxHQ captures website, social, QR, and direct inbound inquiries, then turns them into organized
+              deals without manual CRM entry.
             </p>
 
             <div className="lockbox-hero__actions lockbox-hero__actions--home">
-              <a href="#demo" className="lockbox-button lockbox-button-primary">
-                Request Early Access
-              </a>
+              <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
+                Start Solo workspace
+              </Link>
+              <Link href={offMarketHref} className="lockbox-button lockbox-button-secondary">
+                Off-Market Agent?
+              </Link>
             </div>
 
             {!FEATURE_SIGNUP_ENABLED ? (
@@ -138,7 +144,7 @@ export default function HomePage() {
 
         <section className="lockbox-section">
           <div className="lockbox-section__header">
-            <span className="lockbox-section__eyebrow">Why agents love it</span>
+            <span className="lockbox-section__eyebrow">Why solo agents use it</span>
             <h2>Built to save time, not create more work.</h2>
           </div>
 
@@ -154,27 +160,34 @@ export default function HomePage() {
 
         <section className="lockbox-concierge-band lockbox-surface">
           <div className="lockbox-concierge-band__copy">
-            <span className="lockbox-section__eyebrow">AI Concierge — coming soon</span>
-            <h2>Never lose a lead to a missed call again.</h2>
+            <span className="lockbox-section__eyebrow">Need a different fit?</span>
+            <h2>Off-market agents get a separate entry path.</h2>
             <p>
-              When a potential client calls and you can't answer, AI Concierge automatically follows up
-              via text, collects their details, and creates a deal in your CRM — without you lifting a finger.
+              If your workflow is more acquisition and disposition than general inbound, start from the Off-Market
+              landing page. You will still confirm your path after signup.
             </p>
           </div>
           <div className="lockbox-concierge-band__steps">
-            <span>Missed call</span>
-            <span>Automatic text follow-up</span>
-            <span>Deal created in CRM</span>
+            <span>Seller acquisition</span>
+            <span>Property control</span>
+            <span>Buyer disposition</span>
           </div>
         </section>
 
-        <section id="demo" className="lockbox-final-cta lockbox-surface">
+        <section className="lockbox-final-cta lockbox-surface">
           <div className="lockbox-final-cta__copy">
-            <span className="lockbox-section__eyebrow">Ready to see it in action?</span>
-            <h2>Get a personalized demo in minutes.</h2>
-            <p>See how LockboxHQ captures inbound inquiries and turns them into organized deals — no setup required on your end.</p>
+            <span className="lockbox-section__eyebrow">Ready to start?</span>
+            <h2>Create your workspace and choose your path after signup.</h2>
+            <p>Solo Agent starts here. Off-Market Agent has its own landing page and the same shared setup flow.</p>
           </div>
-          <DemoRequestForm />
+          <div className="lockbox-final-cta__actions">
+            <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
+              Start Solo workspace
+            </Link>
+            <Link href={offMarketHref} className="lockbox-button lockbox-button-secondary">
+              View Off-Market path
+            </Link>
+          </div>
         </section>
 
         <footer className="lockbox-footer lockbox-footer--slim">

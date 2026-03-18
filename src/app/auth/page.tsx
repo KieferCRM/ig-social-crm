@@ -10,23 +10,30 @@ import { FEATURE_SIGNUP_ENABLED, PRODUCT_NAME } from "@/lib/features";
 type AuthMode = "sign_in" | "sign_up" | "recovery";
 type BusyAction = "sign_in" | "sign_up" | "forgot" | "reset" | null;
 
-type BootstrapResponse = {
-  ok?: boolean;
-  already_initialized?: boolean;
-  seeded_sample_workspace_data?: boolean;
-  error?: string;
-};
+type Track = "solo_agent" | "off_market_agent";
 
-const valueBullets = [
+const SOLO_VALUE_BULLETS = [
   "Capture website, social, and QR-code inquiries automatically",
   "Turn inbound details into organized deals without manual re-entry",
   "See what needs follow-up today without digging through tabs",
 ];
 
-const previewRows = [
+const OFF_MARKET_VALUE_BULLETS = [
+  "Capture seller acquisition leads and buyer responses from social and outreach",
+  "Organize property analysis, controlled deals, and disposition follow-up in one place",
+  "Keep tags, buyer lists, and next steps visible without working out of notes",
+];
+
+const SOLO_PREVIEW_ROWS = [
   { source: "Instagram", detail: "Buyer inquiry enters the workspace with a deal and next step", status: "Captured", tone: "ok" },
   { source: "Open house QR", detail: "Seller details arrive ready for intake review", status: "Ready", tone: "warn" },
   { source: "Concierge", detail: "Missed-call follow-up collects the basics automatically", status: "In progress", tone: "default" },
+] as const;
+
+const OFF_MARKET_PREVIEW_ROWS = [
+  { source: "Facebook seller post", detail: "Seller acquisition lead lands with property context and a hot next step", status: "Captured", tone: "ok" },
+  { source: "Direct outreach", detail: "Cash buyer response enters tagged and ready for disposition follow-up", status: "Ready", tone: "warn" },
+  { source: "Today", detail: "Controlled property and buyer blast tasks stay visible without jumping between notes", status: "In progress", tone: "default" },
 ] as const;
 
 function toFriendlyError(message: string): string {
@@ -52,19 +59,20 @@ export default function AuthPage() {
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [track, setTrack] = useState<Track>("solo_agent");
 
   const createAccountLabel = FEATURE_SIGNUP_ENABLED ? "Create Account" : "Request Early Access";
   const isBusy = busyAction !== null;
 
-  const enterTodayPage = useEffectEvent(async () => {
+  const enterWorkspace = useEffectEvent(async () => {
     if (isEnteringWorkspaceRef.current) return;
     isEnteringWorkspaceRef.current = true;
 
-    const bootstrap = await bootstrapWorkspace();
-    if (!bootstrap.ok) {
-      setError(bootstrap.error);
-      setBusyAction(null);
-      isEnteringWorkspaceRef.current = false;
+    if (mode === "sign_up") {
+      router.replace(
+        `/setup/account-type${track === "off_market_agent" ? "?track=off_market_agent" : "?track=solo_agent"}`
+      );
+      router.refresh();
       return;
     }
 
@@ -84,12 +92,12 @@ export default function AuthPage() {
       }
 
       if (event === "SIGNED_IN") {
-        void enterTodayPage();
+        void enterWorkspace();
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase, enterTodayPage]);
+  }, [supabase, enterWorkspace]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +108,7 @@ export default function AuthPage() {
       } = await supabase.auth.getSession();
 
       if (cancelled || !session || mode === "recovery") return;
-      await enterTodayPage();
+      await enterWorkspace();
     }
 
     void restoreActiveSession();
@@ -108,25 +116,28 @@ export default function AuthPage() {
     return () => {
       cancelled = true;
     };
-  }, [mode, supabase, enterTodayPage]);
+  }, [mode, supabase, enterWorkspace]);
 
   useEffect(() => {
-    const requestedMode =
-      typeof window === "undefined"
-        ? null
-        : new URLSearchParams(window.location.search).get("mode");
+    const params =
+      typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+    const requestedMode = params?.get("mode");
+    const requestedTrack = params?.get("track");
     if (requestedMode === "sign_up" || requestedMode === "signup") {
       setMode("sign_up");
       setError(null);
       setMessage(null);
-      return;
     }
-
     if (requestedMode === "sign_in" || requestedMode === "signin") {
       setMode("sign_in");
       setError(null);
       setMessage(null);
     }
+    if (requestedTrack === "off_market_agent") {
+      setTrack("off_market_agent");
+      return;
+    }
+    setTrack("solo_agent");
   }, []);
 
   function switchMode(nextMode: Exclude<AuthMode, "recovery">) {
@@ -149,30 +160,6 @@ export default function AuthPage() {
     return false;
   }
 
-  async function bootstrapWorkspace(): Promise<{ ok: true } | { ok: false; error: string }> {
-    try {
-      const response = await fetch("/api/onboarding/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = (await response.json()) as BootstrapResponse;
-      if (!response.ok || !data.ok) {
-        return {
-          ok: false,
-          error:
-            data.error ||
-            "Your account is ready, but sample workspace setup did not finish.",
-        };
-      }
-      return { ok: true };
-    } catch {
-      return {
-        ok: false,
-        error: "Your account is ready, but sample workspace setup did not finish.",
-      };
-    }
-  }
-
   async function handleSignIn() {
     if (!validateEmail() || !validatePassword()) return;
 
@@ -191,7 +178,7 @@ export default function AuthPage() {
       return;
     }
 
-    await enterTodayPage();
+    await enterWorkspace();
   }
 
   async function handleSignUp() {
@@ -213,7 +200,8 @@ export default function AuthPage() {
     }
 
     if (data.session) {
-      await enterTodayPage();
+      router.replace(`/setup/account-type${track === "off_market_agent" ? "?track=off_market_agent" : "?track=solo_agent"}`);
+      router.refresh();
       return;
     }
 
@@ -223,7 +211,8 @@ export default function AuthPage() {
     });
 
     if (!signInError) {
-      await enterTodayPage();
+      router.replace(`/setup/account-type${track === "off_market_agent" ? "?track=off_market_agent" : "?track=solo_agent"}`);
+      router.refresh();
       return;
     }
 
@@ -304,13 +293,15 @@ export default function AuthPage() {
     mode === "recovery"
       ? "Create a new password to get back into your workspace."
       : mode === "sign_up"
-        ? "Create your workspace, capture inbound inquiries automatically, and open with sample deals so you can see how it works."
+        ? track === "off_market_agent"
+          ? "Create your workspace, then choose the Off-Market Agent path to start with acquisition and disposition-oriented examples."
+          : "Create your workspace, then choose the Solo Agent path to start with broad inbound buyer and seller examples."
         : "Sign in to review new inquiries, update deals faster, and keep follow-up clear.";
   const modeHelper =
     mode === "recovery"
       ? "Use the same email on your account."
       : mode === "sign_up"
-        ? "New here? Create your workspace and go straight into the real intake, deals, and priorities flow."
+        ? "New here? Create your workspace first, then choose the account path that fits how you operate."
         : "Already have an account? Your intake queue, deals, and priorities will be waiting.";
   const primaryLabel =
     busyAction === "sign_in"
@@ -324,6 +315,9 @@ export default function AuthPage() {
             : mode === "recovery"
               ? "Save New Password"
               : "Sign In";
+  const valueBullets = track === "off_market_agent" ? OFF_MARKET_VALUE_BULLETS : SOLO_VALUE_BULLETS;
+  const previewRows = track === "off_market_agent" ? OFF_MARKET_PREVIEW_ROWS : SOLO_PREVIEW_ROWS;
+  const trackLabel = track === "off_market_agent" ? "Off-Market Agent path" : "Solo Agent path";
 
   return (
     <main className="crm-auth-shell">
@@ -338,6 +332,20 @@ export default function AuthPage() {
             <h1 className="crm-auth-title">{heading}</h1>
             <p className="crm-auth-subtitle">{subheading}</p>
             <p className="crm-auth-helper">{modeHelper}</p>
+            {mode === "sign_up" ? (
+              <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
+                <span className="crm-chip crm-chip-ok">{trackLabel}</span>
+                {track === "off_market_agent" ? (
+                  <Link href="/" className="crm-auth-link">
+                    Prefer the Solo page?
+                  </Link>
+                ) : (
+                  <Link href="/off-market" className="crm-auth-link">
+                    Looking for Off-Market?
+                  </Link>
+                )}
+              </div>
+            ) : null}
           </div>
 
           {mode !== "recovery" ? (
@@ -459,10 +467,18 @@ export default function AuthPage() {
         </section>
 
         <aside className="crm-card crm-auth-trust-panel">
-          <div className="crm-auth-panel-kicker">Inbound CRM for solo real estate agents</div>
-          <h2 className="crm-auth-panel-title">Stop manually re-entering inbound inquiries.</h2>
+          <div className="crm-auth-panel-kicker">
+            {track === "off_market_agent" ? "Off-market workflow for solo operators" : "Inbound CRM for solo real estate agents"}
+          </div>
+          <h2 className="crm-auth-panel-title">
+            {track === "off_market_agent"
+              ? "Run acquisition and disposition from one calmer workspace."
+              : "Stop manually re-entering inbound inquiries."}
+          </h2>
           <p className="crm-auth-panel-body">
-            LockboxHQ captures social, form, open-house, and Concierge inquiries, then turns them into organized deals with a clear next action.
+            {track === "off_market_agent"
+              ? "LockboxHQ can open with seller acquisition, property control, and buyer disposition examples so the workspace looks closer to how off-market agents actually operate."
+              : "LockboxHQ captures social, form, open-house, and Concierge inquiries, then turns them into organized deals with a clear next action."}
           </p>
 
           <div className="crm-auth-value-list">
@@ -476,7 +492,9 @@ export default function AuthPage() {
 
           <div className="crm-card-muted crm-auth-preview-card">
             <div className="crm-auth-preview-head">
-              <span className="crm-auth-preview-label">How inquiries enter LockboxHQ</span>
+              <span className="crm-auth-preview-label">
+                {track === "off_market_agent" ? "How the off-market path starts" : "How inquiries enter LockboxHQ"}
+              </span>
               <span className="crm-chip crm-chip-ok">Built in</span>
             </div>
 
@@ -498,9 +516,9 @@ export default function AuthPage() {
           <div className="crm-auth-next-steps">
             <div className="crm-auth-next-steps-title">What happens after you sign in</div>
             <div className="crm-auth-next-steps-list">
-              <div>1. Open Today, Deals, Intake, and Priorities</div>
-              <div>2. Share your intake link and QR code</div>
-              <div>3. Start capturing and working inbound deals</div>
+              <div>1. Choose Solo Agent or Off-Market Agent</div>
+              <div>2. Open Today, Deals, Intake, and Priorities</div>
+              <div>3. Start from a sample workspace that matches your path</div>
             </div>
           </div>
 

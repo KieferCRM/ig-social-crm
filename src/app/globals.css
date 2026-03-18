@@ -3503,6 +3503,68 @@ input:focus, textarea:focus, select:focus {
   font-size: 13px;
 }
 
+.crm-account-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.crm-account-type-card {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.crm-account-type-card strong {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.crm-account-type-card p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.crm-account-type-card:hover {
+  border-color: rgba(var(--accent-rgb), 0.28);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12);
+}
+
+.crm-account-type-card-active {
+  border-color: rgba(var(--accent-rgb), 0.34);
+  background: var(--aiHighlight);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.16);
+}
+
+.crm-account-type-card-disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+  background: var(--surface-muted);
+}
+
+.crm-account-type-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.crm-account-type-card-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--foreground);
+  font-size: 13px;
+}
+
 .crm-demo-banner {
   border: 1px solid rgba(94, 117, 140, 0.34);
   border-radius: 16px;
@@ -4775,6 +4837,324 @@ input:focus, textarea:focus, select:focus {
   max-width: 620px;
 }
 
+.lockbox-offmarket-section-body {
+  margin: 0;
+  color: var(--lockbox-text-secondary);
+  line-height: 1.6;
+}
+
+.lockbox-offmarket-frame {
+  gap: 18px;
+}
+
+.lockbox-offmarket-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lockbox-offmarket-column {
+  border-radius: 18px;
+  border: 1px solid var(--lockbox-border);
+  background: linear-gradient(180deg, var(--lockbox-panel-soft), var(--lockbox-panel-deep));
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.lockbox-offmarket-column__title {
+  color: var(--lockbox-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lockbox-offmarket-mini-card {
+  border-radius: 14px;
+  border: 1px solid var(--lockbox-border);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 10px;
+  display: grid;
+  gap: 5px;
+}
+
+.lockbox-offmarket-mini-card strong {
+  font-size: 0.92rem;
+  color: var(--lockbox-text-primary);
+}
+
+.lockbox-offmarket-mini-card span {
+  color: var(--lockbox-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.lockbox-offmarket-detail-grid,
+.lockbox-offmarket-solution-grid,
+.lockbox-offmarket-doc-grid,
+.lockbox-offmarket-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lockbox-offmarket-ai-panel {
+  border-radius: 20px;
+  border: 1px solid var(--lockbox-border);
+  background:
+    linear-gradient(180deg, rgba(47, 111, 237, 0.08), rgba(255, 255, 255, 0.88)),
+    linear-gradient(180deg, var(--lockbox-panel-soft), var(--lockbox-panel-deep));
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.lockbox-offmarket-ai-panel__kicker,
+.lockbox-offmarket-ai-feature__kicker {
+  color: var(--lockbox-text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lockbox-offmarket-ai-panel__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  color: var(--lockbox-text-primary);
+  font-size: 0.95rem;
+}
+
+.lockbox-offmarket-ai-panel__list li {
+  position: relative;
+  padding-left: 14px;
+  line-height: 1.5;
+}
+
+.lockbox-offmarket-ai-panel__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.58rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--lockbox-accent);
+}
+
+.lockbox-offmarket-proof-strip {
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lockbox-offmarket-proof-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--lockbox-border);
+  background: var(--lockbox-panel-soft);
+  color: var(--lockbox-text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lockbox-offmarket-problem-grid,
+.lockbox-offmarket-steps-grid,
+.lockbox-offmarket-usecase-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.lockbox-offmarket-problem-card,
+.lockbox-offmarket-step-card,
+.lockbox-offmarket-usecase-card {
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.lockbox-offmarket-problem-card__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--lockbox-border);
+  background: var(--lockbox-panel-soft);
+  color: var(--lockbox-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.lockbox-offmarket-problem-card p,
+.lockbox-offmarket-step-card p,
+.lockbox-offmarket-usecase-card p,
+.lockbox-offmarket-doc-support p,
+.lockbox-offmarket-ai-sidecard p {
+  margin: 0;
+  color: var(--lockbox-text-secondary);
+  line-height: 1.6;
+}
+
+.lockbox-offmarket-solution-card,
+.lockbox-offmarket-doc-card,
+.lockbox-offmarket-doc-support,
+.lockbox-offmarket-ai-feature,
+.lockbox-offmarket-ai-sidecard {
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.lockbox-offmarket-solution-card__title,
+.lockbox-offmarket-doc-card__header h3,
+.lockbox-offmarket-doc-support h3,
+.lockbox-offmarket-ai-sidecard h3 {
+  margin: 0;
+  color: var(--lockbox-text-primary);
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+}
+
+.lockbox-offmarket-module-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lockbox-offmarket-module {
+  border-radius: 16px;
+  border: 1px solid var(--lockbox-border);
+  background: var(--lockbox-panel-soft);
+  padding: 12px 13px;
+  color: var(--lockbox-text-primary);
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.lockbox-offmarket-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.lockbox-offmarket-stack-row {
+  border-radius: 16px;
+  border: 1px solid var(--lockbox-border);
+  background: linear-gradient(180deg, var(--lockbox-panel-soft), rgba(255, 255, 255, 0.92));
+  padding: 13px 14px;
+  display: grid;
+  gap: 5px;
+}
+
+.lockbox-offmarket-stack-row strong {
+  color: var(--lockbox-text-primary);
+}
+
+.lockbox-offmarket-stack-row span,
+.lockbox-offmarket-doc-row span,
+.lockbox-offmarket-doc-meta span,
+.lockbox-offmarket-ai-sidecard__summary span {
+  color: var(--lockbox-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.lockbox-offmarket-doc-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lockbox-offmarket-doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lockbox-offmarket-doc-meta span,
+.lockbox-offmarket-doc-support__points span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--lockbox-border);
+  background: var(--lockbox-panel-soft);
+}
+
+.lockbox-offmarket-doc-list {
+  display: grid;
+  gap: 10px;
+}
+
+.lockbox-offmarket-doc-row {
+  border-radius: 16px;
+  border: 1px solid var(--lockbox-border);
+  background: linear-gradient(180deg, var(--lockbox-panel-soft), rgba(255, 255, 255, 0.92));
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lockbox-offmarket-doc-row strong,
+.lockbox-offmarket-ai-sidecard__summary strong {
+  color: var(--lockbox-text-primary);
+  font-size: 0.95rem;
+}
+
+.lockbox-offmarket-doc-support__points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lockbox-offmarket-ai-feature__list {
+  display: grid;
+  gap: 12px;
+}
+
+.lockbox-offmarket-ai-feature__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  color: var(--lockbox-text-secondary);
+  line-height: 1.55;
+}
+
+.lockbox-offmarket-ai-feature__dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--lockbox-accent-bright), var(--lockbox-accent));
+  box-shadow: 0 0 0 5px rgba(47, 111, 237, 0.08);
+}
+
+.lockbox-offmarket-ai-sidecard__summary {
+  border-radius: 16px;
+  border: 1px solid var(--lockbox-border);
+  background: linear-gradient(180deg, rgba(47, 111, 237, 0.07), rgba(255, 255, 255, 0.92));
+  padding: 13px 14px;
+  display: grid;
+  gap: 5px;
+}
+
 .lockbox-footer {
   display: flex;
   align-items: center;
@@ -5454,6 +5834,17 @@ input:focus, textarea:focus, select:focus {
     grid-template-columns: 1fr;
   }
 
+  .lockbox-offmarket-board,
+  .lockbox-offmarket-detail-grid,
+  .lockbox-offmarket-solution-grid,
+  .lockbox-offmarket-doc-grid,
+  .lockbox-offmarket-ai-grid,
+  .lockbox-offmarket-problem-grid,
+  .lockbox-offmarket-steps-grid,
+  .lockbox-offmarket-usecase-grid {
+    grid-template-columns: 1fr;
+  }
+
   .lockbox-preview-columns,
   .lockbox-card-grid--triple {
     grid-template-columns: 1fr;
@@ -5571,7 +5962,15 @@ input:focus, textarea:focus, select:focus {
   .lockbox-hero-frame,
   .lockbox-info-card,
   .lockbox-concierge-band,
-  .lockbox-final-cta {
+  .lockbox-final-cta,
+  .lockbox-offmarket-solution-card,
+  .lockbox-offmarket-doc-card,
+  .lockbox-offmarket-doc-support,
+  .lockbox-offmarket-ai-feature,
+  .lockbox-offmarket-ai-sidecard,
+  .lockbox-offmarket-problem-card,
+  .lockbox-offmarket-step-card,
+  .lockbox-offmarket-usecase-card {
     padding: 18px;
   }
 
@@ -5582,6 +5981,15 @@ input:focus, textarea:focus, select:focus {
   .lockbox-preview-row {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .lockbox-offmarket-doc-card__header,
+  .lockbox-offmarket-doc-row {
+    flex-direction: column;
+  }
+
+  .lockbox-offmarket-module-grid {
+    grid-template-columns: 1fr;
   }
 
   .lockbox-footer {

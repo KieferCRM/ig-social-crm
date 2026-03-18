@@ -1,5 +1,6 @@
 import { buildSyntheticLeadHandle } from "@/lib/leads/identity";
 import { normalizeLeadSourceChannel } from "@/lib/inbound";
+import type { AccountType } from "@/lib/onboarding";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof supabaseAdmin>;
@@ -16,6 +17,8 @@ type SeedLeadInput = {
   notes: string;
   stage: "New" | "Contacted" | "Qualified";
   leadTemp: "Cold" | "Warm" | "Hot";
+  tags?: string[];
+  customFields?: Record<string, unknown>;
 };
 
 type SeedLeadResult = {
@@ -68,10 +71,12 @@ async function insertLead(
         source_detail: {
           sample_workspace: true,
           sample_workspace_label: label,
+          tags: input.tags || [],
         },
         custom_fields: {
           sample_workspace: true,
           sample_workspace_label: label,
+          ...(input.customFields || {}),
         },
       },
       { onConflict: "agent_id,ig_username" }
@@ -93,7 +98,7 @@ async function insertLead(
   };
 }
 
-export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: string) {
+async function seedSoloSampleWorkspaceForAgent(admin: AdminClient, agentId: string) {
   const hotLead = await insertLead(admin, agentId, "hot_buyer", {
     fullName: "[Sample] Mia Parker",
     email: "sample.mia@lockboxhq.test",
@@ -107,6 +112,7 @@ export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: s
       "Sample workspace lead. Buyer inquiry with a near-term timeframe so the agent can see a hot inbound example.",
     stage: "Contacted",
     leadTemp: "Hot",
+    tags: ["buyer", "instagram", "active buyer"],
   });
 
   const warmLead = await insertLead(admin, agentId, "warm_seller", {
@@ -122,6 +128,7 @@ export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: s
       "Sample workspace lead. Seller inquiry with a mid-range timeframe to show a warm follow-up example.",
     stage: "Qualified",
     leadTemp: "Warm",
+    tags: ["seller", "open house", "warm follow-up"],
   });
 
   const coldLead = await insertLead(admin, agentId, "cold_referral", {
@@ -137,6 +144,7 @@ export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: s
       "Sample workspace lead. Longer-term investor inquiry so the agent can see a lower-priority cold lead.",
     stage: "New",
     leadTemp: "Cold",
+    tags: ["investor", "referral"],
   });
 
   const dealRows = [
@@ -216,6 +224,159 @@ export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: s
   if (recommendationError) {
     throw new Error(recommendationError.message);
   }
+}
+
+async function seedOffMarketSampleWorkspaceForAgent(admin: AdminClient, agentId: string) {
+  const sellerLead = await insertLead(admin, agentId, "off_market_seller", {
+    fullName: "[Sample] Marcus Hale",
+    email: "sample.marcus@lockboxhq.test",
+    phone: "(615) 555-0141",
+    intent: "Sell",
+    timeline: "0-3 months",
+    source: "facebook",
+    locationArea: "Wilson County",
+    budgetRange: "$380k-$430k",
+    notes:
+      "Sample off-market seller lead. Property is being analyzed now and the seller wants a quick call about options.",
+    stage: "Contacted",
+    leadTemp: "Hot",
+    tags: ["off-market seller", "motivated seller", "acquisition"],
+    customFields: {
+      account_type: "off_market_agent",
+      workflow_segment: "acquisition",
+    },
+  });
+
+  const buyerLead = await insertLead(admin, agentId, "off_market_buyer", {
+    fullName: "[Sample] Sierra Capital Group",
+    email: "sample.sierra@lockboxhq.test",
+    phone: "(615) 555-0142",
+    intent: "Buy",
+    timeline: "0-3 months",
+    source: "direct_outreach",
+    locationArea: "Nashville investor list",
+    budgetRange: "$300k-$600k",
+    notes:
+      "Sample cash buyer lead. Strong fit for disposition outreach once the property is controlled.",
+    stage: "Qualified",
+    leadTemp: "Warm",
+    tags: ["cash buyer", "buyer blast", "disposition"],
+    customFields: {
+      account_type: "off_market_agent",
+      workflow_segment: "disposition",
+    },
+  });
+
+  const analysisLead = await insertLead(admin, agentId, "off_market_analysis", {
+    fullName: "[Sample] Tori Bennett",
+    email: "sample.tori@lockboxhq.test",
+    phone: "(615) 555-0143",
+    intent: "Sell",
+    timeline: "3-6 months",
+    source: "referral",
+    locationArea: "Murfreesboro",
+    budgetRange: "$450k-$520k",
+    notes:
+      "Sample seller lead that still needs comps and a clearer property conversation before moving forward.",
+    stage: "Qualified",
+    leadTemp: "Warm",
+    tags: ["seller follow-up", "needs comps", "acquisition"],
+    customFields: {
+      account_type: "off_market_agent",
+      workflow_segment: "analysis",
+    },
+  });
+
+  const dealRows = [
+    {
+      agent_id: agentId,
+      lead_id: sellerLead.id,
+      property_address: "[Sample] 214 County Line Rd",
+      deal_type: "listing",
+      price: 405000,
+      stage: "under_contract",
+      notes: "Sample off-market deal. Seller agreement is in place and buyer outreach is next.",
+    },
+    {
+      agent_id: agentId,
+      lead_id: buyerLead.id,
+      property_address: "[Sample] Buyer disposition list",
+      deal_type: "buyer",
+      price: 405000,
+      stage: "showing",
+      notes: "Sample off-market deal. Cash buyer list is active for disposition follow-up.",
+    },
+  ];
+
+  const { error: dealError } = await admin.from("deals").insert(dealRows);
+  if (dealError) {
+    throw new Error(dealError.message);
+  }
+
+  const recommendationRows = [
+    {
+      agent_id: agentId,
+      owner_user_id: agentId,
+      lead_id: sellerLead.id,
+      person_id: null,
+      source_event_id: null,
+      reason_code: "sample_off_market_seller_call",
+      title: "Call [Sample] Marcus Hale now",
+      description: "Hot seller lead. Confirm motivation, property details, and acquisition next steps.",
+      priority: "urgent",
+      status: "open",
+      due_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      metadata: { sample_workspace: true, account_type: "off_market_agent", workflow_segment: "acquisition" },
+    },
+    {
+      agent_id: agentId,
+      owner_user_id: agentId,
+      lead_id: buyerLead.id,
+      person_id: null,
+      source_event_id: null,
+      reason_code: "sample_off_market_buyer_blast",
+      title: "Send buyer blast for 214 County Line Rd",
+      description: "Disposition follow-up is ready. Use your tagged cash buyer list first.",
+      priority: "high",
+      status: "open",
+      due_at: new Date(Date.now() + 2 * 3600_000).toISOString(),
+      metadata: { sample_workspace: true, account_type: "off_market_agent", workflow_segment: "disposition" },
+    },
+    {
+      agent_id: agentId,
+      owner_user_id: agentId,
+      lead_id: analysisLead.id,
+      person_id: null,
+      source_event_id: null,
+      reason_code: "sample_off_market_analysis",
+      title: "Review comps before the next seller call",
+      description: "This seller looks viable, but the property analysis still needs tighter pricing context.",
+      priority: "medium",
+      status: "open",
+      due_at: new Date(Date.now() + 8 * 3600_000).toISOString(),
+      metadata: { sample_workspace: true, account_type: "off_market_agent", workflow_segment: "analysis" },
+    },
+  ];
+
+  const { error: recommendationError } = await admin
+    .from("lead_recommendations")
+    .insert(recommendationRows);
+  if (recommendationError) {
+    throw new Error(recommendationError.message);
+  }
+}
+
+export async function seedSampleWorkspaceForAgent(
+  admin: AdminClient,
+  agentId: string,
+  accountType: AccountType = "solo_agent"
+) {
+  if (accountType === "off_market_agent") {
+    await seedOffMarketSampleWorkspaceForAgent(admin, agentId);
+    return;
+  }
+
+  await seedSoloSampleWorkspaceForAgent(admin, agentId);
 }
 
 export async function clearSampleWorkspaceForAgent(admin: AdminClient, agentId: string) {

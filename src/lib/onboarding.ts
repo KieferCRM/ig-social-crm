@@ -6,10 +6,20 @@ type AgentIdentity = {
 
 export const ONBOARDING_SETTINGS_KEY = "onboarding";
 
+export const ACCOUNT_TYPE_VALUES = [
+  "solo_agent",
+  "off_market_agent",
+  "team_brokerage",
+] as const;
+
+export type AccountType = (typeof ACCOUNT_TYPE_VALUES)[number];
+
 export type OnboardingState = {
   has_completed_onboarding: boolean;
   completed_at: string;
   has_seeded_sample_workspace_data: boolean;
+  account_type: AccountType | null;
+  account_type_selected_at: string;
 };
 
 function slugify(value: string): string {
@@ -44,6 +54,15 @@ export function readOnboardingStateFromAgentSettings(settings: unknown): Onboard
       : false;
   const completedAt =
     typeof raw?.completed_at === "string" ? raw.completed_at.trim() : "";
+  const accountType =
+    typeof raw?.account_type === "string" &&
+    (ACCOUNT_TYPE_VALUES as readonly string[]).includes(raw.account_type)
+      ? (raw.account_type as AccountType)
+      : null;
+  const accountTypeSelectedAt =
+    typeof raw?.account_type_selected_at === "string"
+      ? raw.account_type_selected_at.trim()
+      : "";
 
   return {
     has_completed_onboarding: hasCompleted,
@@ -52,7 +71,13 @@ export function readOnboardingStateFromAgentSettings(settings: unknown): Onboard
       typeof raw?.has_seeded_sample_workspace_data === "boolean"
         ? raw.has_seeded_sample_workspace_data
         : false,
+    account_type: accountType,
+    account_type_selected_at: accountTypeSelectedAt,
   };
+}
+
+export function needsAccountTypeSetup(state: OnboardingState): boolean {
+  return !state.account_type && !state.has_completed_onboarding;
 }
 
 export function mergeOnboardingIntoAgentSettings(
