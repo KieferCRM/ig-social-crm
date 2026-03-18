@@ -61,8 +61,8 @@ async function insertLead(
         notes: input.notes,
         contact_preference: "Text",
         time_last_updated: new Date().toISOString(),
-        latest_source_method: "sample_workspace",
-        first_source_method: "sample_workspace",
+        latest_source_method: "manual",
+        first_source_method: "manual",
         first_source_channel: leadSourceChannel,
         latest_source_channel: leadSourceChannel,
         source_detail: {
