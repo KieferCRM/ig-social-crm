@@ -204,7 +204,6 @@ export default function AccountTypeClient({ recommendedType }: Props) {
 
           <div className="crm-auth-links">
             <Link href="/">Solo landing</Link>
-            <Link href="/off-market">Off-market landing</Link>
             <Link href="/auth">Back to auth</Link>
           </div>
         </aside>

@@ -335,15 +335,9 @@ export default function AuthPage() {
             {mode === "sign_up" ? (
               <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                 <span className="crm-chip crm-chip-ok">{trackLabel}</span>
-                {track === "off_market_agent" ? (
-                  <Link href="/" className="crm-auth-link">
-                    Prefer the Solo page?
-                  </Link>
-                ) : (
-                  <Link href="/off-market" className="crm-auth-link">
-                    Looking for Off-Market?
-                  </Link>
-                )}
+                <Link href="/" className="crm-auth-link">
+                  Back to home
+                </Link>
               </div>
             ) : null}
           </div>

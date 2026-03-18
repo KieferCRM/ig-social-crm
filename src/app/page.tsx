@@ -41,7 +41,6 @@ const workflowItems = [
 export default function HomePage() {
   const signInHref = "/auth?track=solo_agent";
   const signUpHref = "/auth?mode=sign_up&track=solo_agent";
-  const offMarketHref = "/off-market";
 
   return (
     <main className="lockbox-marketing lockbox-marketing--home">
@@ -76,8 +75,8 @@ export default function HomePage() {
               <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
                 Start Solo workspace
               </Link>
-              <Link href={offMarketHref} className="lockbox-button lockbox-button-secondary">
-                Off-Market Agent?
+              <Link href="/auth?mode=sign_up" className="lockbox-button lockbox-button-secondary">
+                See How It Works
               </Link>
             </div>
 
@@ -158,34 +157,18 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="lockbox-concierge-band lockbox-surface">
-          <div className="lockbox-concierge-band__copy">
-            <span className="lockbox-section__eyebrow">Need a different fit?</span>
-            <h2>Off-market agents get a separate entry path.</h2>
-            <p>
-              If your workflow is more acquisition and disposition than general inbound, start from the Off-Market
-              landing page. You will still confirm your path after signup.
-            </p>
-          </div>
-          <div className="lockbox-concierge-band__steps">
-            <span>Seller acquisition</span>
-            <span>Property control</span>
-            <span>Buyer disposition</span>
-          </div>
-        </section>
-
         <section className="lockbox-final-cta lockbox-surface">
           <div className="lockbox-final-cta__copy">
             <span className="lockbox-section__eyebrow">Ready to start?</span>
             <h2>Create your workspace and choose your path after signup.</h2>
-            <p>Solo Agent starts here. Off-Market Agent has its own landing page and the same shared setup flow.</p>
+            <p>Start here, create your workspace, and choose the path that fits how you work during setup.</p>
           </div>
           <div className="lockbox-final-cta__actions">
             <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
               Start Solo workspace
             </Link>
-            <Link href={offMarketHref} className="lockbox-button lockbox-button-secondary">
-              View Off-Market path
+            <Link href={signInHref} className="lockbox-button lockbox-button-secondary">
+              Sign In
             </Link>
           </div>
         </section>
