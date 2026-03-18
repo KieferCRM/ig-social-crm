@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import LockboxMark from "@/components/branding/lockbox-mark";
 import { PRODUCT_NAME } from "@/lib/features";
+import { usePreviewMode } from "@/lib/use-preview-mode";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const preview = usePreviewMode();
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -153,10 +155,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="crm-sidebar-footer">
-          <span className="crm-chip crm-sidebar-mode-chip">LIVE WORKSPACE</span>
-          <button onClick={handleLogout} className="crm-btn crm-btn-secondary crm-sidebar-logout">
-            Logout
-          </button>
+          <span className="crm-chip crm-sidebar-mode-chip">
+            {preview ? "PREVIEW WORKSPACE" : "LIVE WORKSPACE"}
+          </span>
+          {preview ? (
+            <Link href="/preview/off" className="crm-btn crm-btn-secondary crm-sidebar-logout">
+              Exit preview
+            </Link>
+          ) : (
+            <button onClick={handleLogout} className="crm-btn crm-btn-secondary crm-sidebar-logout">
+              Logout
+            </button>
+          )}
         </div>
       </aside>
 

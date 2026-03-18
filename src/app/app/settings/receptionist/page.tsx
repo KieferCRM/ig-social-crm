@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { usePreviewMode } from "@/lib/use-preview-mode";
 import {
   DEFAULT_RECEPTIONIST_SETTINGS,
   type ReceptionistPhoneSetupPath,
@@ -200,6 +201,7 @@ function Field({ label, helper, children }: FieldProps) {
 }
 
 export default function ReceptionistSettingsPage() {
+  const preview = usePreviewMode();
   const conciergeLocked = true;
   const [settings, setSettings] = useState<ReceptionistSettings>(DEFAULT_RECEPTIONIST_SETTINGS);
   const [keywordsText, setKeywordsText] = useState(
@@ -254,6 +256,26 @@ export default function ReceptionistSettingsPage() {
     let canceled = false;
 
     async function loadSettings() {
+      if (preview) {
+        const previewSettings: ReceptionistSettings = {
+          ...DEFAULT_RECEPTIONIST_SETTINGS,
+          business_phone_number: "(615) 555-0188",
+          forwarding_phone_number: "(615) 555-0100",
+          notification_phone_number: "(615) 555-0100",
+          custom_greeting: "Hi, this is LockboxHQ Concierge. Tell me a little about your property or what you are looking for and we will follow up shortly.",
+          phone_setup_path: "lockbox_number",
+          phone_setup_status: "assigned",
+          business_number_provider: "preview",
+        };
+        if (!canceled) {
+          setSettings(previewSettings);
+          setKeywordsText(keywordsToText(previewSettings.escalation_keywords));
+          setMessage("Preview mode only.");
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
         const response = await fetch("/api/receptionist/settings", { cache: "no-store" });
         const payload = (await response.json()) as SettingsResponse;
@@ -279,7 +301,7 @@ export default function ReceptionistSettingsPage() {
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [preview]);
 
   function selectPhoneSetupPath(nextPath: ReceptionistPhoneSetupPath) {
     setSettings((previous) => {
@@ -311,6 +333,11 @@ export default function ReceptionistSettingsPage() {
   }
 
   async function assignLockboxNumber() {
+    if (preview) {
+      setMessage("Preview mode only.");
+      return;
+    }
+
     setAssigningNumber(true);
     setMessage("");
 
@@ -338,6 +365,11 @@ export default function ReceptionistSettingsPage() {
   }
 
   async function saveSettings() {
+    if (preview) {
+      setMessage("Preview mode only.");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 

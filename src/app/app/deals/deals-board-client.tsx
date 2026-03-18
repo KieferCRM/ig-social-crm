@@ -19,6 +19,7 @@ import {
   type DealWithLead,
 } from "@/lib/deals";
 import { normalizeSourceChannel, sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
+import { PREVIEW_DEALS } from "@/lib/preview-data";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type DealDraft = {
@@ -146,7 +147,7 @@ function mapDealRow(row: DealRow): DealWithLead | null {
 type SourceFilter = "all" | "instagram" | "facebook" | "tiktok" | "website_form" | "open_house" | "concierge" | "referral" | "manual" | "other";
 type TempFilter = "all" | "Hot" | "Warm" | "Cold";
 
-export default function DealsBoardClient() {
+export default function DealsBoardClient({ preview = false }: { preview?: boolean }) {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [deals, setDeals] = useState<DealWithLead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,6 +181,18 @@ export default function DealsBoardClient() {
 
   useEffect(() => {
     async function loadDeals() {
+      if (preview) {
+        setDeals(
+          [...PREVIEW_DEALS]
+            .map((row) => mapDealRow(row as unknown as DealRow))
+            .filter((row): row is DealWithLead => Boolean(row))
+        );
+        setAgentId("preview-agent");
+        setStatus("Preview mode only.");
+        setLoading(false);
+        return;
+      }
+
       const {
         data: { user },
         error: userError,
@@ -217,7 +230,7 @@ export default function DealsBoardClient() {
     }
 
     void loadDeals();
-  }, [supabase]);
+  }, [preview, supabase]);
 
   const filteredDeals = useMemo(() => {
     return deals.filter((deal) => {
@@ -255,6 +268,12 @@ export default function DealsBoardClient() {
   }
 
   async function persistDealPatch(dealId: string, patch: Partial<DealWithLead>) {
+    if (preview) {
+      patchDealLocal(dealId, { ...patch, updated_at: new Date().toISOString() });
+      setStatus("Preview mode only.");
+      return true;
+    }
+
     const previous = deals;
     const updatedAt = new Date().toISOString();
     patchDealLocal(dealId, { ...patch, updated_at: updatedAt });
@@ -304,6 +323,21 @@ export default function DealsBoardClient() {
     }
 
     setSavingDraft(true);
+
+    if (preview) {
+      patchDealLocal(selectedDeal.id, {
+        property_address: propertyAddress,
+        price: parsedPrice,
+        stage: draft.stage,
+        expected_close_date: draft.expected_close_date.trim() || null,
+        notes: draft.notes.trim() || null,
+        updated_at: new Date().toISOString(),
+      });
+      setSavingDraft(false);
+      setDraftDirty(false);
+      setStatus("Preview mode only.");
+      return;
+    }
 
     const ok = await persistDealPatch(selectedDeal.id, {
       property_address: propertyAddress,

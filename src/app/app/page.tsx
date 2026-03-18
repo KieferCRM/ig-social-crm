@@ -14,6 +14,13 @@ import {
   type DealLeadSummary,
 } from "@/lib/deals";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
+import {
+  PREVIEW_DEALS,
+  PREVIEW_DOCUMENTS,
+  PREVIEW_LEADS,
+  PREVIEW_RECOMMENDATIONS,
+} from "@/lib/preview-data";
+import { isPreviewModeServer } from "@/lib/preview-mode";
 import { supabaseServer } from "@/lib/supabase/server";
 import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 
@@ -145,49 +152,65 @@ function mapDealRow(row: DealRow): TodayDeal | null {
 }
 
 export default async function AppHome() {
+  const preview = await isPreviewModeServer();
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user && !preview) {
     redirect("/auth");
   }
 
-  const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
+  let leads: LeadRow[] = [];
+  let deals: TodayDeal[] = [];
+  let recommendations: RecommendationRow[] = [];
+  let recentDocuments = PREVIEW_DOCUMENTS.slice(0, 3);
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }] = await Promise.all([
-    supabase
-      .from("leads")
-      .select(
-        "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,stage,source,intent,timeline,location_area,budget_range,notes,time_last_updated"
-      )
-      .eq("agent_id", user.id)
-      .order("time_last_updated", { ascending: false }),
-    supabase
-      .from("deals")
-      .select(
-        "id,lead_id,property_address,price,stage,deal_type,updated_at,expected_close_date,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,source,intent,timeline,location_area)"
-      )
-      .eq("agent_id", user.id)
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("lead_recommendations")
-      .select("id,lead_id,title,description,priority,due_at,metadata")
-      .or(recommendationOwnerFilter)
-      .eq("status", "open")
-      .order("created_at", { ascending: false })
-      .limit(12),
-    supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
-  ]);
+  if (preview && !user) {
+    leads = [...PREVIEW_LEADS] as unknown as LeadRow[];
+    deals = [...PREVIEW_DEALS]
+      .map((row) => mapDealRow(row as unknown as DealRow))
+      .filter((deal): deal is TodayDeal => Boolean(deal));
+    recommendations = [...PREVIEW_RECOMMENDATIONS] as unknown as RecommendationRow[];
+  } else if (user) {
+    const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
-  const deals = ((dealData || []) as DealRow[])
-    .map(mapDealRow)
-    .filter((deal): deal is TodayDeal => Boolean(deal));
-  const recommendations = (recommendationData || []) as RecommendationRow[];
-  const workspaceSettings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings || null);
-  const recentDocuments = workspaceSettings.documents.slice(0, 3);
+    const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }] =
+      await Promise.all([
+        supabase
+          .from("leads")
+          .select(
+            "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,stage,source,intent,timeline,location_area,budget_range,notes,time_last_updated"
+          )
+          .eq("agent_id", user.id)
+          .order("time_last_updated", { ascending: false }),
+        supabase
+          .from("deals")
+          .select(
+            "id,lead_id,property_address,price,stage,deal_type,updated_at,expected_close_date,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,source,intent,timeline,location_area)"
+          )
+          .eq("agent_id", user.id)
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("lead_recommendations")
+          .select("id,lead_id,title,description,priority,due_at,metadata")
+          .or(recommendationOwnerFilter)
+          .eq("status", "open")
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
+      ]);
+
+    leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
+    deals = ((dealData || []) as DealRow[])
+      .map(mapDealRow)
+      .filter((deal): deal is TodayDeal => Boolean(deal));
+    recommendations = (recommendationData || []) as RecommendationRow[];
+    const workspaceSettings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings || null);
+    recentDocuments = workspaceSettings.documents.slice(0, 3);
+  }
+
   const socialReminders = recommendations.filter((item) => {
     const source = typeof item.metadata?.source_channel === "string" ? item.metadata.source_channel : "";
     const normalized = source.toLowerCase();

@@ -24,9 +24,11 @@ const SOURCE_OPTIONS: SourceChannel[] = [
 export default function ManualLeadForm({
   onSaved,
   onCancel,
+  preview = false,
 }: {
   onSaved?: (lead: LeadListRow) => void;
   onCancel?: () => void;
+  preview?: boolean;
 }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -44,6 +46,11 @@ export default function ManualLeadForm({
   const [message, setMessage] = useState("");
 
   async function saveLead() {
+    if (preview) {
+      setMessage("Preview mode only.");
+      return;
+    }
+
     const handle = igUsername.trim();
     const cleanName = fullName.trim();
     const cleanEmail = email.trim();
@@ -176,7 +183,7 @@ export default function ManualLeadForm({
 
       <div className="crm-inline-actions">
         <button onClick={() => void saveLead()} disabled={saving} className="crm-btn crm-btn-primary">
-          {saving ? "Saving..." : "Add lead"}
+          {preview ? "Preview only" : saving ? "Saving..." : "Add lead"}
         </button>
         {onCancel ? (
           <button type="button" onClick={onCancel} className="crm-btn crm-btn-secondary">

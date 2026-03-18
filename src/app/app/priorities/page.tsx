@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import StatusBadge from "@/components/ui/status-badge";
 import { dealStageLabel, dealStageTone, normalizeDealStage } from "@/lib/deals";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
+import { PREVIEW_DEALS, PREVIEW_RECOMMENDATIONS } from "@/lib/preview-data";
+import { isPreviewModeServer } from "@/lib/preview-mode";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -45,35 +47,43 @@ function recommendationTone(priority: RecommendationRow["priority"]): "default" 
 }
 
 export default async function PrioritiesPage() {
+  const preview = await isPreviewModeServer();
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user && !preview) {
     redirect("/auth");
   }
 
-  const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
+  let recommendations: RecommendationRow[] = [];
+  let staleDeals: DealRow[] = [];
 
-  const [{ data: recommendationData }, { data: dealData }] = await Promise.all([
-    supabase
-      .from("lead_recommendations")
-      .select("id,lead_id,title,description,priority,due_at,metadata")
-      .or(recommendationOwnerFilter)
-      .eq("status", "open")
-      .order("created_at", { ascending: false })
-      .limit(18),
-    supabase
-      .from("deals")
-      .select("id,property_address,stage,updated_at")
-      .eq("agent_id", user.id)
-      .order("updated_at", { ascending: true })
-      .limit(18),
-  ]);
+  if (preview && !user) {
+    recommendations = [...PREVIEW_RECOMMENDATIONS] as unknown as RecommendationRow[];
+    staleDeals = ([...PREVIEW_DEALS] as unknown as DealRow[]).filter((deal) => isStale(deal.updated_at)).slice(0, 6);
+  } else if (user) {
+    const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
+    const [{ data: recommendationData }, { data: dealData }] = await Promise.all([
+      supabase
+        .from("lead_recommendations")
+        .select("id,lead_id,title,description,priority,due_at,metadata")
+        .or(recommendationOwnerFilter)
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(18),
+      supabase
+        .from("deals")
+        .select("id,property_address,stage,updated_at")
+        .eq("agent_id", user.id)
+        .order("updated_at", { ascending: true })
+        .limit(18),
+    ]);
 
-  const recommendations = (recommendationData || []) as RecommendationRow[];
-  const staleDeals = ((dealData || []) as DealRow[]).filter((deal) => isStale(deal.updated_at)).slice(0, 6);
+    recommendations = (recommendationData || []) as RecommendationRow[];
+    staleDeals = ((dealData || []) as DealRow[]).filter((deal) => isStale(deal.updated_at)).slice(0, 6);
+  }
 
   const contactNow = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
   const canWait = recommendations.filter((item) => item.priority === "medium" || item.priority === "low");

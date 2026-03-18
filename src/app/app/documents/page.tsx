@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { PREVIEW_DEALS, PREVIEW_DOCUMENTS, PREVIEW_LEADS } from "@/lib/preview-data";
+import { isPreviewModeServer } from "@/lib/preview-mode";
 import { supabaseServer } from "@/lib/supabase/server";
 import DocumentsClient from "./documents-client";
 
@@ -27,41 +29,57 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string | nu
 }
 
 export default async function DocumentsPage() {
+  const preview = await isPreviewModeServer();
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user && !preview) {
     redirect("/auth");
   }
 
-  const [{ data: leadData }, { data: dealData }] = await Promise.all([
-    supabase
-      .from("leads")
-      .select("id,full_name,canonical_email,canonical_phone,ig_username")
-      .eq("agent_id", user.id)
-      .order("time_last_updated", { ascending: false })
-      .limit(80),
-    supabase
-      .from("deals")
-      .select("id,property_address")
-      .eq("agent_id", user.id)
-      .order("updated_at", { ascending: false })
-      .limit(80),
-  ]);
+  let leads: Array<{ id: string; label: string }> = [];
+  let deals: Array<{ id: string; label: string }> = [];
 
-  const leads = ((leadData || []) as LeadRow[]).map((lead) => ({
-    id: lead.id,
-    label:
-      firstNonEmpty(lead.full_name, lead.canonical_email, lead.canonical_phone) ||
-      (lead.ig_username ? `@${lead.ig_username}` : "Unnamed contact"),
-  }));
+  if (preview && !user) {
+    leads = ([...PREVIEW_LEADS] as unknown as LeadRow[]).map((lead) => ({
+      id: lead.id,
+      label:
+        firstNonEmpty(lead.full_name, lead.canonical_email, lead.canonical_phone) ||
+        (lead.ig_username ? `@${lead.ig_username}` : "Unnamed contact"),
+    }));
+    deals = ([...PREVIEW_DEALS] as unknown as DealRow[]).map((deal) => ({
+      id: deal.id,
+      label: firstNonEmpty(deal.property_address) || "Untitled deal",
+    }));
+  } else if (user) {
+    const [{ data: leadData }, { data: dealData }] = await Promise.all([
+      supabase
+        .from("leads")
+        .select("id,full_name,canonical_email,canonical_phone,ig_username")
+        .eq("agent_id", user.id)
+        .order("time_last_updated", { ascending: false })
+        .limit(80),
+      supabase
+        .from("deals")
+        .select("id,property_address")
+        .eq("agent_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(80),
+    ]);
 
-  const deals = ((dealData || []) as DealRow[]).map((deal) => ({
-    id: deal.id,
-    label: firstNonEmpty(deal.property_address) || "Untitled deal",
-  }));
+    leads = ((leadData || []) as LeadRow[]).map((lead) => ({
+      id: lead.id,
+      label:
+        firstNonEmpty(lead.full_name, lead.canonical_email, lead.canonical_phone) ||
+        (lead.ig_username ? `@${lead.ig_username}` : "Unnamed contact"),
+    }));
+    deals = ((dealData || []) as DealRow[]).map((deal) => ({
+      id: deal.id,
+      label: firstNonEmpty(deal.property_address) || "Untitled deal",
+    }));
+  }
 
   return (
     <main className="crm-page crm-page-wide crm-stack-12">
@@ -78,7 +96,12 @@ export default async function DocumentsPage() {
         </div>
       </section>
 
-      <DocumentsClient deals={deals} leads={leads} />
+      <DocumentsClient
+        deals={deals}
+        leads={leads}
+        preview={preview && !user}
+        initialDocuments={preview && !user ? PREVIEW_DOCUMENTS : undefined}
+      />
     </main>
   );
 }

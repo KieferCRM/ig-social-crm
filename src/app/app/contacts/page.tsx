@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import StatusBadge from "@/components/ui/status-badge";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
+import { PREVIEW_DEALS, PREVIEW_LEADS } from "@/lib/preview-data";
+import { isPreviewModeServer } from "@/lib/preview-mode";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatTagsText, tagsFromSourceDetail } from "@/lib/tags";
 
@@ -58,33 +60,46 @@ function formatLastTouch(value: string | null): string {
 }
 
 export default async function ContactsPage() {
+  const preview = await isPreviewModeServer();
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user && !preview) {
     redirect("/auth");
   }
 
-  const [{ data: contactData }, { data: dealData }] = await Promise.all([
-    supabase
-      .from("leads")
-      .select(
-        "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,stage,lead_temp,source,intent,timeline,time_last_updated,source_detail"
-      )
-      .eq("agent_id", user.id)
-      .order("time_last_updated", { ascending: false })
-      .limit(60),
-    supabase
-      .from("deals")
-      .select("id,lead_id,stage")
-      .eq("agent_id", user.id)
-      .order("updated_at", { ascending: false }),
-  ]);
+  let contacts: ContactRow[] = [];
+  let deals: DealSummary[] = [];
 
-  const contacts = (contactData || []) as ContactRow[];
-  const deals = (dealData || []) as DealSummary[];
+  if (preview && !user) {
+    contacts = [...PREVIEW_LEADS] as unknown as ContactRow[];
+    deals = [...PREVIEW_DEALS].map((deal) => ({
+      id: deal.id,
+      lead_id: deal.lead_id,
+      stage: deal.stage,
+    }));
+  } else if (user) {
+    const [{ data: contactData }, { data: dealData }] = await Promise.all([
+      supabase
+        .from("leads")
+        .select(
+          "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,stage,lead_temp,source,intent,timeline,time_last_updated,source_detail"
+        )
+        .eq("agent_id", user.id)
+        .order("time_last_updated", { ascending: false })
+        .limit(60),
+      supabase
+        .from("deals")
+        .select("id,lead_id,stage")
+        .eq("agent_id", user.id)
+        .order("updated_at", { ascending: false }),
+    ]);
+
+    contacts = (contactData || []) as ContactRow[];
+    deals = (dealData || []) as DealSummary[];
+  }
   const dealsByLead = new Map<string, DealSummary[]>();
   for (const deal of deals) {
     if (!deal.lead_id) continue;

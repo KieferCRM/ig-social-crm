@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "@/components/ui/status-badge";
 import IntakeShareKit from "@/components/intake/intake-share-kit";
 import ManualLeadForm from "@/app/app/list/manual-lead-form";
+import { PREVIEW_INTAKE_SUBMISSIONS } from "@/lib/preview-data";
 import { sourceChannelTone } from "@/lib/inbound";
+import { usePreviewMode } from "@/lib/use-preview-mode";
 
 type Submission = {
   id: string;
@@ -47,6 +49,7 @@ function temperatureTone(value: string): "lead-hot" | "lead-warm" | "lead-cold" 
 }
 
 export default function IntakeWorkspacePage() {
+  const preview = usePreviewMode();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +63,17 @@ export default function IntakeWorkspacePage() {
     let active = true;
 
     async function loadSubmissions() {
+      if (preview) {
+        const nextSubmissions = [...PREVIEW_INTAKE_SUBMISSIONS] as unknown as Submission[];
+        setSubmissions(nextSubmissions);
+        setSelectedId((current) =>
+          nextSubmissions.some((item) => item.id === current) ? current : nextSubmissions[0]?.id || ""
+        );
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         const response = await fetch("/api/intake/submissions", { cache: "no-store" });
@@ -87,7 +101,7 @@ export default function IntakeWorkspacePage() {
     return () => {
       active = false;
     };
-  }, [reloadToken]);
+  }, [preview, reloadToken]);
 
   const selectedSubmission = useMemo(
     () => submissions.find((item) => item.id === selectedId) || submissions[0] || null,
@@ -146,7 +160,7 @@ export default function IntakeWorkspacePage() {
             >
               {showManualForm ? "Close manual entry" : "Add lead manually"}
             </button>
-            {sampleCount > 0 ? (
+            {!preview && sampleCount > 0 ? (
               <button
                 type="button"
                 className="crm-btn crm-btn-secondary"
@@ -171,6 +185,7 @@ export default function IntakeWorkspacePage() {
             {sampleMessage}
           </div>
         ) : null}
+        {preview ? <div className="crm-chip">Preview mode only. Forms and sample actions are read-only here.</div> : null}
       </section>
 
       <IntakeShareKit
@@ -207,6 +222,7 @@ export default function IntakeWorkspacePage() {
 
       {showManualForm ? (
         <ManualLeadForm
+          preview={preview}
           onSaved={() => {
             setReloadToken((value) => value + 1);
           }}

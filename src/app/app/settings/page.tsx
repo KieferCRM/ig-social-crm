@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { isPreviewModeServer } from "@/lib/preview-mode";
 import WorkspaceSettingsClient from "./workspace-settings-client";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const preview = await isPreviewModeServer();
   return (
     <main className="crm-page crm-stack-12" style={{ maxWidth: 980 }}>
       <section className="crm-card crm-section-card">
@@ -15,7 +17,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <WorkspaceSettingsClient />
+      <WorkspaceSettingsClient preview={preview} />
 
       <div className="crm-grid-cards-3">
         <section className="crm-card crm-section-card crm-stack-10">
