@@ -212,7 +212,7 @@ export async function seedSampleWorkspaceForAgent(admin: AdminClient, agentId: s
 
   const { error: recommendationError } = await admin
     .from("lead_recommendations")
-    .upsert(recommendationRows, { onConflict: "owner_user_id,lead_id,title" });
+    .insert(recommendationRows);
   if (recommendationError) {
     throw new Error(recommendationError.message);
   }
