@@ -312,7 +312,7 @@ export default async function AppHome() {
           <KpiCard
             label="Recent Documents"
             value={recentDocuments.length}
-            tone={recentDocuments.length > 0 ? "info" : "default"}
+            tone={recentDocuments.length > 0 ? "ok" : "default"}
             href="/app/documents"
             compact
           />
