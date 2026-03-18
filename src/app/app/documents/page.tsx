@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
 import DocumentsClient from "./documents-client";
 
@@ -26,7 +27,14 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string | nu
   return null;
 }
 
-export default async function DocumentsPage() {
+export default async function DocumentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const initialDealId = typeof params.dealId === "string" ? params.dealId : "";
+  const initialLeadId = typeof params.leadId === "string" ? params.leadId : "";
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -36,7 +44,7 @@ export default async function DocumentsPage() {
     redirect("/auth");
   }
 
-  const [{ data: leadData }, { data: dealData }] = await Promise.all([
+  const [{ data: leadData }, { data: dealData }, { data: agentRow }] = await Promise.all([
     supabase
       .from("leads")
       .select("id,full_name,canonical_email,canonical_phone,ig_username")
@@ -49,7 +57,11 @@ export default async function DocumentsPage() {
       .eq("agent_id", user.id)
       .order("updated_at", { ascending: false })
       .limit(80),
+    supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
   ]);
+
+  const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
+  const isOffMarketAccount = onboardingState.account_type === "off_market_agent";
 
   const leads = ((leadData || []) as LeadRow[]).map((lead) => ({
     id: lead.id,
@@ -71,14 +83,21 @@ export default async function DocumentsPage() {
             <p className="crm-page-kicker">Documents</p>
             <h1 className="crm-page-title">Agreements and deal files</h1>
             <p className="crm-page-subtitle">
-              Keep contracts, agreements, checklists, and supporting files tied to the right deal
-              instead of scattered across notes and folders.
+              {isOffMarketAccount
+                ? "Keep contracts, seller notes, photos, disclosures, and supporting files tied to the right opportunity instead of scattered across folders."
+                : "Keep contracts, agreements, checklists, and supporting files tied to the right deal instead of scattered across notes and folders."}
             </p>
           </div>
         </div>
       </section>
 
-      <DocumentsClient deals={deals} leads={leads} />
+      <DocumentsClient
+        deals={deals}
+        leads={leads}
+        isOffMarketAccount={isOffMarketAccount}
+        initialDealId={initialDealId}
+        initialLeadId={initialLeadId}
+      />
     </main>
   );
 }

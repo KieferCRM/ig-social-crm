@@ -19,6 +19,7 @@ import {
   type DealWithLead,
 } from "@/lib/deals";
 import { normalizeSourceChannel, sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
+import { readOnboardingStateFromAgentSettings, type AccountType } from "@/lib/onboarding";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type DealDraft = {
@@ -160,6 +161,7 @@ export default function DealsBoardClient() {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [tempFilter, setTempFilter] = useState<TempFilter>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "buyer" | "listing">("all");
+  const [accountType, setAccountType] = useState<AccountType | null>(null);
 
   const draggedDealIdRef = useRef<string | null>(null);
 
@@ -194,6 +196,14 @@ export default function DealsBoardClient() {
       }
 
       setAgentId(user.id);
+
+      const { data: agentRow } = await supabase
+        .from("agents")
+        .select("settings")
+        .eq("id", user.id)
+        .maybeSingle();
+      const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
+      setAccountType(onboardingState.account_type);
 
       const { data, error } = await supabase
         .from("deals")
@@ -249,6 +259,8 @@ export default function DealsBoardClient() {
     }).length;
     return { active, hot, stale };
   }, [filteredDeals]);
+
+  const isOffMarketAccount = accountType === "off_market_agent";
 
   function patchDealLocal(dealId: string, patch: Partial<DealWithLead>) {
     setDeals((previous) => previous.map((deal) => (deal.id === dealId ? { ...deal, ...patch } : deal)));
@@ -352,17 +364,19 @@ export default function DealsBoardClient() {
         <div className="crm-page-header">
           <div className="crm-page-header-main">
             <p className="crm-page-kicker">Deals</p>
-            <h1 className="crm-page-title">Deal-first board</h1>
+            <h1 className="crm-page-title">{isOffMarketAccount ? "Deal command board" : "Deal-first board"}</h1>
             <p className="crm-page-subtitle">
-              Scan stage, source, temperature, and last touch quickly so updating the board feels effortless.
+              {isOffMarketAccount
+                ? "Work acquisition and disposition opportunities from one board with clear stage, contact context, and last activity."
+                : "Scan stage, source, temperature, and last touch quickly so updating the board feels effortless."}
             </p>
           </div>
           <div className="crm-page-actions">
-            <Link href="/app/intake" className="crm-btn crm-btn-secondary">
-              Review intake
+            <Link href={isOffMarketAccount ? "/app/documents" : "/app/intake"} className="crm-btn crm-btn-secondary">
+              {isOffMarketAccount ? "Open documents" : "Review intake"}
             </Link>
             <Link href="/app/priorities" className="crm-btn crm-btn-primary">
-              Open priorities
+              {isOffMarketAccount ? "Open tasks" : "Open priorities"}
             </Link>
           </div>
         </div>

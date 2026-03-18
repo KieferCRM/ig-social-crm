@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { loadAccessContext, ownerFilter } from "@/lib/access-context";
 import { parseJsonBody } from "@/lib/http";
 import { withReminderOwnerColumn } from "@/lib/reminders";
+import { normalizeTagList } from "@/lib/tags";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -29,6 +30,7 @@ type LeadPatchBody = {
   next_step?: string | null;
   source?: string | null;
   notes?: string | null;
+  tags?: string[] | string | null;
   deal_price?: number | string | null;
   commission_percent?: number | string | null;
   commission_amount?: number | string | null;
@@ -76,6 +78,11 @@ function parseNullableDecimal(value: unknown): number | null | "invalid" {
     return parsed > 0 ? parsed : null;
   }
   return "invalid";
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
 }
 
 export async function GET(_: Request, { params }: Params) {
@@ -246,6 +253,28 @@ export async function PATCH(request: Request, { params }: Params) {
     ownerFilter(auth.context, "owner_user_id"),
     ownerFilter(auth.context, "assignee_user_id"),
   ].join(",");
+
+  if (has("tags")) {
+    const { data: existingLead, error: existingLeadError } = await supabase
+      .from("leads")
+      .select("source_detail")
+      .eq("id", id)
+      .or(ownerClause)
+      .maybeSingle();
+
+    if (existingLeadError) {
+      return NextResponse.json({ error: existingLeadError.message }, { status: 500 });
+    }
+    if (!existingLead) {
+      return NextResponse.json({ error: "Lead not found." }, { status: 404 });
+    }
+
+    const existingSourceDetail = asRecord(existingLead.source_detail);
+    update.source_detail = {
+      ...existingSourceDetail,
+      tags: normalizeTagList(body.tags),
+    };
+  }
 
   const { data, error } = await supabase
     .from("leads")

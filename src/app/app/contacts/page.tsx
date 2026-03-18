@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import StatusBadge from "@/components/ui/status-badge";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
+import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
-import { formatTagsText, tagsFromSourceDetail } from "@/lib/tags";
 import AddContactPanel from "./add-contact-panel";
+import ContactTagsEditor from "./contact-tags-editor";
+import { tagsFromSourceDetail } from "@/lib/tags";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,7 @@ type DealSummary = {
   id: string;
   lead_id: string | null;
   stage: string | null;
+  property_address: string | null;
 };
 
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
@@ -65,6 +68,7 @@ export default async function ContactsPage({
 }) {
   const params = await searchParams;
   const showAddForm = params.add === "true";
+  const selectedDealId = typeof params.dealId === "string" ? params.dealId : "";
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -74,7 +78,7 @@ export default async function ContactsPage({
     redirect("/auth");
   }
 
-  const [{ data: contactData }, { data: dealData }] = await Promise.all([
+  const [{ data: contactData }, { data: dealData }, { data: agentRow }] = await Promise.all([
     supabase
       .from("leads")
       .select(
@@ -85,13 +89,17 @@ export default async function ContactsPage({
       .limit(60),
     supabase
       .from("deals")
-      .select("id,lead_id,stage")
+      .select("id,lead_id,stage,property_address")
       .eq("agent_id", user.id)
       .order("updated_at", { ascending: false }),
+    supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
   ]);
 
   const contacts = (contactData || []) as ContactRow[];
   const deals = (dealData || []) as DealSummary[];
+  const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
+  const isOffMarketAccount = onboardingState.account_type === "off_market_agent";
+
   const dealsByLead = new Map<string, DealSummary[]>();
   for (const deal of deals) {
     if (!deal.lead_id) continue;
@@ -110,45 +118,53 @@ export default async function ContactsPage({
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10);
 
+  const visibleContacts = selectedDealId
+    ? contacts.filter((contact) => (dealsByLead.get(contact.id) || []).some((deal) => deal.id === selectedDealId))
+    : contacts;
+
   return (
     <main className="crm-page crm-page-wide crm-stack-12">
       <section className="crm-card crm-section-card crm-stack-10">
         <div className="crm-page-header">
           <div className="crm-page-header-main">
             <p className="crm-page-kicker">Contacts</p>
-            <h1 className="crm-page-title">Tag-driven contact list</h1>
+            <h1 className="crm-page-title">
+              {isOffMarketAccount ? "Contacts tied to live deals" : "Tag-driven contact list"}
+            </h1>
             <p className="crm-page-subtitle">
-              Keep buyers, sellers, and future outreach groups organized without losing the linked
-              deal context.
+              {isOffMarketAccount
+                ? "Keep sellers, buyers, and transaction relationships tied to the right deal so context is usable when several opportunities are moving."
+                : "Keep buyers, sellers, and future outreach groups organized without losing the linked deal context."}
             </p>
           </div>
           <div className="crm-page-actions">
-            <Link href="/app/intake" className="crm-btn crm-btn-secondary">
-              Add from intake
-            </Link>
             <Link href="/app/contacts?add=true" className="crm-btn crm-btn-primary">
               Add contact
+            </Link>
+            <Link href={isOffMarketAccount ? "/app/deals" : "/app/intake"} className="crm-btn crm-btn-secondary">
+              {isOffMarketAccount ? "Open deals" : "Add from intake"}
             </Link>
           </div>
         </div>
 
-        {showAddForm ? (
-        <AddContactPanel />
-      ) : null}
+        {showAddForm ? <AddContactPanel /> : null}
 
-      <div className="crm-inline-actions" style={{ gap: 10, flexWrap: "wrap" }}>
+        <div className="crm-inline-actions" style={{ gap: 10, flexWrap: "wrap" }}>
           <span className="crm-chip">Contacts: {contacts.length}</span>
           <span className="crm-chip crm-chip-ok">
             With active deals: {contacts.filter((contact) => (dealsByLead.get(contact.id) || []).length > 0).length}
           </span>
-          <span className="crm-chip crm-chip-info">Tracked tags: {topTags.length}</span>
+          <span className="crm-chip crm-chip-info">
+            {isOffMarketAccount ? "Tagged relationships" : "Tracked tags"}: {topTags.length}
+          </span>
+          {selectedDealId ? <span className="crm-chip crm-chip-warn">Filtered to one deal</span> : null}
         </div>
       </section>
 
       <section className="crm-grid-cards-3">
         <article className="crm-card crm-section-card crm-stack-8">
           <div className="crm-section-head">
-            <h2 className="crm-section-title">Top tags</h2>
+            <h2 className="crm-section-title">{isOffMarketAccount ? "Transaction tags" : "Top tags"}</h2>
           </div>
           <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
             {topTags.length === 0 ? (
@@ -165,11 +181,12 @@ export default async function ContactsPage({
 
         <article className="crm-card crm-section-card crm-stack-8">
           <div className="crm-section-head">
-            <h2 className="crm-section-title">Outreach grouping</h2>
+            <h2 className="crm-section-title">{isOffMarketAccount ? "Deal relationships" : "Outreach grouping"}</h2>
           </div>
           <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-            Use tags to group buyer lists, seller follow-up, acquisition prospects, and future
-            blasts without overbuilding a campaign system.
+            {isOffMarketAccount
+              ? "Use contacts to keep seller, buyer, and supporting relationships attached to the active opportunity instead of scattered across messages and files."
+              : "Use tags to group buyer lists, seller follow-up, acquisition prospects, and future blasts without overbuilding a campaign system."}
           </p>
         </article>
 
@@ -178,8 +195,9 @@ export default async function ContactsPage({
             <h2 className="crm-section-title">Daily use</h2>
           </div>
           <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-            Contacts stay secondary to deals, but this page makes buyer and seller segmentation
-            usable for outreach and follow-up planning.
+            {isOffMarketAccount
+              ? "Deals stay central, but this page keeps the people attached to each transaction easy to review and update."
+              : "Contacts stay secondary to deals, but this page makes buyer and seller segmentation usable for outreach and follow-up planning."}
           </p>
         </article>
       </section>
@@ -190,16 +208,18 @@ export default async function ContactsPage({
         </div>
 
         <div className="crm-stack-8">
-          {contacts.length === 0 ? (
+          {visibleContacts.length === 0 ? (
             <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
-              No contacts yet. Buyer and seller intake, manual entry, and Concierge capture will
-              populate this list automatically.
+              {selectedDealId
+                ? "No contacts are linked to that deal yet."
+                : "No contacts yet. Buyer and seller intake, manual entry, and Concierge capture will populate this list automatically."}
             </div>
           ) : null}
 
-          {contacts.map((contact) => {
+          {visibleContacts.map((contact) => {
             const tags = tagsFromSourceDetail(contact.source_detail);
             const linkedDeals = dealsByLead.get(contact.id) || [];
+
             return (
               <article key={contact.id} className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -211,10 +231,7 @@ export default async function ContactsPage({
                   </div>
                   <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                     {contact.source ? (
-                      <StatusBadge
-                        label={sourceChannelLabel(contact.source)}
-                        tone={sourceChannelTone(contact.source)}
-                      />
+                      <StatusBadge label={sourceChannelLabel(contact.source)} tone={sourceChannelTone(contact.source)} />
                     ) : null}
                     {contact.lead_temp ? (
                       <StatusBadge
@@ -251,19 +268,26 @@ export default async function ContactsPage({
                   </div>
                 </div>
 
-                <div className="crm-stack-4">
-                  <div className="crm-detail-label">Tags</div>
-                  {tags.length > 0 ? (
+                {linkedDeals.length > 0 ? (
+                  <div className="crm-stack-4">
+                    <div className="crm-detail-label">Deal links</div>
                     <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
-                      {tags.map((tag) => (
-                        <span key={`${contact.id}-${tag}`} className="crm-chip">
-                          {tag}
-                        </span>
+                      {linkedDeals.slice(0, 3).map((deal) => (
+                        <Link key={deal.id} href={`/app/documents?dealId=${deal.id}`} className="crm-chip">
+                          {deal.property_address || "Untitled deal"}
+                        </Link>
                       ))}
                     </div>
-                  ) : (
-                    <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{formatTagsText(tags) || "No tags yet"}</div>
-                  )}
+                  </div>
+                ) : null}
+
+                <div className="crm-stack-4">
+                  <div className="crm-detail-label">Tags</div>
+                  <ContactTagsEditor
+                    contactId={contact.id}
+                    initialTags={tags}
+                    isOffMarketAccount={isOffMarketAccount}
+                  />
                 </div>
               </article>
             );

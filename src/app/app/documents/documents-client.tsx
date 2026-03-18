@@ -49,9 +49,15 @@ function formatDate(value: string): string {
 export default function DocumentsClient({
   deals,
   leads,
+  isOffMarketAccount,
+  initialDealId,
+  initialLeadId,
 }: {
   deals: DealOption[];
   leads: LeadOption[];
+  isOffMarketAccount: boolean;
+  initialDealId: string;
+  initialLeadId: string;
 }) {
   const [documents, setDocuments] = useState<WorkspaceDocumentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +69,9 @@ export default function DocumentsClient({
   const [status, setStatus] = useState("draft");
   const [tags, setTags] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [filterDealId, setFilterDealId] = useState(initialDealId);
+  const [filterLeadId, setFilterLeadId] = useState(initialLeadId);
+  const [filterStatus, setFilterStatus] = useState("all");
 
   async function loadDocuments() {
     try {
@@ -86,7 +95,16 @@ export default function DocumentsClient({
     void loadDocuments();
   }, []);
 
-  const recentDocuments = useMemo(() => documents.slice(0, 12), [documents]);
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((document) => {
+      const dealOk = !filterDealId || document.deal_id === filterDealId;
+      const leadOk = !filterLeadId || document.lead_id === filterLeadId;
+      const statusOk = filterStatus === "all" || document.status === filterStatus;
+      return dealOk && leadOk && statusOk;
+    });
+  }, [documents, filterDealId, filterLeadId, filterStatus]);
+
+  const recentDocuments = useMemo(() => filteredDocuments.slice(0, 12), [filteredDocuments]);
 
   async function uploadDocument() {
     if (!file) {
@@ -157,7 +175,9 @@ export default function DocumentsClient({
           <div>
             <h2 className="crm-section-title">Upload documents</h2>
             <p className="crm-section-subtitle">
-              Store agreements, contracts, checklists, and supporting files with the right deal.
+              {isOffMarketAccount
+                ? "Attach contracts, seller notes, disclosures, and supporting files directly to the active opportunity."
+                : "Store agreements, contracts, checklists, and supporting files with the right deal."}
             </p>
           </div>
         </div>
@@ -222,16 +242,15 @@ export default function DocumentsClient({
 
           <label className="crm-filter-field">
             <span>File</span>
-            <input
-              type="file"
-              onChange={(event) => setFile(event.target.files?.[0] || null)}
-            />
+            <input type="file" onChange={(event) => setFile(event.target.files?.[0] || null)} />
           </label>
         </div>
 
         <div className="crm-inline-actions" style={{ justifyContent: "space-between" }}>
           <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-            Keep the minimum viable system simple: upload, attach, filter, and reopen quickly.
+            {isOffMarketAccount
+              ? "Attach files where the deal lives so the contract, notes, and supporting material stay in one record."
+              : "Keep the minimum viable system simple: upload, attach, filter, and reopen quickly."}
           </div>
           <button type="button" className="crm-btn crm-btn-primary" onClick={() => void uploadDocument()} disabled={saving}>
             {saving ? "Uploading..." : "Upload document"}
@@ -250,7 +269,51 @@ export default function DocumentsClient({
 
       <section className="crm-card crm-section-card crm-stack-10">
         <div className="crm-section-head">
-          <h2 className="crm-section-title">Recent documents</h2>
+          <div>
+            <h2 className="crm-section-title">Recent documents</h2>
+            <p className="crm-section-subtitle">
+              {isOffMarketAccount
+                ? "Filter by opportunity, contact, or status to keep document review deal-centered."
+                : "Reopen the files you touched most recently."}
+            </p>
+          </div>
+        </div>
+
+        <div className="crm-grid-cards-3">
+          <label className="crm-filter-field">
+            <span>Filter by deal</span>
+            <select value={filterDealId} onChange={(event) => setFilterDealId(event.target.value)}>
+              <option value="">All deals</option>
+              {deals.map((deal) => (
+                <option key={deal.id} value={deal.id}>
+                  {deal.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="crm-filter-field">
+            <span>Filter by contact</span>
+            <select value={filterLeadId} onChange={(event) => setFilterLeadId(event.target.value)}>
+              <option value="">All contacts</option>
+              {leads.map((lead) => (
+                <option key={lead.id} value={lead.id}>
+                  {lead.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="crm-filter-field">
+            <span>Status</span>
+            <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+              <option value="all">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="signed">Signed</option>
+              <option value="final">Final</option>
+            </select>
+          </label>
         </div>
 
         {loading ? (
@@ -259,7 +322,9 @@ export default function DocumentsClient({
 
         {!loading && recentDocuments.length === 0 ? (
           <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
-            No documents yet. Upload agreements, contracts, and checklist files here.
+            {documents.length === 0
+              ? "No documents yet. Upload agreements, contracts, and checklist files here."
+              : "No documents match these filters."}
           </div>
         ) : null}
 
