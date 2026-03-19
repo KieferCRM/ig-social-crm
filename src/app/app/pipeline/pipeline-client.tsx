@@ -165,6 +165,11 @@ export default function PipelineClient() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Custom tags — loaded from agents.settings.pipeline_tags
+  const [agentTags, setAgentTags] = useState<string[]>([...PIPELINE_TAGS]);
+  const [agentSettings, setAgentSettings] = useState<Record<string, unknown>>({});
+  const [newTagInput, setNewTagInput] = useState("");
+
   // Filters
   const [stageFilter, setStageFilter] = useState<"all" | OffMarketStage>("all");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
@@ -198,6 +203,22 @@ export default function PipelineClient() {
       }
 
       if (active) setAgentId(user.id);
+
+      // Load agent settings for custom tags
+      const { data: agentRow } = await supabase
+        .from("agents")
+        .select("settings")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (active && agentRow?.settings) {
+        const settings = agentRow.settings as Record<string, unknown>;
+        setAgentSettings(settings);
+        const savedTags = settings.pipeline_tags;
+        if (Array.isArray(savedTags) && savedTags.length > 0) {
+          setAgentTags(savedTags.filter((t): t is string => typeof t === "string"));
+        }
+      }
 
       const { data, error } = await supabase
         .from("deals")
@@ -393,6 +414,38 @@ export default function PipelineClient() {
     setSelectedDeal(null);
   }
 
+  // ── Tag management ────────────────────────────────────────────────────────────
+
+  async function saveAgentTags(tags: string[]) {
+    if (!agentId) return;
+    const newSettings = { ...agentSettings, pipeline_tags: tags };
+    setAgentSettings(newSettings);
+    await supabase
+      .from("agents")
+      .update({ settings: newSettings })
+      .eq("id", agentId);
+  }
+
+  async function handleAddTag() {
+    const tag = newTagInput.trim();
+    if (!tag || agentTags.includes(tag)) {
+      setNewTagInput("");
+      return;
+    }
+    const next = [...agentTags, tag];
+    setAgentTags(next);
+    setNewTagInput("");
+    await saveAgentTags(next);
+  }
+
+  async function handleDeleteTag(tag: string) {
+    const next = agentTags.filter((t) => t !== tag);
+    setAgentTags(next);
+    // Also clear this tag from active filters
+    setTagFilters((prev) => prev.filter((t) => t !== tag));
+    await saveAgentTags(next);
+  }
+
   // ── Loading / auth guard ──────────────────────────────────────────────────────
 
   if (loading) {
@@ -489,29 +542,52 @@ export default function PipelineClient() {
               Tags
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {PIPELINE_TAGS.map((tag) => (
-                <label
+              {agentTags.map((tag) => (
+                <div
                   key={tag}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: "pointer",
-                    fontSize: 13,
-                    padding: "4px 0",
-                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={tagFilters.includes(tag)}
-                    onChange={() => setTagFilters((prev) => toggleTag(prev, tag))}
-                    style={{ accentColor: "var(--brand)", width: 14, height: 14, cursor: "pointer" }}
-                  />
-                  <span style={{ flex: 1 }}>{tag}</span>
-                  <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>
-                    {tagCountMap[tag] || 0}
-                  </span>
-                </label>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      padding: "4px 0",
+                      flex: 1,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={tagFilters.includes(tag)}
+                      onChange={() => setTagFilters((prev) => toggleTag(prev, tag))}
+                      style={{ accentColor: "var(--brand)", width: 14, height: 14, cursor: "pointer" }}
+                    />
+                    <span style={{ flex: 1 }}>{tag}</span>
+                    <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>
+                      {tagCountMap[tag] || 0}
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    title="Remove tag"
+                    onClick={() => void handleDeleteTag(tag)}
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 1,
+                      color: "var(--ink-faint)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "2px 4px",
+                      borderRadius: 4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
 
               {tagFilters.length > 0 && (
@@ -528,9 +604,44 @@ export default function PipelineClient() {
                     padding: "4px 0",
                   }}
                 >
-                  Clear tag filters
+                  Clear filters
                 </button>
               )}
+
+              {/* Add new tag */}
+              <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                <input
+                  type="text"
+                  value={newTagInput}
+                  placeholder="New tag..."
+                  onChange={(e) => setNewTagInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void handleAddTag(); }}
+                  style={{
+                    flex: 1,
+                    fontSize: 12,
+                    padding: "4px 8px",
+                    border: "1px solid var(--line)",
+                    borderRadius: 6,
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleAddTag()}
+                  style={{
+                    fontSize: 13,
+                    padding: "4px 8px",
+                    border: "1px solid var(--line)",
+                    borderRadius: 6,
+                    background: "var(--background)",
+                    cursor: "pointer",
+                    color: "var(--foreground)",
+                  }}
+                >
+                  +
+                </button>
+              </div>
             </div>
           </div>
         </aside>
@@ -786,7 +897,7 @@ export default function PipelineClient() {
                 Tags
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {PIPELINE_TAGS.map((tag) => (
+                {agentTags.map((tag) => (
                   <button
                     key={tag}
                     type="button"
@@ -967,7 +1078,7 @@ export default function PipelineClient() {
                 Tags
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {PIPELINE_TAGS.map((tag) => (
+                {agentTags.map((tag) => (
                   <button
                     key={tag}
                     type="button"
