@@ -3505,34 +3505,40 @@ input:focus, textarea:focus, select:focus {
 
 .crm-account-type-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .crm-account-type-card {
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--surface);
-  padding: 18px;
-  display: grid;
-  gap: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   text-align: left;
+  cursor: pointer;
   transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  min-width: 0;
 }
 
 .crm-account-type-card strong {
-  font-size: 16px;
-  line-height: 1.25;
+  font-size: 14px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .crm-account-type-card p {
   margin: 0;
   color: var(--ink-muted);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
-.crm-account-type-card:hover {
+.crm-account-type-card:hover:not(:disabled) {
   border-color: rgba(var(--accent-rgb), 0.28);
   box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12);
 }
@@ -3544,7 +3550,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .crm-account-type-card-disabled {
-  opacity: 0.68;
+  opacity: 0.5;
   cursor: not-allowed;
   background: var(--surface-muted);
 }
@@ -3552,17 +3558,18 @@ input:focus, textarea:focus, select:focus {
 .crm-account-type-card-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .crm-account-type-card-list {
-  margin: 0;
-  padding-left: 18px;
+  margin: 4px 0 0;
+  padding-left: 16px;
   display: grid;
-  gap: 6px;
-  color: var(--foreground);
-  font-size: 13px;
+  gap: 4px;
+  color: var(--ink-muted);
+  font-size: 12px;
 }
 
 .crm-demo-banner {
