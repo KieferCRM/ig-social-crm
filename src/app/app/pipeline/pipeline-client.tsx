@@ -698,23 +698,8 @@ export default function PipelineClient() {
                 title={deals.length === 0 ? "No deals yet" : "No deals match these filters"}
                 body={
                   deals.length === 0
-                    ? "Add your first off-market deal to start tracking the pipeline."
+                    ? "Add your first off-market deal using the button above."
                     : "Clear a filter or select a different stage to see more deals."
-                }
-                action={
-                  deals.length === 0 ? (
-                    <button
-                      type="button"
-                      className="crm-btn crm-btn-primary"
-                      onClick={() => {
-                        setAddDraft(EMPTY_ADD_DRAFT);
-                        setAddError("");
-                        setIsAddOpen(true);
-                      }}
-                    >
-                      Add New Deal
-                    </button>
-                  ) : undefined
                 }
               />
             ) : (
