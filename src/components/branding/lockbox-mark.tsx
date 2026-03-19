@@ -52,7 +52,7 @@ export default function LockboxMark({
       {variant === "full" ? (
         <span className="lockbox-mark__wordmark">
           <span className="lockbox-mark__name">LockboxHQ</span>
-          <span className="lockbox-mark__tag">Self-Filling CRM</span>
+          <span className="lockbox-mark__tag">Smart CRM</span>
         </span>
       ) : null}
     </span>

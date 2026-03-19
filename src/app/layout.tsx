@@ -5,7 +5,7 @@ import { PRODUCT_NAME, PRODUCT_STAGE_LABEL } from "@/lib/features";
 export const metadata: Metadata = {
   title: `${PRODUCT_NAME} • ${PRODUCT_STAGE_LABEL}`,
   description:
-    "LockboxHQ is the self-filling CRM for inbound real estate agents who want organized deals without manual entry.",
+    "LockboxHQ is the Smart CRM for inbound real estate agents who want organized deals without manual entry.",
 };
 
 export default function RootLayout({

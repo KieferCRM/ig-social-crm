@@ -190,7 +190,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <div className="crm-sidebar-brand-tag">
               {isOffMarketAccount
                 ? "Deal command center for off-market agents"
-                : "Self-filling CRM for inbound real estate agents"}
+                : "Smart CRM for inbound real estate agents"}
             </div>
           </div>
         </div>

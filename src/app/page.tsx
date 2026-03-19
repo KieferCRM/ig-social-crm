@@ -65,7 +65,7 @@ export default function HomePage() {
         <section className="lockbox-hero lockbox-hero--home">
           <div className="lockbox-hero__intro">
             <span className="lockbox-hero__eyebrow">Solo Agent path</span>
-            <h1>The self-filling CRM for solo agents handling inbound every day.</h1>
+            <h1>The Smart CRM for solo agents handling inbound every day.</h1>
             <p className="lockbox-hero__body">
               LockboxHQ captures website, social, QR, and direct inbound inquiries, then turns them into organized
               deals without manual CRM entry.
