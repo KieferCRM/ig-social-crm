@@ -650,38 +650,44 @@ export default function PipelineClient() {
         <div className="crm-stack-12">
           {/* Header */}
           <section className="crm-card crm-section-card">
-            <div className="crm-page-header">
-              <div className="crm-page-header-main">
-                <p className="crm-page-kicker">Off-Market</p>
-                <h1 className="crm-page-title">Pipeline</h1>
-                <p className="crm-page-subtitle">
-                  Track every off-market opportunity from first contact to close. Filter by stage or
-                  tag to focus on what needs attention now.
-                </p>
-              </div>
-              <div className="crm-page-actions">
-                <button
-                  type="button"
-                  className="crm-btn crm-btn-primary"
-                  onClick={() => {
-                    setAddDraft(EMPTY_ADD_DRAFT);
-                    setAddError("");
-                    setIsAddOpen(true);
-                  }}
-                >
-                  Add New Deal
-                </button>
-              </div>
+            <div>
+              <p className="crm-page-kicker">Off-Market</p>
+              <h1 className="crm-page-title">Pipeline</h1>
+              <p className="crm-page-subtitle">
+                Track every off-market opportunity from first contact to close. Filter by stage or
+                tag to focus on what needs attention now.
+              </p>
             </div>
 
-            {/* Stats */}
-            <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
-              <StatusBadge label={`${deals.filter((d) => d.stage !== "closed" && d.stage !== "dead").length} active`} tone="ok" />
-              <StatusBadge label={`${deals.filter((d) => d.stage === "under_contract").length} under contract`} tone="stage-contract" />
-              <StatusBadge label={`${deals.filter((d) => d.stage === "closed").length} closed`} tone="stage-closed" />
-              {filteredDeals.length !== deals.length && (
-                <StatusBadge label={`${filteredDeals.length} shown`} tone="default" />
-              )}
+            {/* Stats + action */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
+                <StatusBadge label={`${deals.filter((d) => d.stage !== "closed" && d.stage !== "dead").length} active`} tone="ok" />
+                <StatusBadge label={`${deals.filter((d) => d.stage === "under_contract").length} under contract`} tone="stage-contract" />
+                <StatusBadge label={`${deals.filter((d) => d.stage === "closed").length} closed`} tone="stage-closed" />
+                {filteredDeals.length !== deals.length && (
+                  <StatusBadge label={`${filteredDeals.length} shown`} tone="default" />
+                )}
+              </div>
+              <button
+                type="button"
+                className="crm-btn crm-btn-primary"
+                onClick={() => {
+                  setAddDraft(EMPTY_ADD_DRAFT);
+                  setAddError("");
+                  setIsAddOpen(true);
+                }}
+              >
+                Add New Deal
+              </button>
             </div>
           </section>
 
