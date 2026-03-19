@@ -164,7 +164,7 @@ export default async function AppHome() {
 
   const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: sellerFormLeads }, { data: formAlertData }] =
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: recentLeadData }, { data: formAlertData }] =
     await Promise.all([
       supabase
         .from("leads")
@@ -190,9 +190,8 @@ export default async function AppHome() {
       supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
       supabase
         .from("leads")
-        .select("id,full_name,canonical_phone,time_last_updated")
+        .select("id,full_name,canonical_phone,source,time_last_updated")
         .eq("agent_id", user.id)
-        .eq("source", "seller_form")
         .gte("time_last_updated", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order("time_last_updated", { ascending: false })
         .limit(5),
@@ -226,10 +225,11 @@ export default async function AppHome() {
   const followupsDue = activeDeals
     .filter((deal) => deal.nextFollowupDate && deal.nextFollowupDate <= todayStr)
     .sort((a, b) => (a.nextFollowupDate ?? "").localeCompare(b.nextFollowupDate ?? ""));
-  const recentSellerLeads = (sellerFormLeads || []) as Array<{
+  const recentLeads = (recentLeadData || []) as Array<{
     id: string;
     full_name: string | null;
     canonical_phone: string | null;
+    source: string | null;
     time_last_updated: string | null;
   }>;
   const formAlerts = (formAlertData || []) as Array<{
@@ -310,9 +310,9 @@ export default async function AppHome() {
             compact
           />
           <KpiCard
-            label="New Seller Leads"
-            value={recentSellerLeads.length}
-            tone={recentSellerLeads.length > 0 ? "ok" : "default"}
+            label="New Leads"
+            value={recentLeads.length}
+            tone={recentLeads.length > 0 ? "ok" : "default"}
             href="/app/pipeline"
             compact
           />
@@ -429,24 +429,29 @@ export default async function AppHome() {
               </div>
             </article>
 
-            {/* Recent seller form leads */}
+            {/* Recent new leads */}
             <article className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
                 <div>
-                  <h2 className="crm-section-title">New Seller Leads</h2>
-                  <p className="crm-section-subtitle">Seller form submissions from the last 7 days.</p>
+                  <h2 className="crm-section-title">New Leads</h2>
+                  <p className="crm-section-subtitle">Leads added in the last 7 days from any source.</p>
                 </div>
-                <Link href="/app/forms" className="crm-btn crm-btn-secondary">Forms</Link>
+                <Link href="/app/contacts" className="crm-btn crm-btn-secondary">Contacts</Link>
               </div>
               <div className="crm-stack-8">
-                {recentSellerLeads.length === 0 ? (
+                {recentLeads.length === 0 ? (
                   <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No new seller form submissions this week. Share your seller form to start capturing leads.
+                    No new leads this week. Share your forms or add a contact manually to get started.
                   </div>
                 ) : null}
-                {recentSellerLeads.map((lead) => (
+                {recentLeads.map((lead) => (
                   <div key={lead.id} className="crm-card-muted crm-stack-4" style={{ padding: 14 }}>
-                    <div style={{ fontWeight: 700 }}>{lead.full_name || "Anonymous"}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ fontWeight: 700 }}>{lead.full_name || "Anonymous"}</div>
+                      {lead.source ? (
+                        <StatusBadge label={sourceChannelLabel(lead.source)} tone={sourceChannelTone(lead.source)} />
+                      ) : null}
+                    </div>
                     <div className="crm-inline-actions" style={{ gap: 8 }}>
                       {lead.canonical_phone ? (
                         <a
