@@ -403,20 +403,18 @@ export default function FormsPage() {
 
       setAgentId(user.id);
 
-      // Submission counts for built-in forms — stored as form_variant in custom_fields
+      // Submission counts for built-in forms
       const [sellerRes, buyerRes, formsRes] = await Promise.all([
         supabase
           .from("leads")
           .select("id", { count: "exact", head: true })
           .eq("agent_id", user.id)
-          .eq("source", "website_form")
-          .contains("custom_fields", { form_variant: "off_market_seller" }),
+          .eq("source", "seller_form"),
         supabase
           .from("leads")
           .select("id", { count: "exact", head: true })
           .eq("agent_id", user.id)
-          .eq("source", "website_form")
-          .contains("custom_fields", { form_variant: "off_market_buyer" }),
+          .eq("source", "buyer_form"),
         supabase
           .from("generic_forms")
           .select("id, title, description, questions")

@@ -32,6 +32,7 @@ type PipelineDeal = {
   tags: string[];
   stage_entered_at: string | null;
   next_followup_date: string | null;
+  expected_close_date: string | null;
   notes: string | null;
   updated_at: string | null;
   created_at: string | null;
@@ -55,6 +56,7 @@ type DetailDraft = {
   stage: OffMarketStage;
   tags: string[];
   next_followup_date: string;
+  expected_close_date: string;
   notes: string;
 };
 
@@ -109,6 +111,7 @@ type RawDealRow = {
   tags?: unknown;
   stage_entered_at?: unknown;
   next_followup_date?: unknown;
+  expected_close_date?: unknown;
   notes?: unknown;
   updated_at?: unknown;
   created_at?: unknown;
@@ -155,6 +158,8 @@ function mapDealRow(row: RawDealRow): PipelineDeal | null {
     stage_entered_at: typeof row.stage_entered_at === "string" ? row.stage_entered_at : null,
     next_followup_date:
       typeof row.next_followup_date === "string" ? row.next_followup_date : null,
+    expected_close_date:
+      typeof row.expected_close_date === "string" ? row.expected_close_date : null,
     notes: typeof row.notes === "string" ? row.notes : null,
     updated_at: typeof row.updated_at === "string" ? row.updated_at : null,
     created_at: typeof row.created_at === "string" ? row.created_at : null,
@@ -169,6 +174,7 @@ function draftFromDeal(deal: PipelineDeal): DetailDraft {
     stage: normalizeOffMarketStage(deal.stage),
     tags: deal.tags.slice(),
     next_followup_date: asInputDate(deal.next_followup_date),
+    expected_close_date: asInputDate(deal.expected_close_date),
     notes: deal.notes || "",
   };
 }
@@ -242,7 +248,7 @@ export default function PipelineClient() {
       const { data, error } = await supabase
         .from("deals")
         .select(
-          "id,lead_id,property_address,price,offer_price,stage,tags,stage_entered_at,next_followup_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email,source)"
+          "id,lead_id,property_address,price,offer_price,stage,tags,stage_entered_at,next_followup_date,expected_close_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email,source)"
         )
         .eq("agent_id", user.id)
         .order("updated_at", { ascending: false });
@@ -406,6 +412,7 @@ export default function PipelineClient() {
         tags: detailDraft.tags,
         stage_entered_at: stageChanged ? now : selectedDeal.stage_entered_at,
         next_followup_date: detailDraft.next_followup_date || null,
+        expected_close_date: detailDraft.expected_close_date || null,
         notes: detailDraft.notes.trim() || null,
         updated_at: now,
       })
@@ -431,6 +438,18 @@ export default function PipelineClient() {
   function closeDetail() {
     setIsDetailOpen(false);
     setSelectedDeal(null);
+  }
+
+  async function handleDeleteDeal() {
+    if (!selectedDeal) return;
+    if (!window.confirm("Delete this deal? This cannot be undone.")) return;
+    const { error } = await supabase.from("deals").delete().eq("id", selectedDeal.id);
+    if (error) {
+      setStatus(error.message);
+      return;
+    }
+    closeDetail();
+    setRefreshKey((k) => k + 1);
   }
 
   // ── Tag management ────────────────────────────────────────────────────────────
@@ -1117,6 +1136,21 @@ export default function PipelineClient() {
                   }}
                 />
               </label>
+
+              <label className="crm-filter-field">
+                <span>Target Close Date</span>
+                <input
+                  type="date"
+                  value={detailDraft.expected_close_date}
+                  disabled={detailSaving}
+                  onChange={(e) => {
+                    setDetailDraft((prev) =>
+                      prev ? { ...prev, expected_close_date: e.target.value } : prev
+                    );
+                    setDetailDirty(true);
+                  }}
+                />
+              </label>
             </div>
 
             {/* Tags */}
@@ -1177,14 +1211,25 @@ export default function PipelineClient() {
                   ? ` · Added ${new Date(selectedDeal.created_at).toLocaleDateString()}`
                   : ""}
               </div>
-              <button
-                type="button"
-                className="crm-btn crm-btn-primary"
-                onClick={() => void handleSaveDetail()}
-                disabled={!detailDirty || detailSaving}
-              >
-                {detailSaving ? "Saving..." : "Save"}
-              </button>
+              <div className="crm-inline-actions" style={{ gap: 8 }}>
+                <button
+                  type="button"
+                  className="crm-btn crm-btn-secondary"
+                  style={{ color: "var(--ink-muted)", fontSize: 13 }}
+                  onClick={() => void handleDeleteDeal()}
+                  disabled={detailSaving}
+                >
+                  Delete deal
+                </button>
+                <button
+                  type="button"
+                  className="crm-btn crm-btn-primary"
+                  onClick={() => void handleSaveDetail()}
+                  disabled={!detailDirty || detailSaving}
+                >
+                  {detailSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
             </div>
           </section>
         </div>
