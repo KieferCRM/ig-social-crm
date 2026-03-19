@@ -199,10 +199,6 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
 
   async function handleStep2Submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!propertyType || !waterType || !sewageType || !condition) {
-      setError("Please complete all required fields.");
-      return;
-    }
 
     setSaving(true);
     setError("");
@@ -371,8 +367,6 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
 
   // ── Step 2 ────────────────────────────────────────────────────────────────────
 
-  const step2Required = propertyType && waterType && sewageType && condition;
-
   return (
     <section className="crm-card crm-public-intake-form">
       <ProgressBar step={2} />
@@ -386,9 +380,9 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
         </div>
 
         <div className="crm-public-intake-grid">
-          <Field label="Property Type" required>
+          <Field label="Property Type">
             <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
-              <option value="">Select one</option>
+              <option value="">Select one (optional)</option>
               <option value="Single family">Single family</option>
               <option value="Condo">Condo</option>
               <option value="Multi-family">Multi-family</option>
@@ -398,7 +392,7 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
             </select>
           </Field>
 
-          <Field label="Number of Owners on Title" required>
+          <Field label="Number of Owners on Title">
             <input
               type="number"
               min="1"
@@ -409,7 +403,7 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
             />
           </Field>
 
-          <Field label="Beds" required>
+          <Field label="Beds">
             <input
               type="number"
               min="0"
@@ -420,7 +414,7 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
             />
           </Field>
 
-          <Field label="Baths" required>
+          <Field label="Baths">
             <input
               type="number"
               min="0"
@@ -432,7 +426,7 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
             />
           </Field>
 
-          <Field label="Sq. Footage" required>
+          <Field label="Sq. Footage">
             <input
               type="number"
               min="0"
@@ -442,27 +436,27 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
             />
           </Field>
 
-          <Field label="Water Type" required>
+          <Field label="Water Type">
             <select value={waterType} onChange={(e) => setWaterType(e.target.value)}>
-              <option value="">Select one</option>
+              <option value="">Select one (optional)</option>
               <option value="City water">City water</option>
               <option value="Well">Well</option>
               <option value="Other">Other</option>
             </select>
           </Field>
 
-          <Field label="Sewage Type" required>
+          <Field label="Sewage Type">
             <select value={sewageType} onChange={(e) => setSewageType(e.target.value)}>
-              <option value="">Select one</option>
+              <option value="">Select one (optional)</option>
               <option value="Public sewer">Public sewer</option>
               <option value="Septic">Septic</option>
               <option value="Other">Other</option>
             </select>
           </Field>
 
-          <Field label="Property Condition" required>
+          <Field label="Property Condition">
             <select value={condition} onChange={(e) => setCondition(e.target.value)}>
-              <option value="">Select one</option>
+              <option value="">Select one (optional)</option>
               <option value="Excellent">Excellent</option>
               <option value="Good">Good</option>
               <option value="Fair">Fair</option>
@@ -508,7 +502,7 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
             <button
               type="submit"
               className="crm-btn crm-btn-primary"
-              disabled={saving || !step2Required}
+              disabled={saving}
               style={{ minWidth: 200 }}
             >
               {saving ? "Submitting..." : "Connect with an agent"}
