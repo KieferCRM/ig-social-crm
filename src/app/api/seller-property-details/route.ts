@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
   const { data: lead, error: fetchError } = await admin
     .from("leads")
-    .select("id, custom_fields")
+    .select("id, agent_id, custom_fields")
     .eq("id", leadId)
     .maybeSingle();
 
@@ -92,6 +92,36 @@ export async function POST(request: Request) {
   if (updateError) {
     console.warn("[seller-property-details] update failed", updateError.message);
     return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  // Silently update the deal for this lead (if any) to flag full details received
+  if (lead.agent_id) {
+    const { data: deal } = await admin
+      .from("deals")
+      .select("id, notes")
+      .eq("agent_id", lead.agent_id)
+      .eq("lead_id", leadId)
+      .neq("stage", "closed")
+      .neq("stage", "lost")
+      .neq("stage", "dead")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (deal?.id) {
+      const existingNotes = typeof deal.notes === "string" && deal.notes.trim() ? deal.notes.trim() : "";
+      const fullDetailsNote = "Full details received.";
+      const updatedNotes = existingNotes.includes(fullDetailsNote)
+        ? existingNotes
+        : existingNotes
+          ? `${existingNotes}\n\n${fullDetailsNote}`
+          : fullDetailsNote;
+
+      await admin
+        .from("deals")
+        .update({ notes: updatedNotes, updated_at: new Date().toISOString() })
+        .eq("id", deal.id);
+    }
   }
 
   return NextResponse.json({ ok: true });

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import {
   buildMissedCallStarterText,
   readReceptionistSettingsFromAgentSettings,
@@ -56,6 +57,7 @@ export type AgentReceptionistContext = {
   agentId: string;
   agentName: string;
   settings: ReceptionistSettings;
+  isOffMarketAccount: boolean;
 };
 
 export type LeadCommunicationThread = {
@@ -116,12 +118,75 @@ export async function loadAgentReceptionistContext(
   }
 
   const settings = readReceptionistSettingsFromAgentSettings(data?.settings || null);
+  const onboarding = readOnboardingStateFromAgentSettings(data?.settings || null);
 
   return {
     agentId,
     agentName: optionalString(data?.full_name || null) || "your agent",
     settings,
+    isOffMarketAccount: onboarding.account_type === "off_market_agent",
   };
+}
+
+/**
+ * For off-market agents: creates or updates the pipeline deal linked to a receptionist lead.
+ * If an active deal already exists for the lead, it's touched (updated_at) but not overwritten.
+ * Runs fire-and-forget; errors are logged but do not fail the parent workflow.
+ */
+async function upsertOffMarketDealForReceptionistLead(
+  admin: AdminClient,
+  agentId: string,
+  lead: ReceptionistLeadRow,
+  sourceLabel: string
+): Promise<void> {
+  try {
+    // Look for an active deal (not closed/lost/dead)
+    const { data: existingDeal } = await admin
+      .from("deals")
+      .select("id")
+      .eq("agent_id", agentId)
+      .eq("lead_id", lead.id)
+      .neq("stage", "closed")
+      .neq("stage", "lost")
+      .neq("stage", "dead")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingDeal?.id) {
+      // Touch updated_at so the deal surfaces in recency-sorted views
+      await admin
+        .from("deals")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", existingDeal.id);
+      return;
+    }
+
+    // Determine deal type from intent
+    const intentLower = (lead.intent || "").trim().toLowerCase();
+    const dealType = intentLower.includes("sell") ? "listing" : "buyer";
+
+    // Build concise notes from available lead fields
+    const noteParts: string[] = [`Secretary lead via ${sourceLabel}.`];
+    if (lead.timeline) noteParts.push(`Timeline: ${lead.timeline}.`);
+    if (lead.lead_temp) noteParts.push(`Temp: ${lead.lead_temp}.`);
+
+    await admin.from("deals").insert({
+      agent_id: agentId,
+      lead_id: lead.id,
+      stage: "prospecting",
+      stage_entered_at: new Date().toISOString(),
+      deal_type: dealType,
+      // Use location_area as best available address proxy for SMS/call leads
+      property_address: optionalString(lead.location_area),
+      price: null,
+      expected_close_date: null,
+      notes: noteParts.join(" "),
+      updated_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("[receptionist] off-market deal upsert failed", err instanceof Error ? err.message : err);
+  }
 }
 
 export async function insertLeadInteraction(input: {
@@ -392,6 +457,11 @@ export async function processInboundSms(input: {
 
   const lead = upsertResult.lead;
 
+  // Off-market pipeline: auto-create/update deal for this lead
+  if (context.isOffMarketAccount) {
+    await upsertOffMarketDealForReceptionistLead(input.admin, input.agentId, lead, "inbound SMS");
+  }
+
   await insertLeadInteraction({
     admin: input.admin,
     agentId: input.agentId,
@@ -541,6 +611,11 @@ export async function processMissedCall(input: {
   });
 
   const lead = upsertResult.lead;
+
+  // Off-market pipeline: auto-create/update deal for this lead
+  if (context.isOffMarketAccount) {
+    await upsertOffMarketDealForReceptionistLead(input.admin, input.agentId, lead, "missed call");
+  }
 
   await insertLeadInteraction({
     admin: input.admin,
@@ -797,6 +872,12 @@ export async function processInboundCallLog(input: {
   });
 
   const lead = upsertResult.lead;
+
+  // Off-market pipeline: auto-create/update deal for this lead
+  if (context.isOffMarketAccount) {
+    await upsertOffMarketDealForReceptionistLead(input.admin, input.agentId, lead, "inbound call");
+  }
+
   const status = normalizeInboundCallStatus(input.callStatus);
 
   await insertLeadInteraction({

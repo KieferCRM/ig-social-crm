@@ -140,11 +140,13 @@ export function dealStageTone(
 
 export function leadTempTone(
   value: string | null | undefined
-): "lead-hot" | "lead-warm" | "lead-cold" {
+): "lead-hot" | "lead-warm" | "lead-cold" | "default" {
   const normalized = String(value || "").trim().toLowerCase();
   if (normalized === "hot") return "lead-hot";
   if (normalized === "warm") return "lead-warm";
-  return "lead-cold";
+  if (normalized === "cold") return "lead-cold";
+  // "Unclassified" and anything else renders neutral so agent knows to set it manually
+  return "default";
 }
 
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {

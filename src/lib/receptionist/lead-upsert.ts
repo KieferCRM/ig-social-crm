@@ -168,6 +168,32 @@ function normalizeUrgencyScore(value: number | null | undefined): number | null 
   return rounded;
 }
 
+/**
+ * Maps the Secretary urgency score (0–100) to the off-market lead temperature.
+ * 70–100 → Hot  |  40–69 → Warm  |  1–39 → Cold  |  0 / null → Unclassified
+ */
+export function urgencyScoreToLeadTemp(
+  score: number | null
+): "Hot" | "Warm" | "Cold" | "Unclassified" {
+  if (score === null || score === 0) return "Unclassified";
+  if (score >= 70) return "Hot";
+  if (score >= 40) return "Warm";
+  return "Cold";
+}
+
+const LEAD_TEMP_RANK: Record<string, number> = {
+  Hot: 3,
+  Warm: 2,
+  Cold: 1,
+  Unclassified: 0,
+};
+
+function betterLeadTemp(existing: string | null, incoming: string): string {
+  const existingRank = LEAD_TEMP_RANK[existing || ""] ?? 0;
+  const incomingRank = LEAD_TEMP_RANK[incoming] ?? 0;
+  return incomingRank > existingRank ? incoming : existing || incoming;
+}
+
 async function findLeadByIdentity(input: {
   admin: AdminClient;
   agentId: string;
@@ -308,6 +334,11 @@ export async function upsertReceptionistLead(input: {
 
   if (existingLookup.lead) {
     const existing = existingLookup.lead;
+    const incomingScore = normalizeUrgencyScore(input.values.urgency_score) || 0;
+    const existingScore = normalizeUrgencyScore(existing.urgency_score) || 0;
+    const newUrgencyScore = Math.max(existingScore, incomingScore);
+    const incomingTemp = urgencyScoreToLeadTemp(incomingScore);
+
     const patch: Record<string, unknown> = {
       full_name: chooseMissing(existing.full_name, fullName),
       first_name: chooseMissing(existing.first_name, firstName),
@@ -328,10 +359,9 @@ export async function upsertReceptionistLead(input: {
       next_step: chooseMissing(existing.next_step, optionalString(input.values.next_step)),
       notes: mergeNotes(existing.notes, optionalString(input.values.notes)),
       urgency_level: betterUrgencyLevel(existing.urgency_level, input.values.urgency_level || null),
-      urgency_score: Math.max(
-        normalizeUrgencyScore(existing.urgency_score) || 0,
-        normalizeUrgencyScore(input.values.urgency_score) || 0
-      ),
+      urgency_score: newUrgencyScore,
+      // Only upgrade lead_temp — never downgrade it
+      lead_temp: betterLeadTemp(existing.lead_temp, incomingTemp),
       source_detail: {
         ...(asRecord(existing.source_detail) || {}),
         ...sourceDetailPatch,
@@ -371,7 +401,7 @@ export async function upsertReceptionistLead(input: {
     assignee_user_id: input.agentId,
     ig_username: syntheticHandle(identity),
     stage: "New",
-    lead_temp: "Warm",
+    lead_temp: urgencyScoreToLeadTemp(normalizeUrgencyScore(input.values.urgency_score)),
     source,
     full_name: fullName || null,
     first_name: firstName || null,
