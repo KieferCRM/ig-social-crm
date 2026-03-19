@@ -595,10 +595,27 @@ export async function POST(request: Request) {
         ? `${resolvedInput.first_name} ${resolvedInput.last_name}`
         : resolvedInput.first_name || null)
     );
+
+    // Build rich details for seller form notifications
+    let details: string | null = null;
+    if (formDerivedSource === "seller_form") {
+      const callerFields = asRecord(body.custom_fields) || {};
+      const detailParts: string[] = [];
+      const propertyAddr = optionalString(resolvedInput.property_context);
+      const sellerTimeline = optionalString(resolvedInput.timeline);
+      const askingPrice = optionalString(callerFields["asking_price"] as string | null | undefined);
+      if (propertyAddr) detailParts.push(`Address: ${propertyAddr}`);
+      if (sellerTimeline) detailParts.push(`Timeline: ${sellerTimeline}`);
+      if (askingPrice) detailParts.push(`Asking: ${askingPrice}`);
+      detailParts.push(`Temp: ${leadTemp}`);
+      details = detailParts.join(" · ");
+    }
+
     void notifyAgentFormSubmission(admin, intakeAgentId, {
       leadName,
       phone: phone || null,
       formLabel,
+      details,
     }).catch((err: unknown) => {
       console.warn("[intake] form notification failed", err);
     });

@@ -1,5 +1,5 @@
 import LockboxMark from "@/components/branding/lockbox-mark";
-import FormRenderer from "@/components/forms/FormRenderer";
+import OffMarketSellerForm from "@/components/forms/OffMarketSellerForm";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export default async function SellerFormPage({
         <div style={{ marginBottom: 24 }}>
           <LockboxMark variant="full" decorative />
         </div>
-        <FormRenderer formType="off_market_seller" agentSlug={agentId} />
+        <OffMarketSellerForm agentSlug={agentId} />
       </div>
     </main>
   );

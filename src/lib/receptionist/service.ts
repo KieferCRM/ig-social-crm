@@ -323,10 +323,15 @@ async function maybeSendNotificationSms(input: {
 export async function notifyAgentFormSubmission(
   admin: AdminClient,
   agentId: string,
-  opts: { leadName: string | null; phone: string | null; formLabel: string }
+  opts: { leadName: string | null; phone: string | null; formLabel: string; details?: string | null }
 ): Promise<void> {
   const context = await loadAgentReceptionistContext(admin, agentId);
   const displayName = opts.leadName || opts.phone || "New lead";
+  const baseLine = `${displayName}${opts.phone ? ` · ${opts.phone}` : ""} submitted the ${opts.formLabel}.`;
+  const alertMessage = opts.details ? `${baseLine} ${opts.details}` : baseLine;
+  const smsText = opts.details
+    ? `LockboxHQ: New ${opts.formLabel} — ${displayName}${opts.phone ? `, ${opts.phone}` : ""}. ${opts.details}`
+    : `LockboxHQ: New ${opts.formLabel} — ${displayName}${opts.phone ? `, ${opts.phone}` : ""}.`;
 
   await createReceptionistAlert({
     admin,
@@ -334,19 +339,14 @@ export async function notifyAgentFormSubmission(
     alertType: "form_submission",
     severity: "info",
     title: `New ${opts.formLabel} submission`,
-    message: `${displayName}${opts.phone ? ` · ${opts.phone}` : ""} submitted the ${opts.formLabel}.`,
-    metadata: { form_label: opts.formLabel, lead_name: opts.leadName, phone: opts.phone },
+    message: alertMessage,
+    metadata: { form_label: opts.formLabel, lead_name: opts.leadName, phone: opts.phone, details: opts.details ?? null },
   });
 
   const fromPhone = normalizePhoneToE164(context.settings.business_phone_number);
   const toPhone = normalizePhoneToE164(context.settings.notification_phone_number);
   if (fromPhone && toPhone) {
-    await sendReceptionistSms({
-      agentId,
-      fromPhone,
-      toPhone,
-      text: `LockboxHQ: New ${opts.formLabel} — ${displayName}${opts.phone ? `, ${opts.phone}` : ""}.`,
-    });
+    await sendReceptionistSms({ agentId, fromPhone, toPhone, text: smsText });
   }
 }
 
