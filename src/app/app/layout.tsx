@@ -54,7 +54,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     ? [
         { href: "/app", label: "Today", active: pathname === "/app" },
         { href: "/app/pipeline", label: "Pipeline", active: pathname.startsWith("/app/pipeline") },
-        { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals") },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts") },
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents") },
         { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms") },

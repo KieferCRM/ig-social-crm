@@ -21,6 +21,8 @@ type PipelineDeal = {
   id: string;
   lead_id: string;
   seller_name: string | null;
+  seller_phone: string | null;
+  seller_email: string | null;
   property_address: string | null;
   price: number | null;
   offer_price: number | null;
@@ -93,7 +95,7 @@ function toggleTag(current: string[], tag: string): string[] {
 
 // ─── Raw DB row types ─────────────────────────────────────────────────────────
 
-type RawLeadField = { full_name?: unknown } | null;
+type RawLeadField = { full_name?: unknown; canonical_phone?: unknown; canonical_email?: unknown } | null;
 
 type RawDealRow = {
   id?: unknown;
@@ -121,11 +123,21 @@ function mapDealRow(row: RawDealRow): PipelineDeal | null {
     rawLead && typeof rawLead === "object" && typeof rawLead.full_name === "string"
       ? rawLead.full_name
       : null;
+  const sellerPhone =
+    rawLead && typeof rawLead === "object" && typeof rawLead.canonical_phone === "string"
+      ? rawLead.canonical_phone
+      : null;
+  const sellerEmail =
+    rawLead && typeof rawLead === "object" && typeof rawLead.canonical_email === "string"
+      ? rawLead.canonical_email
+      : null;
 
   return {
     id,
     lead_id: leadId,
     seller_name: sellerName,
+    seller_phone: sellerPhone,
+    seller_email: sellerEmail,
     property_address: typeof row.property_address === "string" ? row.property_address : null,
     price: typeof row.price === "number" ? row.price : null,
     offer_price: typeof row.offer_price === "number" ? row.offer_price : null,
@@ -223,7 +235,7 @@ export default function PipelineClient() {
       const { data, error } = await supabase
         .from("deals")
         .select(
-          "id,lead_id,property_address,price,offer_price,stage,tags,stage_entered_at,next_followup_date,notes,updated_at,created_at,lead:leads(full_name)"
+          "id,lead_id,property_address,price,offer_price,stage,tags,stage_entered_at,next_followup_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email)"
         )
         .eq("agent_id", user.id)
         .order("updated_at", { ascending: false });
@@ -991,6 +1003,34 @@ export default function PipelineClient() {
               <label className="crm-filter-field">
                 <span>Seller Name</span>
                 <input value={selectedDeal.seller_name || "—"} disabled readOnly />
+              </label>
+
+              <label className="crm-filter-field">
+                <span>Phone</span>
+                {selectedDeal.seller_phone ? (
+                  <a
+                    href={`tel:${selectedDeal.seller_phone}`}
+                    style={{ fontSize: 14, color: "var(--brand)", textDecoration: "none", padding: "6px 0", display: "block" }}
+                  >
+                    {selectedDeal.seller_phone}
+                  </a>
+                ) : (
+                  <input value="—" disabled readOnly />
+                )}
+              </label>
+
+              <label className="crm-filter-field">
+                <span>Email</span>
+                {selectedDeal.seller_email ? (
+                  <a
+                    href={`mailto:${selectedDeal.seller_email}`}
+                    style={{ fontSize: 14, color: "var(--brand)", textDecoration: "none", padding: "6px 0", display: "block" }}
+                  >
+                    {selectedDeal.seller_email}
+                  </a>
+                ) : (
+                  <input value="—" disabled readOnly />
+                )}
               </label>
 
               <label className="crm-filter-field">

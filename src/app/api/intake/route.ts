@@ -555,7 +555,14 @@ export async function POST(request: Request) {
         }),
         deal_type: inferDealType(intent),
         price: null,
-        stage: "new",
+        stage:
+          formVariant === "off_market_seller" || formVariant === "off_market_buyer"
+            ? "prospecting"
+            : "new",
+        stage_entered_at:
+          formVariant === "off_market_seller" || formVariant === "off_market_buyer"
+            ? new Date().toISOString()
+            : null,
         expected_close_date: null,
         notes:
           notes ||
