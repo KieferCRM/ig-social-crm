@@ -53,6 +53,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const navItems = isOffMarketAccount
     ? [
         { href: "/app", label: "Today", active: pathname === "/app" },
+        { href: "/app/pipeline", label: "Pipeline", active: pathname.startsWith("/app/pipeline") },
         { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals") },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts") },
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents") },
@@ -93,6 +94,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       ];
 
   const pageMeta = useMemo(() => {
+    if (pathname.startsWith("/app/pipeline")) {
+      return {
+        title: "Pipeline",
+        subtitle:
+          "Track every off-market deal from prospecting to close. Filter by stage or tag to focus on what needs attention.",
+      };
+    }
     if (pathname.startsWith("/app/deals")) {
       return {
         title: "Deals",
