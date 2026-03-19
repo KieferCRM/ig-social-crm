@@ -64,6 +64,7 @@ type IntakeBody = {
   consent_text_snapshot?: string | null;
   form_variant?: string | null;
   questionnaire_answers?: Record<string, unknown> | null;
+  custom_fields?: Record<string, unknown> | null;
 };
 
 type ExistingLead = {
@@ -426,6 +427,7 @@ export async function POST(request: Request) {
   if (contactPreference) payload.contact_preference = contactPreference;
 
   const existingCustomFields = asRecord(existingLead?.custom_fields) || {};
+  const callerCustomFields = asRecord(body.custom_fields) || {};
   const derivedCustomFields: Record<string, unknown> = {
     qualification_score: qualification.score,
     next_action_title: nextAction.title,
@@ -443,6 +445,7 @@ export async function POST(request: Request) {
     ...existingCustomFields,
     ...derivedCustomFields,
     ...customQuestionnaireFields,
+    ...callerCustomFields,
   };
 
   const { data: upsertedLead, error: upsertError } = await admin

@@ -152,6 +152,7 @@ export default function FormRenderer({
     setError("");
 
     const questionnaire_answers: Record<string, string> = {};
+    const custom_fields_input: Record<string, string> = {};
     const payload: Record<string, unknown> = {
       source: `web_form_${agentSlug}`,
       form_variant: formType,
@@ -169,14 +170,23 @@ export default function FormRenderer({
 
       questionnaire_answers[field.id] = value;
 
-      if (field.crm_field && CRM_FIELDS.has(field.crm_field)) {
-        // intent_type maps to intent
-        if (field.crm_field === "intent") {
-          payload.intent = value;
-        } else {
-          payload[field.crm_field] = value;
+      if (field.crm_field) {
+        if (field.crm_field.startsWith("custom.")) {
+          const key = field.crm_field.slice("custom.".length);
+          if (key) custom_fields_input[key] = value;
+        } else if (CRM_FIELDS.has(field.crm_field)) {
+          // intent_type maps to intent
+          if (field.crm_field === "intent") {
+            payload.intent = value;
+          } else {
+            payload[field.crm_field] = value;
+          }
         }
       }
+    }
+
+    if (Object.keys(custom_fields_input).length > 0) {
+      payload.custom_fields = custom_fields_input;
     }
 
     try {

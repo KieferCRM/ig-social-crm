@@ -57,6 +57,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals") },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts") },
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents") },
+        { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms") },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities") },
         {
           href: "/app/settings",
@@ -141,6 +142,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         title: "Social Media",
         subtitle:
           "Plan outreach, keep scripts close, and move between platforms without turning the CRM into a scheduler.",
+      };
+    }
+    if (pathname.startsWith("/app/forms")) {
+      return {
+        title: "Forms",
+        subtitle:
+          "Share seller and buyer intake forms with a link or QR code. Build custom forms for open houses, events, or any inquiry.",
       };
     }
     if (pathname.startsWith("/app/priorities")) {
