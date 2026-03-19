@@ -8,6 +8,11 @@ export const DEAL_STAGE_VALUES = [
   "closing",
   "closed",
   "lost",
+  // off-market stages
+  "prospecting",
+  "offer_sent",
+  "negotiating",
+  "dead",
 ] as const;
 
 export const DEAL_BOARD_STAGES = [
@@ -70,6 +75,10 @@ const STAGE_LABELS: Record<DealStage, string> = {
   closing: "Closing",
   closed: "Closed",
   lost: "Lost",
+  prospecting: "Prospecting",
+  offer_sent: "Offer Sent",
+  negotiating: "Negotiating",
+  dead: "Dead",
 };
 
 const DEAL_TYPE_LABELS: Record<DealType, string> = {
@@ -90,6 +99,10 @@ const DEAL_STAGE_TONES: Record<
   closing: "stage-contract",
   closed: "stage-closed",
   lost: "stage-lost",
+  prospecting: "stage-new",
+  offer_sent: "stage-qualified",
+  negotiating: "stage-active",
+  dead: "stage-lost",
 };
 
 export function normalizeDealStage(value: string | null | undefined): DealStage {

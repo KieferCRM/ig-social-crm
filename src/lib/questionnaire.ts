@@ -9,7 +9,7 @@ export type QuestionnaireInputType =
   | "radio"
   | "checkbox_group";
 
-export type QuestionnaireVariant = "buyer" | "seller";
+export type QuestionnaireVariant = "buyer" | "seller" | "off_market_seller" | "off_market_buyer";
 
 export type QuestionnaireQuestion = {
   id: string;
@@ -429,8 +429,8 @@ export function cloneQuestionnaireConfig(config: QuestionnaireConfig): Questionn
 export function normalizeQuestionnaireVariant(value: unknown): QuestionnaireVariant | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
-  if (normalized === "buyer" || normalized === "seller") {
-    return normalized;
+  if (normalized === "buyer" || normalized === "seller" || normalized === "off_market_seller" || normalized === "off_market_buyer") {
+    return normalized as QuestionnaireVariant;
   }
   return null;
 }
