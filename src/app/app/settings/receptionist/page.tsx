@@ -167,7 +167,7 @@ function phoneSetupStatusMeta(status: ReceptionistPhoneSetupStatus): StatusMeta 
   return {
     label: "Not configured",
     toneClass: "crm-chip crm-chip-warn",
-    helper: "Choose a phone setup path to unlock Concierge calling and texting.",
+    helper: "Choose a phone setup path to unlock Secretary calling and texting.",
   };
 }
 
@@ -200,7 +200,7 @@ function Field({ label, helper, children }: FieldProps) {
 }
 
 export default function ReceptionistSettingsPage() {
-  const conciergeLocked = true;
+  const secretaryLocked = true;
   const [settings, setSettings] = useState<ReceptionistSettings>(DEFAULT_RECEPTIONIST_SETTINGS);
   const [keywordsText, setKeywordsText] = useState(
     keywordsToText(DEFAULT_RECEPTIONIST_SETTINGS.escalation_keywords)
@@ -259,7 +259,7 @@ export default function ReceptionistSettingsPage() {
         const payload = (await response.json()) as SettingsResponse;
 
         if (!response.ok || !payload.settings) {
-          if (!canceled) setMessage(payload.error || "Could not load Concierge settings.");
+          if (!canceled) setMessage(payload.error || "Could not load Secretary settings.");
           return;
         }
 
@@ -268,7 +268,7 @@ export default function ReceptionistSettingsPage() {
           setKeywordsText(keywordsToText(payload.settings.escalation_keywords));
         }
       } catch {
-        if (!canceled) setMessage("Could not load Concierge settings.");
+        if (!canceled) setMessage("Could not load Secretary settings.");
       } finally {
         if (!canceled) setLoading(false);
       }
@@ -381,15 +381,15 @@ export default function ReceptionistSettingsPage() {
 
       const data = (await response.json()) as SettingsResponse;
       if (!response.ok || !data.settings) {
-        setMessage(data.error || "Could not save Concierge settings.");
+        setMessage(data.error || "Could not save Secretary settings.");
         return;
       }
 
       setSettings(data.settings);
       setKeywordsText(keywordsToText(data.settings.escalation_keywords));
-      setMessage("Concierge settings saved.");
+      setMessage("Secretary settings saved.");
     } catch {
-      setMessage("Could not save Concierge settings.");
+      setMessage("Could not save Secretary settings.");
     } finally {
       setSaving(false);
     }
@@ -399,7 +399,7 @@ export default function ReceptionistSettingsPage() {
     return (
       <main className="crm-page">
         <section className="crm-card crm-section-card">
-          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading Concierge settings...</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading Secretary settings...</div>
         </section>
       </main>
     );
@@ -410,9 +410,9 @@ export default function ReceptionistSettingsPage() {
       <section className="crm-card crm-section-card crm-stack-10">
         <div className="crm-page-header">
           <div className="crm-page-header-main">
-            <h1 className="crm-page-title">Concierge</h1>
+            <h1 className="crm-page-title">Secretary</h1>
             <p className="crm-page-subtitle">
-              Concierge is the premium upgrade for missed-call follow-up, direct calling and texting, and faster response on serious inbound inquiries.
+              Secretary is the premium upgrade for missed-call follow-up, direct calling and texting, and faster response on serious inbound inquiries.
             </p>
           </div>
           <div className="crm-page-actions">
@@ -422,11 +422,11 @@ export default function ReceptionistSettingsPage() {
           </div>
         </div>
 
-        {conciergeLocked ? (
-          <div className="crm-concierge-brew-banner">
-            <div className="crm-concierge-brew-banner__eyebrow">Being Brewed</div>
-            <div className="crm-concierge-brew-banner__title">Concierge is under construction right now.</div>
-            <div className="crm-concierge-brew-banner__copy">
+        {secretaryLocked ? (
+          <div className="crm-secretary-brew-banner">
+            <div className="crm-secretary-brew-banner__eyebrow">Being Brewed</div>
+            <div className="crm-secretary-brew-banner__title">Secretary is under construction right now.</div>
+            <div className="crm-secretary-brew-banner__copy">
               This upgrade will unlock calling, texting, and missed-call follow-up inside LockboxHQ. For now, the setup page is view-only while the workflow is still being finished.
             </div>
           </div>
@@ -454,7 +454,7 @@ export default function ReceptionistSettingsPage() {
             </span>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55 }}>
-            Once Concierge is active, your LockboxHQ business number can power missed-call text-back, direct SMS
+            Once Secretary is active, your LockboxHQ business number can power missed-call text-back, direct SMS
             conversations, captured lead details, and urgent alerts without bouncing you across separate tools.
           </p>
           <ol
@@ -476,13 +476,13 @@ export default function ReceptionistSettingsPage() {
         </div>
       </section>
 
-      <div className={`crm-concierge-locked-shell${conciergeLocked ? " crm-concierge-locked-shell-active" : ""}`}>
-        {conciergeLocked ? (
-          <div className="crm-concierge-locked-overlay" aria-hidden="true">
-            <div className="crm-concierge-locked-panel">
-              <div className="crm-concierge-locked-panel__eyebrow">Premium Upgrade</div>
-              <div className="crm-concierge-locked-panel__title">Concierge setup is being brewed.</div>
-              <div className="crm-concierge-locked-panel__copy">
+      <div className={`crm-secretary-locked-shell${secretaryLocked ? " crm-secretary-locked-shell-active" : ""}`}>
+        {secretaryLocked ? (
+          <div className="crm-secretary-locked-overlay" aria-hidden="true">
+            <div className="crm-secretary-locked-panel">
+              <div className="crm-secretary-locked-panel__eyebrow">Premium Upgrade</div>
+              <div className="crm-secretary-locked-panel__title">Secretary setup is being brewed.</div>
+              <div className="crm-secretary-locked-panel__copy">
                 The workflow for calling, texting, and missed-call follow-up is still under construction, so this page is intentionally view-only for now.
               </div>
             </div>
@@ -499,8 +499,8 @@ export default function ReceptionistSettingsPage() {
 
           <div className="crm-grid-cards-3">
             <ToggleCard
-              title="Concierge Active"
-              description="Master switch for the Concierge upgrade. Turn this on to unlock LockboxHQ communication workflows."
+              title="Secretary Active"
+              description="Master switch for the Secretary upgrade. Turn this on to unlock LockboxHQ communication workflows."
               checked={settings.receptionist_enabled}
               onChange={(next) =>
                 setSettings((previous) => ({ ...previous, receptionist_enabled: next }))
@@ -508,8 +508,8 @@ export default function ReceptionistSettingsPage() {
             />
             <ToggleCard
               title="Messaging Active"
-              description="Allows SMS send and receive inside LockboxHQ after Concierge is enabled."
-              helper="Tip: Concierge Active and Messaging Active both need to be on for automatic responses."
+              description="Allows SMS send and receive inside LockboxHQ after Secretary is enabled."
+              helper="Tip: Secretary Active and Messaging Active both need to be on for automatic responses."
               checked={settings.communications_enabled}
               onChange={(next) =>
                 setSettings((previous) => ({ ...previous, communications_enabled: next }))
@@ -517,7 +517,7 @@ export default function ReceptionistSettingsPage() {
             />
             <ToggleCard
               title="Missed Call Auto-Reply"
-              description="When enabled, Concierge can send your starter SMS after a missed call based on your after-hours rules."
+              description="When enabled, Secretary can send your starter SMS after a missed call based on your after-hours rules."
               checked={settings.missed_call_textback_enabled}
               onChange={(next) =>
                 setSettings((previous) => ({ ...previous, missed_call_textback_enabled: next }))
@@ -533,7 +533,7 @@ export default function ReceptionistSettingsPage() {
           </div>
 
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-            Choose how Concierge should handle your public-facing business number. A new LockboxHQ number is the fastest path to activation.
+            Choose how Secretary should handle your public-facing business number. A new LockboxHQ number is the fastest path to activation.
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
@@ -543,7 +543,7 @@ export default function ReceptionistSettingsPage() {
                 <span className="crm-chip crm-chip-ok">Recommended</span>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
-                Fastest upgrade setup. LockboxHQ assigns a business number so Concierge can start handling calls and texts quickly.
+                Fastest upgrade setup. LockboxHQ assigns a business number so Secretary can start handling calls and texts quickly.
               </p>
               <button
                 type="button"
@@ -561,7 +561,7 @@ export default function ReceptionistSettingsPage() {
                 <span className="crm-chip">Setup-Assisted</span>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
-                Keep your current number. Some Concierge setups require manual review, forwarding configuration, or porting support.
+                Keep your current number. Some Secretary setups require manual review, forwarding configuration, or porting support.
               </p>
               <button
                 type="button"
@@ -850,7 +850,7 @@ export default function ReceptionistSettingsPage() {
                 onClick={saveSettings}
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save Concierge Settings"}
+                {saving ? "Saving..." : "Save Secretary Settings"}
               </button>
               <Link href="/app/list" className="crm-btn crm-btn-secondary">
                 Open Leads Workspace

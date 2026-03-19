@@ -320,6 +320,36 @@ async function maybeSendNotificationSms(input: {
   });
 }
 
+export async function notifyAgentFormSubmission(
+  admin: AdminClient,
+  agentId: string,
+  opts: { leadName: string | null; phone: string | null; formLabel: string }
+): Promise<void> {
+  const context = await loadAgentReceptionistContext(admin, agentId);
+  const displayName = opts.leadName || opts.phone || "New lead";
+
+  await createReceptionistAlert({
+    admin,
+    agentId,
+    alertType: "form_submission",
+    severity: "info",
+    title: `New ${opts.formLabel} submission`,
+    message: `${displayName}${opts.phone ? ` · ${opts.phone}` : ""} submitted the ${opts.formLabel}.`,
+    metadata: { form_label: opts.formLabel, lead_name: opts.leadName, phone: opts.phone },
+  });
+
+  const fromPhone = normalizePhoneToE164(context.settings.business_phone_number);
+  const toPhone = normalizePhoneToE164(context.settings.notification_phone_number);
+  if (fromPhone && toPhone) {
+    await sendReceptionistSms({
+      agentId,
+      fromPhone,
+      toPhone,
+      text: `LockboxHQ: New ${opts.formLabel} — ${displayName}${opts.phone ? `, ${opts.phone}` : ""}.`,
+    });
+  }
+}
+
 export async function processInboundSms(input: {
   admin: AdminClient;
   agentId: string;
@@ -400,19 +430,6 @@ export async function processInboundSms(input: {
     await maybeSendNotificationSms({
       context,
       body: `LockboxHQ urgent lead alert: ${lead.full_name || lead.canonical_phone || "Lead"} asked for immediate help.`,
-    });
-  }
-
-  if ((lead.lead_temp || "").trim().toLowerCase() === "hot") {
-    await createReceptionistAlert({
-      admin: input.admin,
-      agentId: input.agentId,
-      leadId: lead.id,
-      alertType: "hot_lead_new_message",
-      severity: "high",
-      title: "Hot lead sent a new message",
-      message: `${lead.full_name || lead.canonical_phone || "Hot lead"} just sent an inbound SMS.`,
-      metadata: {},
     });
   }
 

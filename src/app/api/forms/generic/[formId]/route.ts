@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getClientIp, parseJsonBody } from "@/lib/http";
 import { takeRateLimit } from "@/lib/rate-limit";
+import { notifyAgentFormSubmission } from "@/lib/receptionist/service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { buildSyntheticLeadHandle } from "@/lib/leads/identity";
 
@@ -148,6 +149,15 @@ export async function POST(
       // Non-fatal: submission is already stored
       console.warn("[generic_form] lead upsert failed", leadError.message);
     }
+
+    // Notify agent — fire and forget
+    void notifyAgentFormSubmission(admin, agentId, {
+      leadName: name,
+      phone,
+      formLabel: `Generic Form — ${form.title as string}`,
+    }).catch((err: unknown) => {
+      console.warn("[generic_form] notification failed", err);
+    });
   }
 
   return NextResponse.json({ ok: true });

@@ -1,31 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type {
-  HotLeadNotificationMode,
-  SocialScript,
-  WorkspaceSettings,
-} from "@/lib/workspace-settings";
+import type { SocialScript, WorkspaceSettings } from "@/lib/workspace-settings";
 
 type SettingsResponse = {
   settings?: WorkspaceSettings;
   error?: string;
 };
 
-const NOTIFICATION_OPTIONS: Array<{
-  value: HotLeadNotificationMode;
-  label: string;
-}> = [
-  { value: "immediate", label: "Notify immediately" },
-  { value: "business_hours", label: "Notify during business hours" },
-  { value: "daily_summary", label: "Include in daily summary" },
-  { value: "crm_only", label: "Mark in CRM only" },
-];
-
 function emptySettings(): WorkspaceSettings {
   return {
     booking_link: "",
-    hot_lead_notification_mode: "business_hours",
+    hot_lead_notification_mode: "business_hours", // kept in type for DB compat
     hot_lead_business_hours_start: "09:00",
     hot_lead_business_hours_end: "18:00",
     instagram_url: "",
@@ -95,9 +81,6 @@ export default function WorkspaceSettingsClient() {
     try {
       const payload = {
         booking_link: settings.booking_link,
-        hot_lead_notification_mode: settings.hot_lead_notification_mode,
-        hot_lead_business_hours_start: settings.hot_lead_business_hours_start,
-        hot_lead_business_hours_end: settings.hot_lead_business_hours_end,
         instagram_url: settings.instagram_url,
         facebook_url: settings.facebook_url,
         tiktok_url: settings.tiktok_url,
@@ -164,55 +147,6 @@ export default function WorkspaceSettingsClient() {
               </div>
             </article>
 
-            <article className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 700 }}>Hot lead notifications</div>
-              <label className="crm-filter-field">
-                <span>Preference</span>
-                <select
-                  value={settings.hot_lead_notification_mode}
-                  onChange={(event) =>
-                    setSettings((previous) => ({
-                      ...previous,
-                      hot_lead_notification_mode: event.target.value as HotLeadNotificationMode,
-                    }))
-                  }
-                >
-                  {NOTIFICATION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="crm-inline-actions" style={{ gap: 10 }}>
-                <label className="crm-filter-field" style={{ flex: 1 }}>
-                  <span>Business hours start</span>
-                  <input
-                    type="time"
-                    value={settings.hot_lead_business_hours_start}
-                    onChange={(event) =>
-                      setSettings((previous) => ({
-                        ...previous,
-                        hot_lead_business_hours_start: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="crm-filter-field" style={{ flex: 1 }}>
-                  <span>Business hours end</span>
-                  <input
-                    type="time"
-                    value={settings.hot_lead_business_hours_end}
-                    onChange={(event) =>
-                      setSettings((previous) => ({
-                        ...previous,
-                        hot_lead_business_hours_end: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-            </article>
           </div>
 
           <div className="crm-grid-cards-3">

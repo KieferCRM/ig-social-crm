@@ -82,7 +82,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         { href: "/app/priorities", label: "Priorities", active: pathname.startsWith("/app/priorities") },
         {
           href: "/app/settings/receptionist",
-          label: "Concierge",
+          label: "Secretary",
           active: pathname.startsWith("/app/settings/receptionist"),
         },
         {
@@ -160,9 +160,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
     if (pathname.startsWith("/app/settings/receptionist")) {
       return {
-        title: "Concierge",
+        title: "Secretary",
         subtitle:
-          "Missed-call capture and follow-up intake feed the same workspace without creating a separate CRM path.",
+          "Missed-call capture, form notifications, and direct SMS feed the same workspace without creating a separate CRM path.",
       };
     }
     if (pathname.startsWith("/app/settings")) {

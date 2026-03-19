@@ -3,8 +3,13 @@ export const SOURCE_CHANNEL_VALUES = [
   "facebook",
   "tiktok",
   "website_form",
+  "seller_form",
+  "buyer_form",
+  "generic_form",
   "open_house",
-  "concierge",
+  "inbound_call",
+  "inbound_sms",
+  "concierge", // legacy — kept for backwards compat with existing lead records
   "referral",
   "manual",
   "other",
@@ -82,7 +87,12 @@ export function normalizeSourceChannel(value: string | null | undefined): Source
   if (includesAny(source, ["fb", "facebook"])) return "facebook";
   if (includesAny(source, ["tiktok", "tik tok"])) return "tiktok";
   if (includesAny(source, ["open house"])) return "open_house";
-  if (includesAny(source, ["concierge", "missed call", "call", "sms", "text"])) return "concierge";
+  if (source === "seller_form") return "seller_form";
+  if (source === "buyer_form") return "buyer_form";
+  if (source === "generic_form") return "generic_form";
+  if (includesAny(source, ["sms_receptionist", "inbound_sms"])) return "inbound_sms";
+  if (includesAny(source, ["call_inbound", "missed_call_textback", "inbound_call", "missed call", "call"])) return "inbound_call";
+  if (includesAny(source, ["concierge", "sms", "text"])) return "concierge";
   if (includesAny(source, ["referral", "referred"])) return "referral";
   if (includesAny(source, ["manual", "import"])) return "manual";
   if (includesAny(source, ["web", "form", "site", "landing"])) return "website_form";
@@ -124,8 +134,13 @@ export function sourceChannelLabel(value: string | null | undefined): string {
   if (source === "facebook") return "Facebook";
   if (source === "tiktok") return "TikTok";
   if (source === "website_form") return "Website Form";
+  if (source === "seller_form") return "Seller Form";
+  if (source === "buyer_form") return "Buyer Form";
+  if (source === "generic_form") return "Generic Form";
   if (source === "open_house") return "Open House";
-  if (source === "concierge") return "Concierge";
+  if (source === "inbound_call") return "Inbound Call";
+  if (source === "inbound_sms") return "Inbound SMS";
+  if (source === "concierge") return "Secretary";
   if (source === "referral") return "Referral";
   if (source === "manual") return "Manual";
   if (source === "other") return "Other";
@@ -138,7 +153,8 @@ export function sourceChannelTone(
   const source = normalizeSourceChannel(value);
   if (source === "instagram" || source === "facebook" || source === "tiktok") return "info";
   if (source === "open_house" || source === "referral") return "ok";
-  if (source === "concierge") return "warn";
+  if (source === "seller_form" || source === "buyer_form" || source === "generic_form") return "ok";
+  if (source === "inbound_call" || source === "inbound_sms" || source === "concierge") return "warn";
   return "default";
 }
 

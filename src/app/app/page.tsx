@@ -164,7 +164,7 @@ export default async function AppHome() {
 
   const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: sellerFormLeads }] =
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: sellerFormLeads }, { data: formAlertData }] =
     await Promise.all([
       supabase
         .from("leads")
@@ -192,11 +192,18 @@ export default async function AppHome() {
         .from("leads")
         .select("id,full_name,canonical_phone,time_last_updated")
         .eq("agent_id", user.id)
-        .eq("source", "website_form")
-        .contains("custom_fields", { form_variant: "off_market_seller" })
+        .eq("source", "seller_form")
         .gte("time_last_updated", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order("time_last_updated", { ascending: false })
         .limit(5),
+      supabase
+        .from("receptionist_alerts")
+        .select("id,alert_type,severity,title,message,created_at,metadata")
+        .eq("agent_id", user.id)
+        .eq("alert_type", "form_submission")
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(10),
     ]);
 
   const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
@@ -224,6 +231,13 @@ export default async function AppHome() {
     full_name: string | null;
     canonical_phone: string | null;
     time_last_updated: string | null;
+  }>;
+  const formAlerts = (formAlertData || []) as Array<{
+    id: string;
+    title: string;
+    message: string;
+    severity: string;
+    created_at: string;
   }>;
 
   const heroTitle = isOffMarketAccount
@@ -254,6 +268,29 @@ export default async function AppHome() {
             <Link href="/app/documents" className="crm-btn crm-btn-secondary">Documents</Link>
           </div>
         </section>
+
+        {/* Form submission alerts */}
+        {formAlerts.length > 0 ? (
+          <section className="crm-card crm-section-card crm-stack-8">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">New Form Submissions</h2>
+                <p className="crm-section-subtitle">Leads who submitted a form and are waiting for a response.</p>
+              </div>
+            </div>
+            <div className="crm-stack-6">
+              {formAlerts.map((alert) => (
+                <div key={alert.id} className="crm-card-muted" style={{ padding: 12, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{alert.title}</div>
+                    <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{alert.message}</div>
+                  </div>
+                  <span style={{ fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>{formatTimeAgo(alert.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {/* KPIs */}
         <section className="crm-kpi-grid crm-dashboard-kpi-grid">
@@ -490,6 +527,28 @@ export default async function AppHome() {
           </Link>
         </div>
       </section>
+
+      {formAlerts.length > 0 ? (
+        <section className="crm-card crm-section-card crm-stack-8">
+          <div className="crm-section-head">
+            <div>
+              <h2 className="crm-section-title">New Form Submissions</h2>
+              <p className="crm-section-subtitle">Leads who submitted a form and are waiting for a response.</p>
+            </div>
+          </div>
+          <div className="crm-stack-6">
+            {formAlerts.map((alert) => (
+              <div key={alert.id} className="crm-card-muted" style={{ padding: 12, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{alert.title}</div>
+                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{alert.message}</div>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>{formatTimeAgo(alert.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="crm-kpi-grid crm-dashboard-kpi-grid">
         <KpiCard label="Active Deals" value={activeDeals.length} tone="ok" href="/app/deals" compact />

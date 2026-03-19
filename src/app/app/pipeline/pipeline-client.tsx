@@ -13,6 +13,7 @@ import {
   pipelineStageTone,
   type OffMarketStage,
 } from "@/lib/pipeline";
+import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 // ─── Local types ────────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ type PipelineDeal = {
   seller_name: string | null;
   seller_phone: string | null;
   seller_email: string | null;
+  seller_source: string | null;
   property_address: string | null;
   price: number | null;
   offer_price: number | null;
@@ -95,7 +97,7 @@ function toggleTag(current: string[], tag: string): string[] {
 
 // ─── Raw DB row types ─────────────────────────────────────────────────────────
 
-type RawLeadField = { full_name?: unknown; canonical_phone?: unknown; canonical_email?: unknown } | null;
+type RawLeadField = { full_name?: unknown; canonical_phone?: unknown; canonical_email?: unknown; source?: unknown } | null;
 
 type RawDealRow = {
   id?: unknown;
@@ -131,6 +133,10 @@ function mapDealRow(row: RawDealRow): PipelineDeal | null {
     rawLead && typeof rawLead === "object" && typeof rawLead.canonical_email === "string"
       ? rawLead.canonical_email
       : null;
+  const sellerSource =
+    rawLead && typeof rawLead === "object" && typeof rawLead.source === "string"
+      ? rawLead.source
+      : null;
 
   return {
     id,
@@ -138,6 +144,7 @@ function mapDealRow(row: RawDealRow): PipelineDeal | null {
     seller_name: sellerName,
     seller_phone: sellerPhone,
     seller_email: sellerEmail,
+    seller_source: sellerSource,
     property_address: typeof row.property_address === "string" ? row.property_address : null,
     price: typeof row.price === "number" ? row.price : null,
     offer_price: typeof row.offer_price === "number" ? row.offer_price : null,
@@ -235,7 +242,7 @@ export default function PipelineClient() {
       const { data, error } = await supabase
         .from("deals")
         .select(
-          "id,lead_id,property_address,price,offer_price,stage,tags,stage_entered_at,next_followup_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email)"
+          "id,lead_id,property_address,price,offer_price,stage,tags,stage_entered_at,next_followup_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email,source)"
         )
         .eq("agent_id", user.id)
         .order("updated_at", { ascending: false });
@@ -727,6 +734,7 @@ export default function PipelineClient() {
                     <tr>
                       <th>Property Address</th>
                       <th>Seller Name</th>
+                      <th>Source</th>
                       <th>Asking Price</th>
                       <th>Offer Price</th>
                       <th>Stage</th>
@@ -746,6 +754,14 @@ export default function PipelineClient() {
                           {deal.property_address || "—"}
                         </td>
                         <td>{deal.seller_name || "—"}</td>
+                        <td>
+                          {deal.seller_source ? (
+                            <StatusBadge
+                              label={sourceChannelLabel(deal.seller_source)}
+                              tone={sourceChannelTone(deal.seller_source)}
+                            />
+                          ) : "—"}
+                        </td>
                         <td>{priceDisplay(deal.price)}</td>
                         <td>{priceDisplay(deal.offer_price)}</td>
                         <td>

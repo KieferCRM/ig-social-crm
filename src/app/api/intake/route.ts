@@ -28,6 +28,7 @@ import {
 } from "@/lib/questionnaire";
 import { takeRateLimit } from "@/lib/rate-limit";
 import { withReminderOwnerColumn } from "@/lib/reminders";
+import { notifyAgentFormSubmission } from "@/lib/receptionist/service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inferLeadTags, normalizeTagList } from "@/lib/tags";
 
@@ -284,7 +285,11 @@ export async function POST(request: Request) {
   }
 
   const requestedSource = optionalString(resolvedInput.source);
-  const source = requestedSource || existingLead?.source || "website_form";
+  const formDerivedSource =
+    formVariant === "off_market_seller" || formVariant === "seller" ? "seller_form" :
+    formVariant === "off_market_buyer" || formVariant === "buyer" ? "buyer_form" :
+    null;
+  const source = formDerivedSource || requestedSource || existingLead?.source || "website_form";
   const sourceChannel = normalizeSourceChannel(source) || "other";
   const stage = requestedStage || existingLead?.stage || inferLeadStage(qualification.temperature);
   const leadTemp = requestedLeadTemp || existingLead?.lead_temp || qualification.temperature;
@@ -577,6 +582,26 @@ export async function POST(request: Request) {
     } else if (dealError) {
       console.warn("[intake] deal insert failed", { error: dealError.message });
     }
+  }
+
+  // Notify agent of form submission (in-app alert + SMS)
+  if (formDerivedSource) {
+    const formLabel =
+      formDerivedSource === "seller_form" ? "Seller Form" :
+      formDerivedSource === "buyer_form" ? "Buyer Form" : "Form";
+    const leadName = optionalString(
+      resolvedInput.full_name ||
+      (resolvedInput.first_name && resolvedInput.last_name
+        ? `${resolvedInput.first_name} ${resolvedInput.last_name}`
+        : resolvedInput.first_name || null)
+    );
+    void notifyAgentFormSubmission(admin, intakeAgentId, {
+      leadName,
+      phone: phone || null,
+      formLabel,
+    }).catch((err: unknown) => {
+      console.warn("[intake] form notification failed", err);
+    });
   }
 
   let recommendationCreated = false;
