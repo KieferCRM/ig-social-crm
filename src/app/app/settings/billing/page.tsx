@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { TIER_LABELS, TIER_FEATURES, type BillingTier } from "@/lib/billing";
@@ -52,7 +52,7 @@ const TIERS: { tier: BillingTier; price: { month: string; year: string } }[] = [
 // Main page
 // ---------------------------------------------------------------------------
 
-export default function BillingPage() {
+function BillingPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -363,5 +363,13 @@ export default function BillingPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="crm-page-shell"><p style={{ color: "var(--ink-muted)" }}>Loading…</p></div>}>
+      <BillingPageInner />
+    </Suspense>
   );
 }
