@@ -75,6 +75,18 @@ export default async function SettingsPage() {
             </section>
 
             <section className="crm-card crm-section-card crm-stack-10">
+              <div style={{ fontWeight: 700 }}>Billing</div>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+                View your current plan, upgrade or downgrade, and manage your payment details.
+              </p>
+              <div>
+                <Link href="/app/settings/billing" className="crm-btn crm-btn-primary">
+                  Open billing
+                </Link>
+              </div>
+            </section>
+
+            <section className="crm-card crm-section-card crm-stack-10">
               <div style={{ fontWeight: 700 }}>Legal pages</div>
               <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
                 Review the customer-facing privacy and terms pages before sharing LockboxHQ publicly.
@@ -126,6 +138,18 @@ export default async function SettingsPage() {
             </section>
 
             <section className="crm-card crm-section-card crm-stack-10">
+              <div style={{ fontWeight: 700 }}>Billing</div>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+                View your current plan, upgrade or downgrade, and manage your payment details.
+              </p>
+              <div>
+                <Link href="/app/settings/billing" className="crm-btn crm-btn-primary">
+                  Open billing
+                </Link>
+              </div>
+            </section>
+
+            <section className="crm-card crm-section-card crm-stack-10">
               <div style={{ fontWeight: 700 }}>Legal pages</div>
               <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
                 Review the customer-facing privacy and terms pages before sharing LockboxHQ publicly.
@@ -164,6 +188,7 @@ export default async function SettingsPage() {
               <Link href="/app/social" className="crm-btn crm-btn-secondary">Social Media</Link>
               <Link href="/app/contacts" className="crm-btn crm-btn-secondary">Contacts</Link>
               <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary">Secretary</Link>
+              <Link href="/app/settings/billing" className="crm-btn crm-btn-secondary">Billing</Link>
               <Link href="/privacy" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Privacy</Link>
               <Link href="/terms" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Terms</Link>
             </>
