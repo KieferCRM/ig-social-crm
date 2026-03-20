@@ -7,7 +7,11 @@ import {
   type ReceptionistPhoneSetupPath,
   type ReceptionistPhoneSetupStatus,
   type ReceptionistSettings,
+  type CallHandlingMode,
+  type AfterHoursVoiceMode,
+  type VoiceCloneStatus,
 } from "@/lib/receptionist/settings";
+import { PRESET_VOICES } from "@/lib/elevenlabs/voices";
 
 type SettingsResponse = {
   settings?: ReceptionistSettings;
@@ -200,7 +204,6 @@ function Field({ label, helper, children }: FieldProps) {
 }
 
 export default function ReceptionistSettingsPage() {
-  const secretaryLocked = true;
   const [settings, setSettings] = useState<ReceptionistSettings>(DEFAULT_RECEPTIONIST_SETTINGS);
   const [keywordsText, setKeywordsText] = useState(
     keywordsToText(DEFAULT_RECEPTIONIST_SETTINGS.escalation_keywords)
@@ -209,6 +212,13 @@ export default function ReceptionistSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [assigningNumber, setAssigningNumber] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+  const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
+  const [cloningVoice, setCloningVoice] = useState(false);
+  const [configuringAgent, setConfiguringAgent] = useState(false);
+  const [cloneFile, setCloneFile] = useState<File | null>(null);
+  const [voiceMessage, setVoiceMessage] = useState("");
+  const [voiceMessageType, setVoiceMessageType] = useState<"success" | "error">("success");
 
   const communicationsActive = useMemo(
     () => settings.receptionist_enabled && settings.communications_enabled,
@@ -310,6 +320,29 @@ export default function ReceptionistSettingsPage() {
     });
   }
 
+  function validateSettings(): string | null {
+    const fwdPhone = settings.forwarding_phone_number.trim();
+    const notifPhone = settings.notification_phone_number.trim();
+    const bizPhone = settings.business_phone_number.trim();
+    const phonePattern = /^\+?[1-9]\d{6,14}$/;
+
+    if (bizPhone && !phonePattern.test(bizPhone)) {
+      return "Business phone number looks invalid. Use E.164 format like +16155550100.";
+    }
+    if (fwdPhone && !phonePattern.test(fwdPhone)) {
+      return "Forwarding phone number looks invalid. Use E.164 format like +16155550100.";
+    }
+    if (notifPhone && !phonePattern.test(notifPhone)) {
+      return "Notification phone number looks invalid. Use E.164 format like +16155550100.";
+    }
+
+    if (settings.after_hours_enabled && settings.office_hours_start >= settings.office_hours_end) {
+      return "Office hours end time must be after start time.";
+    }
+
+    return null;
+  }
+
   async function assignLockboxNumber() {
     setAssigningNumber(true);
     setMessage("");
@@ -323,14 +356,17 @@ export default function ReceptionistSettingsPage() {
 
       const data = (await response.json()) as NumberAssignResponse;
       if (!response.ok || !data.ok || !data.settings) {
+        setMessageType("error");
         setMessage(data.error || data.assignment?.error || "Could not assign a LockboxHQ number.");
         return;
       }
 
       setSettings(data.settings);
       const mode = data.assignment?.mode === "mock" ? " (mock provider mode)" : "";
+      setMessageType("success");
       setMessage(`LockboxHQ business number assigned${mode}.`);
     } catch {
+      setMessageType("error");
       setMessage("Could not assign a LockboxHQ number.");
     } finally {
       setAssigningNumber(false);
@@ -338,6 +374,13 @@ export default function ReceptionistSettingsPage() {
   }
 
   async function saveSettings() {
+    const validationError = validateSettings();
+    if (validationError) {
+      setMessageType("error");
+      setMessage(validationError);
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
@@ -381,17 +424,96 @@ export default function ReceptionistSettingsPage() {
 
       const data = (await response.json()) as SettingsResponse;
       if (!response.ok || !data.settings) {
+        setMessageType("error");
         setMessage(data.error || "Could not save Secretary settings.");
         return;
       }
 
       setSettings(data.settings);
       setKeywordsText(keywordsToText(data.settings.escalation_keywords));
+      setMessageType("success");
       setMessage("Secretary settings saved.");
     } catch {
+      setMessageType("error");
       setMessage("Could not save Secretary settings.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function previewVoice(voiceId: string) {
+    setPreviewingVoice(voiceId);
+    try {
+      const response = await fetch(`/api/receptionist/voice/preview?voice_id=${encodeURIComponent(voiceId)}`);
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setVoiceMessageType("error");
+        setVoiceMessage(data.error || "Could not load voice preview.");
+        return;
+      }
+      const audioBuffer = await response.arrayBuffer();
+      const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => URL.revokeObjectURL(url);
+      void audio.play();
+    } catch {
+      setVoiceMessageType("error");
+      setVoiceMessage("Could not play voice preview.");
+    } finally {
+      setPreviewingVoice(null);
+    }
+  }
+
+  async function submitVoiceClone() {
+    if (!cloneFile) return;
+    setCloningVoice(true);
+    setVoiceMessage("");
+    try {
+      const formData = new FormData();
+      formData.append("audio", cloneFile);
+      formData.append("name", "My Voice Clone");
+      const response = await fetch("/api/receptionist/voice/clone", { method: "POST", body: formData });
+      const data = (await response.json()) as { ok?: boolean; voice_id?: string; error?: string };
+      if (!response.ok || !data.ok) {
+        setVoiceMessageType("error");
+        setVoiceMessage(data.error || "Voice cloning failed.");
+        return;
+      }
+      setSettings((previous) => ({
+        ...previous,
+        voice_clone_status: "ready" as VoiceCloneStatus,
+        voice_clone_voice_id: data.voice_id || "",
+      }));
+      setVoiceMessageType("success");
+      setVoiceMessage("Voice cloned successfully! Your cloned voice is now active.");
+    } catch {
+      setVoiceMessageType("error");
+      setVoiceMessage("Voice cloning request failed.");
+    } finally {
+      setCloningVoice(false);
+    }
+  }
+
+  async function configureVoiceAgent() {
+    setConfiguringAgent(true);
+    setVoiceMessage("");
+    try {
+      const response = await fetch("/api/receptionist/voice/configure", { method: "POST" });
+      const data = (await response.json()) as { ok?: boolean; agent_id?: string; error?: string };
+      if (!response.ok || !data.ok) {
+        setVoiceMessageType("error");
+        setVoiceMessage(data.error || "Could not configure voice agent.");
+        return;
+      }
+      setSettings((previous) => ({ ...previous, voice_agent_id: data.agent_id || "" }));
+      setVoiceMessageType("success");
+      setVoiceMessage("Voice AI agent configured. Inbound calls will now use ElevenLabs streaming.");
+    } catch {
+      setVoiceMessageType("error");
+      setVoiceMessage("Voice agent configuration failed.");
+    } finally {
+      setConfiguringAgent(false);
     }
   }
 
@@ -421,16 +543,6 @@ export default function ReceptionistSettingsPage() {
             </Link>
           </div>
         </div>
-
-        {secretaryLocked ? (
-          <div className="crm-secretary-brew-banner">
-            <div className="crm-secretary-brew-banner__eyebrow">Being Brewed</div>
-            <div className="crm-secretary-brew-banner__title">Secretary is under construction right now.</div>
-            <div className="crm-secretary-brew-banner__copy">
-              This upgrade will unlock calling, texting, and missed-call follow-up inside LockboxHQ. For now, the setup page is view-only while the workflow is still being finished.
-            </div>
-          </div>
-        ) : null}
 
         <div className="crm-card-muted" style={{ padding: 14, display: "grid", gap: 10 }}>
           <div
@@ -476,18 +588,7 @@ export default function ReceptionistSettingsPage() {
         </div>
       </section>
 
-      <div className={`crm-secretary-locked-shell${secretaryLocked ? " crm-secretary-locked-shell-active" : ""}`}>
-        {secretaryLocked ? (
-          <div className="crm-secretary-locked-overlay" aria-hidden="true">
-            <div className="crm-secretary-locked-panel">
-              <div className="crm-secretary-locked-panel__eyebrow">Premium Upgrade</div>
-              <div className="crm-secretary-locked-panel__title">Secretary setup is being brewed.</div>
-              <div className="crm-secretary-locked-panel__copy">
-                The workflow for calling, texting, and missed-call follow-up is still under construction, so this page is intentionally view-only for now.
-              </div>
-            </div>
-          </div>
-        ) : null}
+      <div className="crm-secretary-locked-shell">
 
         <section className="crm-card crm-section-card crm-stack-10">
           <div className="crm-section-head">
@@ -658,6 +759,21 @@ export default function ReceptionistSettingsPage() {
                   </span>
                 ) : null}
               </div>
+              {settings.phone_setup_status === "existing_submitted" || settings.phone_setup_status === "existing_manual_review" ? (
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: "var(--color-info-bg, #eff6ff)",
+                    color: "var(--color-info-text, #1e40af)",
+                    border: "1px solid var(--color-info-border, #93c5fd)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Your porting request has been received. Our team will reach out within 1–2 business days to complete setup.
+                </div>
+              ) : null}
               <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)" }}>{phoneSetupMeta.helper}</p>
             </div>
           )}
@@ -831,6 +947,405 @@ export default function ReceptionistSettingsPage() {
           </label>
         </section>
 
+        {/* ================================================================
+            VOICE AI — Secretary Voice tier only
+            ================================================================ */}
+        {settings.voice_tier !== "voice" ? (
+          <section className="crm-card crm-section-card crm-stack-10">
+            <div className="crm-section-head">
+              <h2 className="crm-section-title">Secretary Voice</h2>
+              <span className="crm-chip">Upgrade Required</span>
+            </div>
+            <div
+              style={{
+                padding: 20,
+                borderRadius: 8,
+                background: "var(--surface-2, #f9fafb)",
+                border: "1px solid var(--border)",
+                display: "grid",
+                gap: 10,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 24 }}>📞</div>
+              <strong style={{ fontSize: 15 }}>Voice AI for your business line</strong>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55, maxWidth: 480, marginInline: "auto" }}>
+                Secretary Voice answers inbound calls, qualifies leads with real questions, transfers hot prospects,
+                and notifies you after every call — using a professional AI voice of your choosing.
+              </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+                {["AI call answering", "Lead qualification", "Transfer & callback modes", "Voice cloning", "Call transcripts"].map((f) => (
+                  <span key={f} className="crm-chip">{f}</span>
+                ))}
+              </div>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)" }}>
+                Contact us to unlock Secretary Voice for your workspace.
+              </p>
+            </div>
+          </section>
+        ) : (
+          <>
+            {/* Voice Settings */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Voice Settings</h2>
+                <span className="crm-chip crm-chip-ok">Voice Active</span>
+              </div>
+
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                Choose the AI name callers hear and select a voice. You can also clone your own voice for a premium personal touch.
+              </p>
+
+              <Field label="AI Voice Name" helper="The name the AI introduces itself as on calls. Keep it short and professional.">
+                <input
+                  value={settings.voice_name}
+                  onChange={(event) =>
+                    setSettings((previous) => ({ ...previous, voice_name: event.target.value }))
+                  }
+                  placeholder="Sarah, Alex, Jordan..."
+                  maxLength={40}
+                />
+              </Field>
+
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 700, display: "block", marginBottom: 4 }}>Preset Voice Library</span>
+                <span style={{ fontSize: 12, color: "var(--ink-muted)", display: "block", marginBottom: 10 }}>
+                  Select a voice and preview it before saving. {settings.voice_clone_status === "ready" ? "Your cloned voice is currently active." : ""}
+                </span>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+                  {PRESET_VOICES.map((voice) => {
+                    const isSelected = settings.voice_id === voice.id;
+                    const isPreviewing = previewingVoice === voice.id;
+                    return (
+                      <div
+                        key={voice.id}
+                        className={isSelected ? "crm-card-muted" : "crm-card-muted"}
+                        style={{
+                          padding: 10,
+                          display: "grid",
+                          gap: 6,
+                          cursor: "pointer",
+                          border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                          borderRadius: 6,
+                        }}
+                        onClick={() => setSettings((previous) => ({ ...previous, voice_id: voice.id }))}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <strong style={{ fontSize: 13 }}>{voice.name}</strong>
+                          {isSelected && <span className="crm-chip crm-chip-ok" style={{ fontSize: 11 }}>Selected</span>}
+                        </div>
+                        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{voice.tone}</span>
+                        <span style={{ fontSize: 11, color: "var(--ink-faint)", lineHeight: 1.4 }}>{voice.description}</span>
+                        <button
+                          type="button"
+                          className="crm-btn crm-btn-secondary"
+                          style={{ fontSize: 12, padding: "4px 8px" }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void previewVoice(voice.id);
+                          }}
+                          disabled={isPreviewing || previewingVoice !== null}
+                        >
+                          {isPreviewing ? "Playing..." : "▶ Preview"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {voiceMessage ? (
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: voiceMessageType === "success" ? "var(--color-ok-bg, #d1fae5)" : "var(--color-error-bg, #fee2e2)",
+                    color: voiceMessageType === "success" ? "var(--color-ok-text, #065f46)" : "var(--color-error-text, #991b1b)",
+                    border: `1px solid ${voiceMessageType === "success" ? "var(--color-ok-border, #6ee7b7)" : "var(--color-error-border, #fca5a5)"}`,
+                  }}
+                >
+                  {voiceMessage}
+                </div>
+              ) : null}
+            </section>
+
+            {/* Voice Cloning — Premium */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Voice Cloning</h2>
+                <span className={settings.voice_clone_status === "ready" ? "crm-chip crm-chip-ok" : "crm-chip"}>
+                  {settings.voice_clone_status === "ready"
+                    ? "Clone Ready"
+                    : settings.voice_clone_status === "pending" || settings.voice_clone_status === "processing"
+                      ? "Processing..."
+                      : settings.voice_clone_status === "failed"
+                        ? "Failed"
+                        : "Not Configured"}
+                </span>
+              </div>
+
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                Upload at least 60 seconds of your own voice (clear, no background noise) and LockboxHQ will clone it
+                for use on all calls. Once ready, your cloned voice will be used instead of the preset.
+              </p>
+
+              <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+                <Field label="Upload Voice Recording" helper="MP3, WAV, or WebM. Minimum 60 seconds, maximum 20MB.">
+                  <input
+                    type="file"
+                    accept="audio/mpeg,audio/mp3,audio/wav,audio/webm,audio/*"
+                    onChange={(event) => setCloneFile(event.target.files?.[0] ?? null)}
+                  />
+                </Field>
+                {cloneFile ? (
+                  <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                    Selected: {cloneFile.name} ({(cloneFile.size / 1024 / 1024).toFixed(1)} MB)
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  className="crm-btn crm-btn-primary"
+                  onClick={() => void submitVoiceClone()}
+                  disabled={!cloneFile || cloningVoice}
+                  style={{ width: "fit-content" }}
+                >
+                  {cloningVoice ? "Cloning voice..." : "Submit Voice for Cloning"}
+                </button>
+                {settings.voice_clone_status === "ready" && settings.voice_clone_voice_id ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <span className="crm-chip crm-chip-ok">Cloned voice active</span>
+                    <span className="crm-chip">ID: {settings.voice_clone_voice_id.slice(0, 12)}...</span>
+                    <button
+                      type="button"
+                      className="crm-btn crm-btn-secondary"
+                      style={{ fontSize: 12, padding: "4px 10px" }}
+                      onClick={() =>
+                        setSettings((previous) => ({
+                          ...previous,
+                          voice_clone_status: "none" as VoiceCloneStatus,
+                          voice_clone_voice_id: "",
+                        }))
+                      }
+                    >
+                      Remove clone → use preset
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            {/* Call Handling Mode */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Call Handling Mode</h2>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                Choose how the AI handles each inbound call. This applies during your office hours.
+              </p>
+              <div style={{ display: "grid", gap: 8 }}>
+                {(
+                  [
+                    {
+                      value: "qualify_transfer" as CallHandlingMode,
+                      label: "Qualify then Transfer",
+                      description:
+                        "AI answers and qualifies the lead with a few questions, then transfers to you if you are available.",
+                    },
+                    {
+                      value: "always_transfer" as CallHandlingMode,
+                      label: "Always Transfer",
+                      description:
+                        "AI answers with a brief greeting then immediately bridges the call to you. If you're unavailable, AI takes a message.",
+                    },
+                    {
+                      value: "always_ai" as CallHandlingMode,
+                      label: "Always AI",
+                      description:
+                        "AI always handles the full call, qualifies the lead, takes a message, and notifies you afterward.",
+                    },
+                    {
+                      value: "qualify_callback" as CallHandlingMode,
+                      label: "Qualify then Callback",
+                      description:
+                        "AI qualifies the lead and offers to schedule a callback instead of transferring.",
+                    },
+                  ] as Array<{ value: CallHandlingMode; label: string; description: string }>
+                ).map((option) => {
+                  const isSelected = settings.call_handling_mode === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className="crm-card-muted"
+                      style={{
+                        padding: 12,
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr",
+                        gap: "8px 12px",
+                        cursor: "pointer",
+                        border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                        borderRadius: 6,
+                        alignItems: "start",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="call_handling_mode"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() =>
+                          setSettings((previous) => ({ ...previous, call_handling_mode: option.value }))
+                        }
+                        style={{ marginTop: 2 }}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
+                          {option.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* After Hours Voice Behavior */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">After-Hours Voice Behavior</h2>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                How should the AI handle calls received outside your office hours?
+              </p>
+              <div style={{ display: "grid", gap: 8 }}>
+                {(
+                  [
+                    {
+                      value: "ai_take_message" as AfterHoursVoiceMode,
+                      label: "AI answers and takes a message",
+                      description: "The AI answers, explains you're unavailable, and collects the caller's details and message.",
+                    },
+                    {
+                      value: "ai_offer_callback" as AfterHoursVoiceMode,
+                      label: "AI answers and offers a callback",
+                      description: "The AI answers and offers to schedule a callback during business hours.",
+                    },
+                    {
+                      value: "voicemail" as AfterHoursVoiceMode,
+                      label: "Play voicemail greeting",
+                      description: "Plays a professional voicemail greeting and notifies you of missed calls.",
+                    },
+                  ] as Array<{ value: AfterHoursVoiceMode; label: string; description: string }>
+                ).map((option) => {
+                  const isSelected = settings.after_hours_voice_mode === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className="crm-card-muted"
+                      style={{
+                        padding: 12,
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr",
+                        gap: "8px 12px",
+                        cursor: "pointer",
+                        border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                        borderRadius: 6,
+                        alignItems: "start",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="after_hours_voice_mode"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() =>
+                          setSettings((previous) => ({ ...previous, after_hours_voice_mode: option.value }))
+                        }
+                        style={{ marginTop: 2 }}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
+                          {option.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* ElevenLabs Conversational AI Agent */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">AI Agent (Streaming Mode)</h2>
+                <span className={settings.voice_agent_id ? "crm-chip crm-chip-ok" : "crm-chip"}>
+                  {settings.voice_agent_id ? "Configured" : "Not configured"}
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                Configure an ElevenLabs Conversational AI agent for real-time streaming calls.
+                When configured, calls stream directly to ElevenLabs for a more natural conversation.
+                Without this, calls use the sequential TTS question flow.
+              </p>
+              <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+                {settings.voice_agent_id ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span className="crm-chip crm-chip-ok">Agent ID: {settings.voice_agent_id.slice(0, 16)}...</span>
+                    <button
+                      type="button"
+                      className="crm-btn crm-btn-secondary"
+                      style={{ fontSize: 12, padding: "4px 10px" }}
+                      onClick={() => void configureVoiceAgent()}
+                      disabled={configuringAgent}
+                    >
+                      {configuringAgent ? "Updating..." : "Update Agent Config"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="crm-btn crm-btn-primary"
+                    onClick={() => void configureVoiceAgent()}
+                    disabled={configuringAgent}
+                    style={{ width: "fit-content" }}
+                  >
+                    {configuringAgent ? "Configuring..." : "Configure AI Agent (ElevenLabs Streaming)"}
+                  </button>
+                )}
+                <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.4 }}>
+                  Requires ELEVENLABS_API_KEY configured on the server.
+                  Save your voice settings first, then configure the agent.
+                </p>
+              </div>
+            </section>
+
+            {/* Test Call */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Test Your Voice Setup</h2>
+              </div>
+              <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                  To test your voice AI, call your business number from any phone. The AI will greet you,
+                  ask the qualification questions, and you can experience the full call flow.
+                </p>
+                {settings.business_phone_number ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span className="crm-chip crm-chip-ok">Business number</span>
+                    <strong style={{ fontSize: 14 }}>{settings.business_phone_number}</strong>
+                    <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Call this number to test</span>
+                  </div>
+                ) : (
+                  <span className="crm-chip crm-chip-warn">Set up your business number first</span>
+                )}
+              </div>
+            </section>
+          </>
+        )}
+
         <section className="crm-card crm-section-card crm-stack-10">
           <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
             {!activationReady ? (
@@ -857,7 +1372,21 @@ export default function ReceptionistSettingsPage() {
               </Link>
             </div>
 
-            {message ? <div className="crm-chip">{message}</div> : null}
+            {message ? (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: messageType === "success" ? "var(--color-ok-bg, #d1fae5)" : "var(--color-error-bg, #fee2e2)",
+                  color: messageType === "success" ? "var(--color-ok-text, #065f46)" : "var(--color-error-text, #991b1b)",
+                  border: `1px solid ${messageType === "success" ? "var(--color-ok-border, #6ee7b7)" : "var(--color-error-border, #fca5a5)"}`,
+                }}
+              >
+                {message}
+              </div>
+            ) : null}
           </div>
         </section>
       </div>

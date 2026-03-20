@@ -10,6 +10,22 @@ export type ReceptionistPhoneSetupStatus =
   | "porting_requested"
   | "ported";
 
+// Voice tier: "none" = core CRM only, "sms" = Secretary SMS, "voice" = Secretary Voice
+export type VoiceTier = "none" | "sms" | "voice";
+// How the AI handles inbound calls
+export type CallHandlingMode =
+  | "qualify_transfer"   // AI qualifies, then transfers to agent if available
+  | "always_transfer"    // AI greets then immediately bridges to agent; AI takes message if unavailable
+  | "always_ai"          // AI always handles call, qualifies, takes message, notifies agent
+  | "qualify_callback";  // AI qualifies, offers to schedule a callback
+// What the AI does after hours
+export type AfterHoursVoiceMode =
+  | "ai_take_message"    // AI answers and takes a message
+  | "ai_offer_callback"  // AI answers and offers to schedule a callback
+  | "voicemail";         // Play voicemail greeting and notify agent
+// ElevenLabs voice clone lifecycle
+export type VoiceCloneStatus = "none" | "pending" | "processing" | "ready" | "failed";
+
 export type ReceptionistSettings = {
   receptionist_enabled: boolean;
   communications_enabled: boolean;
@@ -28,6 +44,15 @@ export type ReceptionistSettings = {
   business_number_provider: string;
   existing_number_submitted_at: string;
   existing_number_setup_notes: string;
+  // Voice AI fields
+  voice_tier: VoiceTier;
+  voice_name: string;             // Name the AI introduces itself as, e.g. "Sarah"
+  voice_id: string;               // ElevenLabs voice ID for TTS
+  voice_agent_id: string;         // ElevenLabs Conversational AI agent ID (optional streaming mode)
+  call_handling_mode: CallHandlingMode;
+  after_hours_voice_mode: AfterHoursVoiceMode;
+  voice_clone_status: VoiceCloneStatus;
+  voice_clone_voice_id: string;   // ElevenLabs voice ID for the cloned voice
 };
 
 const DEFAULT_ESCALATION_KEYWORDS = [
@@ -39,6 +64,9 @@ const DEFAULT_ESCALATION_KEYWORDS = [
   "tour",
   "offer",
 ];
+
+// Default ElevenLabs voice: Rachel — calm, professional female voice
+const DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
 
 export const DEFAULT_RECEPTIONIST_SETTINGS: ReceptionistSettings = {
   receptionist_enabled: true,
@@ -58,6 +86,15 @@ export const DEFAULT_RECEPTIONIST_SETTINGS: ReceptionistSettings = {
   business_number_provider: "",
   existing_number_submitted_at: "",
   existing_number_setup_notes: "",
+  // Voice defaults
+  voice_tier: "none",
+  voice_name: "Sarah",
+  voice_id: DEFAULT_VOICE_ID,
+  voice_agent_id: "",
+  call_handling_mode: "qualify_transfer",
+  after_hours_voice_mode: "ai_take_message",
+  voice_clone_status: "none",
+  voice_clone_voice_id: "",
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -145,6 +182,45 @@ function normalizePhoneSetupStatus(
   return fallback;
 }
 
+function normalizeVoiceTier(value: unknown): VoiceTier {
+  if (typeof value !== "string") return DEFAULT_RECEPTIONIST_SETTINGS.voice_tier;
+  const v = value.trim().toLowerCase();
+  if (v === "voice" || v === "sms" || v === "none") return v;
+  return DEFAULT_RECEPTIONIST_SETTINGS.voice_tier;
+}
+
+function normalizeCallHandlingMode(value: unknown): CallHandlingMode {
+  if (typeof value !== "string") return DEFAULT_RECEPTIONIST_SETTINGS.call_handling_mode;
+  const v = value.trim().toLowerCase();
+  if (
+    v === "qualify_transfer" ||
+    v === "always_transfer" ||
+    v === "always_ai" ||
+    v === "qualify_callback"
+  ) return v;
+  return DEFAULT_RECEPTIONIST_SETTINGS.call_handling_mode;
+}
+
+function normalizeAfterHoursVoiceMode(value: unknown): AfterHoursVoiceMode {
+  if (typeof value !== "string") return DEFAULT_RECEPTIONIST_SETTINGS.after_hours_voice_mode;
+  const v = value.trim().toLowerCase();
+  if (v === "ai_take_message" || v === "ai_offer_callback" || v === "voicemail") return v;
+  return DEFAULT_RECEPTIONIST_SETTINGS.after_hours_voice_mode;
+}
+
+function normalizeVoiceCloneStatus(value: unknown): VoiceCloneStatus {
+  if (typeof value !== "string") return DEFAULT_RECEPTIONIST_SETTINGS.voice_clone_status;
+  const v = value.trim().toLowerCase();
+  if (
+    v === "none" ||
+    v === "pending" ||
+    v === "processing" ||
+    v === "ready" ||
+    v === "failed"
+  ) return v;
+  return DEFAULT_RECEPTIONIST_SETTINGS.voice_clone_status;
+}
+
 export function normalizeReceptionistSettings(input: unknown): ReceptionistSettings {
   const raw = asRecord(input) || {};
   const businessPhoneNumber = readString(raw.business_phone_number);
@@ -201,6 +277,15 @@ export function normalizeReceptionistSettings(input: unknown): ReceptionistSetti
     business_number_provider: readString(raw.business_number_provider),
     existing_number_submitted_at: readString(raw.existing_number_submitted_at),
     existing_number_setup_notes: readString(raw.existing_number_setup_notes),
+    // Voice fields
+    voice_tier: normalizeVoiceTier(raw.voice_tier),
+    voice_name: readString(raw.voice_name, DEFAULT_RECEPTIONIST_SETTINGS.voice_name),
+    voice_id: readString(raw.voice_id, DEFAULT_RECEPTIONIST_SETTINGS.voice_id),
+    voice_agent_id: readString(raw.voice_agent_id),
+    call_handling_mode: normalizeCallHandlingMode(raw.call_handling_mode),
+    after_hours_voice_mode: normalizeAfterHoursVoiceMode(raw.after_hours_voice_mode),
+    voice_clone_status: normalizeVoiceCloneStatus(raw.voice_clone_status),
+    voice_clone_voice_id: readString(raw.voice_clone_voice_id),
   };
 }
 
@@ -289,4 +374,16 @@ export function buildMissedCallStarterText(
   if (custom) return custom;
   const displayName = agentName.trim() || "your agent";
   return `Hi, this is the assistant for ${displayName}. Sorry we missed your call - are you looking to buy, sell, buy and sell, rent, or invest?`;
+}
+
+export function isVoiceEnabled(settings: ReceptionistSettings): boolean {
+  return settings.voice_tier === "voice" && settings.receptionist_enabled;
+}
+
+export function activeVoiceId(settings: ReceptionistSettings): string {
+  // Use cloned voice if ready, otherwise fall back to preset voice
+  if (settings.voice_clone_status === "ready" && settings.voice_clone_voice_id) {
+    return settings.voice_clone_voice_id;
+  }
+  return settings.voice_id || DEFAULT_RECEPTIONIST_SETTINGS.voice_id;
 }
