@@ -47,6 +47,11 @@ Meta flows also require:
 Public intake form (`/intake`) requires:
 - `INTAKE_AGENT_ID` (destination user UUID for new submissions)
 
+LockboxHQ Receptionist V1 (SMS/call intake) options:
+- `RECEPTIONIST_PROVIDER` (`mock` default, or `twilio`)
+- `RECEPTIONIST_WEBHOOK_SECRET` (optional shared secret for `/api/receptionist/webhook`)
+- `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` (required only when `RECEPTIONIST_PROVIDER=twilio`)
+
 ManyChat webhook integration requires:
 - `MANYCHAT_WEBHOOK_SECRET` (shared secret sent in `x-manychat-secret`)
 - `MANYCHAT_AGENT_ID` (destination user UUID for ingested ManyChat events)
@@ -114,3 +119,14 @@ INGEST_WEBHOOK_SECRET=<your-webhook-secret> \
 INGEST_PROCESSOR_SECRET=<your-processor-secret> \
 ./scripts/smoke_ingest.sh
 ```
+
+## Receptionist V1 Notes
+- Architecture, flow behavior, and provider wiring notes: [`docs/receptionist-v1.md`](docs/receptionist-v1.md)
+- Go-live commands and checklist: [`docs/receptionist-go-live.md`](docs/receptionist-go-live.md)
+
+## Documentation
+- System architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- V1 product boundaries: [`V1_SCOPE.md`](V1_SCOPE.md)
+- Deployment quick entry: [`DEPLOYMENT.md`](DEPLOYMENT.md)
+- Detailed deploy checklist: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+- Engineering improvement log: [`ENGINEERING_AUDIT.md`](ENGINEERING_AUDIT.md)
