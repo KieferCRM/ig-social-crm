@@ -80,7 +80,7 @@ export default async function SettingsPage() {
                 Premium upgrade for missed-call follow-up, direct calling and texting, and cleaner communication workflows.
               </p>
               <div>
-                <Link href="/app/settings/receptionist" className="crm-btn crm-btn-primary">
+                <Link href="/app/secretary" className="crm-btn crm-btn-primary">
                   Open Secretary
                 </Link>
               </div>
@@ -143,7 +143,7 @@ export default async function SettingsPage() {
                 Premium upgrade for missed-call follow-up, direct calling and texting, and cleaner communication workflows.
               </p>
               <div>
-                <Link href="/app/settings/receptionist" className="crm-btn crm-btn-primary">
+                <Link href="/app/secretary" className="crm-btn crm-btn-primary">
                   Open Secretary
                 </Link>
               </div>
@@ -191,7 +191,7 @@ export default async function SettingsPage() {
               <Link href="/app/forms" className="crm-btn crm-btn-secondary">Forms</Link>
               <Link href="/app/contacts" className="crm-btn crm-btn-secondary">Contacts</Link>
               <Link href="/app/documents" className="crm-btn crm-btn-secondary">Documents</Link>
-              <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary">Secretary</Link>
+              <Link href="/app/secretary" className="crm-btn crm-btn-secondary">Secretary</Link>
               <Link href="/app/settings/billing" className="crm-btn crm-btn-secondary">Billing</Link>
               <Link href="/privacy" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Privacy</Link>
               <Link href="/terms" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Terms</Link>
@@ -201,7 +201,7 @@ export default async function SettingsPage() {
               <Link href="/app/intake" className="crm-btn crm-btn-secondary">Intake</Link>
               <Link href="/app/social" className="crm-btn crm-btn-secondary">Social Media</Link>
               <Link href="/app/contacts" className="crm-btn crm-btn-secondary">Contacts</Link>
-              <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary">Secretary</Link>
+              <Link href="/app/secretary" className="crm-btn crm-btn-secondary">Secretary</Link>
               <Link href="/app/settings/billing" className="crm-btn crm-btn-secondary">Billing</Link>
               <Link href="/privacy" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Privacy</Link>
               <Link href="/terms" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Terms</Link>

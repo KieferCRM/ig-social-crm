@@ -13,6 +13,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [accountType, setAccountType] = useState<AccountType | null>(null);
+  const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -43,6 +44,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     };
   }, [supabase]);
 
+  useEffect(() => {
+    const fetchAlertCount = async () => {
+      try {
+        const res = await fetch("/api/secretary/alerts/count");
+        const data = await res.json() as { count?: number };
+        setAlertCount(data.count ?? 0);
+      } catch { /* ignore */ }
+    };
+    void fetchAlertCount();
+    const timer = setInterval(() => void fetchAlertCount(), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/auth");
@@ -52,23 +66,25 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   const navItems = isOffMarketAccount
     ? [
-        { href: "/app", label: "Today", active: pathname === "/app" },
-        { href: "/app/pipeline", label: "Pipeline", active: pathname.startsWith("/app/pipeline") },
-        { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts") },
-        { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents") },
-        { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms") },
-        { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities") },
+        { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
+        { href: "/app/pipeline", label: "Pipeline", active: pathname.startsWith("/app/pipeline"), count: 0 },
+        { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
+        { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
+        { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
+        { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
+        { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
         {
           href: "/app/settings",
           label: "Settings",
           active:
             pathname.startsWith("/app/settings") && !pathname.startsWith("/app/settings/receptionist"),
+          count: 0,
         },
       ]
     : [
-        { href: "/app", label: "Today", active: pathname === "/app" },
-        { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals") },
-        { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts") },
+        { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
+        { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals"), count: 0 },
+        { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         {
           href: "/app/intake",
           label: "Intake",
@@ -76,20 +92,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             pathname.startsWith("/app/intake") ||
             pathname.startsWith("/app/ingestion") ||
             pathname.startsWith("/app/import"),
+          count: 0,
         },
-        { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents") },
-        { href: "/app/social", label: "Social Media", active: pathname.startsWith("/app/social") },
-        { href: "/app/priorities", label: "Priorities", active: pathname.startsWith("/app/priorities") },
-        {
-          href: "/app/settings/receptionist",
-          label: "Secretary",
-          active: pathname.startsWith("/app/settings/receptionist"),
-        },
+        { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
+        { href: "/app/social", label: "Social Media", active: pathname.startsWith("/app/social"), count: 0 },
+        { href: "/app/priorities", label: "Priorities", active: pathname.startsWith("/app/priorities"), count: 0 },
+        { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
         {
           href: "/app/settings",
           label: "Settings",
           active:
             pathname.startsWith("/app/settings") && !pathname.startsWith("/app/settings/receptionist"),
+          count: 0,
         },
       ];
 
@@ -158,11 +172,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           : "Quiet operational guidance for what needs contact now, what needs an update, and what can wait.",
       };
     }
-    if (pathname.startsWith("/app/settings/receptionist")) {
+    if (pathname.startsWith("/app/secretary")) {
       return {
         title: "Secretary",
         subtitle:
-          "Missed-call capture, form notifications, and direct SMS feed the same workspace without creating a separate CRM path.",
+          "AI call handling, SMS conversations, transcripts, and alerts in one place.",
+      };
+    }
+    if (pathname.startsWith("/app/settings/receptionist")) {
+      return {
+        title: "Secretary Settings",
+        subtitle:
+          "Configure call handling, voice AI, after-hours mode, and SMS behavior.",
       };
     }
     if (pathname.startsWith("/app/settings")) {
@@ -201,8 +222,26 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               key={item.href}
               href={item.href}
               className={`crm-sidebar-nav-link${item.active ? " crm-sidebar-nav-link-active" : ""}`}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
             >
               {item.label}
+              {item.count > 0 && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    background: "#dc2626",
+                    color: "#fff",
+                    borderRadius: 10,
+                    padding: "0 5px",
+                    minWidth: 16,
+                    textAlign: "center",
+                    lineHeight: "16px",
+                  }}
+                >
+                  {item.count}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
