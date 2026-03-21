@@ -388,7 +388,7 @@ export default function FormsPage() {
   }
 
   return (
-    <main className="crm-page crm-stack-12" style={{ maxWidth: 900 }}>
+    <main className="crm-page crm-page-wide crm-stack-12">
       {/* Header */}
       <section className="crm-card crm-section-card">
         <div className="crm-page-header">
