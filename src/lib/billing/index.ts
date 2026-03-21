@@ -57,6 +57,9 @@ const BLOCKING_STATUSES = new Set(["canceled", "unpaid", "incomplete_expired"]);
  *
  * Grace period policy: past_due subscriptions retain access.
  * Access is only removed when status is canceled/unpaid/incomplete_expired.
+ *
+ * Founder bypass: agents with role = 'founder' always get full access,
+ * regardless of billing_tier or subscription status.
  */
 export async function checkAgentTier(
   agentId: string,
@@ -69,9 +72,18 @@ export async function checkAgentTier(
   const admin = supabaseAdmin();
   const { data: row } = await admin
     .from("agents")
-    .select("billing_tier, stripe_subscription_status")
+    .select("billing_tier, stripe_subscription_status, role")
     .eq("id", agentId)
     .maybeSingle();
+
+  // Founders bypass all tier restrictions
+  if (row?.role === "founder") {
+    return {
+      allowed: true,
+      currentTier: "secretary_voice",
+      subscriptionStatus: row.stripe_subscription_status ?? null,
+    };
+  }
 
   const storedTier = (row?.billing_tier ?? "core_crm") as BillingTier;
   const status = (row?.stripe_subscription_status ?? null) as string | null;

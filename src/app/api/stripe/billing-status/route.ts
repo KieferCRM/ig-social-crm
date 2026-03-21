@@ -20,7 +20,7 @@ export async function GET(): Promise<NextResponse> {
   const admin = supabaseAdmin();
   const { data: row, error } = await admin
     .from("agents")
-    .select("billing_tier, stripe_subscription_status, stripe_customer_id")
+    .select("billing_tier, stripe_subscription_status, stripe_customer_id, role")
     .eq("id", auth.context.user.id)
     .maybeSingle();
 
@@ -28,9 +28,13 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Founders see secretary_voice regardless of actual billing_tier
+  const isFounder = row?.role === "founder";
+
   return NextResponse.json({
-    billing_tier: row?.billing_tier ?? "core_crm",
-    stripe_subscription_status: row?.stripe_subscription_status ?? null,
-    has_stripe_customer: Boolean(row?.stripe_customer_id),
+    billing_tier: isFounder ? "secretary_voice" : (row?.billing_tier ?? "core_crm"),
+    stripe_subscription_status: isFounder ? "active" : (row?.stripe_subscription_status ?? null),
+    has_stripe_customer: isFounder ? false : Boolean(row?.stripe_customer_id),
+    is_founder: isFounder,
   });
 }
