@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -302,6 +303,7 @@ function GenericFormModal({ agentId, editing, onClose, onSaved }: {
 export default function FormsPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [isOffMarketAccount, setIsOffMarketAccount] = useState(false);
   const [sellerCount, setSellerCount] = useState(0);
   const [buyerCount, setBuyerCount] = useState(0);
   const [genericForms, setGenericForms] = useState<GenericForm[]>([]);
@@ -316,6 +318,10 @@ export default function FormsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !active) return;
       setAgentId(user.id);
+
+      const { data: agentRow } = await supabase.from("agents").select("settings").eq("id", user.id).maybeSingle();
+      const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings ?? null);
+      if (active) setIsOffMarketAccount(onboardingState.account_type === "off_market_agent");
 
       const [sellerRes, buyerRes, formsRes] = await Promise.all([
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "seller_form"),
@@ -409,11 +415,15 @@ export default function FormsPage() {
                 downloadName="seller-form-qr.png"
               />
               <BuiltInFormCard
-                label="Buyer Form"
-                description="Collects name, phone, email, price range, location preference, and notes. Submissions create a new buyer lead."
+                label={isOffMarketAccount ? "Contact Form" : "Buyer Form"}
+                description={
+                  isOffMarketAccount
+                    ? "Captures name, phone, email, budget range, and notes. Use for general inquiries, open house sign-ins, referrals, or anyone reaching out about a property."
+                    : "Collects name, phone, email, price range, location preference, and notes. Submissions create a new buyer lead."
+                }
                 path={`/forms/buyer/${agentId}`}
                 submissionCount={buyerCount}
-                downloadName="buyer-form-qr.png"
+                downloadName={isOffMarketAccount ? "contact-form-qr.png" : "buyer-form-qr.png"}
               />
             </>
           ) : null}
