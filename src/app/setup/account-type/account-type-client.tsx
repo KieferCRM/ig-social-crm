@@ -85,19 +85,8 @@ export default function AccountTypeClient({ recommendedType }: Props) {
         return;
       }
 
-      const bootstrapResponse = await fetch("/api/onboarding/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const bootstrapData = (await bootstrapResponse.json()) as { ok?: boolean; error?: string };
-      if (!bootstrapResponse.ok || !bootstrapData.ok) {
-        setMessage(bootstrapData.error || "Could not finish workspace setup.");
-        setSaving(false);
-        return;
-      }
-
-      router.replace("/app");
-      router.refresh();
+      // Proceed to slug setup before completing onboarding
+      router.replace("/setup/slug");
     } catch {
       setMessage("Could not finish workspace setup.");
       setSaving(false);

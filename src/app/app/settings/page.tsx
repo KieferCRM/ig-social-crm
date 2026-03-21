@@ -99,6 +99,18 @@ export default async function SettingsPage() {
             </section>
 
             <section className="crm-card crm-section-card crm-stack-10">
+              <div style={{ fontWeight: 700 }}>Profile & Form URL</div>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+                Set your branded form link slug and share your seller and contact form URLs.
+              </p>
+              <div>
+                <Link href="/app/settings/profile" className="crm-btn crm-btn-primary">
+                  Manage profile
+                </Link>
+              </div>
+            </section>
+
+            <section className="crm-card crm-section-card crm-stack-10">
               <div style={{ fontWeight: 700 }}>Legal pages</div>
               <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
                 Review the customer-facing privacy and terms pages before sharing LockboxHQ publicly.
@@ -157,6 +169,18 @@ export default async function SettingsPage() {
               <div>
                 <Link href="/app/settings/billing" className="crm-btn crm-btn-primary">
                   Open billing
+                </Link>
+              </div>
+            </section>
+
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div style={{ fontWeight: 700 }}>Profile & Form URL</div>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+                Set your branded form link slug and share your seller and contact form URLs.
+              </p>
+              <div>
+                <Link href="/app/settings/profile" className="crm-btn crm-btn-primary">
+                  Manage profile
                 </Link>
               </div>
             </section>

@@ -304,6 +304,7 @@ function GenericFormModal({ agentId, editing, onClose, onSaved }: {
 export default function FormsPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [vanitySlug, setVanitySlug] = useState<string | null>(null);
   const [isOffMarketAccount, setIsOffMarketAccount] = useState(false);
   const [sellerCount, setSellerCount] = useState(0);
   const [buyerCount, setBuyerCount] = useState(0);
@@ -320,9 +321,12 @@ export default function FormsPage() {
       if (!user || !active) return;
       setAgentId(user.id);
 
-      const { data: agentRow } = await supabase.from("agents").select("settings").eq("id", user.id).maybeSingle();
+      const { data: agentRow } = await supabase.from("agents").select("settings, vanity_slug").eq("id", user.id).maybeSingle();
       const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings ?? null);
-      if (active) setIsOffMarketAccount(onboardingState.account_type === "off_market_agent");
+      if (active) {
+        setIsOffMarketAccount(onboardingState.account_type === "off_market_agent");
+        setVanitySlug((agentRow?.vanity_slug as string | null) ?? null);
+      }
 
       const [sellerRes, buyerRes, formsRes] = await Promise.all([
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "seller_form"),
@@ -405,13 +409,22 @@ export default function FormsPage() {
       {/* Built-in forms — 2 column grid */}
       <section className="crm-stack-6">
         <div className="crm-detail-label" style={{ paddingLeft: 2 }}>Built-in forms</div>
+        {!vanitySlug && agentId ? (
+          <div style={{ fontSize: 13, color: "var(--ink-muted)", background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}>
+            Set a custom URL slug in{" "}
+            <a href="/app/settings/profile" style={{ color: "var(--accent, #2563eb)", textDecoration: "underline" }}>
+              Settings → Profile
+            </a>{" "}
+            to get a branded form link instead of a raw UUID.
+          </div>
+        ) : null}
         <div className="crm-grid-cards-2">
           {agentId ? (
             <>
               <BuiltInFormCard
                 label="Seller Form"
                 description="Collects name, phone, email, property address, acreage, asking price, and notes. Submissions create a new deal in the pipeline."
-                path={`/forms/seller/${agentId}`}
+                path={`/forms/seller/${vanitySlug ?? agentId}`}
                 submissionCount={sellerCount}
                 downloadName="seller-form-qr.png"
               />
@@ -422,7 +435,7 @@ export default function FormsPage() {
                     ? "Captures name, phone, email, budget range, and notes. Use for general inquiries, open house sign-ins, referrals, or anyone reaching out about a property."
                     : "Collects name, phone, email, price range, location preference, and notes. Submissions create a new buyer lead."
                 }
-                path={`/forms/buyer/${agentId}`}
+                path={`/forms/buyer/${vanitySlug ?? agentId}`}
                 submissionCount={buyerCount}
                 downloadName={isOffMarketAccount ? "contact-form-qr.png" : "buyer-form-qr.png"}
               />
