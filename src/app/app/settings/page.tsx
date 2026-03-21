@@ -75,6 +75,18 @@ export default async function SettingsPage() {
             </section>
 
             <section className="crm-card crm-section-card crm-stack-10">
+              <div style={{ fontWeight: 700 }}>Secretary</div>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+                Premium upgrade for missed-call follow-up, direct calling and texting, and cleaner communication workflows.
+              </p>
+              <div>
+                <Link href="/app/settings/receptionist" className="crm-btn crm-btn-primary">
+                  Open Secretary
+                </Link>
+              </div>
+            </section>
+
+            <section className="crm-card crm-section-card crm-stack-10">
               <div style={{ fontWeight: 700 }}>Billing</div>
               <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
                 View your current plan, upgrade or downgrade, and manage your payment details.
@@ -179,6 +191,8 @@ export default async function SettingsPage() {
               <Link href="/app/forms" className="crm-btn crm-btn-secondary">Forms</Link>
               <Link href="/app/contacts" className="crm-btn crm-btn-secondary">Contacts</Link>
               <Link href="/app/documents" className="crm-btn crm-btn-secondary">Documents</Link>
+              <Link href="/app/settings/receptionist" className="crm-btn crm-btn-secondary">Secretary</Link>
+              <Link href="/app/settings/billing" className="crm-btn crm-btn-secondary">Billing</Link>
               <Link href="/privacy" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Privacy</Link>
               <Link href="/terms" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Terms</Link>
             </>
