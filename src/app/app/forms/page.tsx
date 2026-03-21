@@ -87,18 +87,19 @@ function FormShareRow({
 
   return (
     <div className="crm-stack-8">
-      {/* Link row */}
+      {/* URL */}
+      <code style={{ display: "block", fontSize: 12, color: "var(--ink-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {url}
+      </code>
+      {/* Buttons */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <code style={{ flex: 1, fontSize: 12, color: "var(--ink-muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {url}
-        </code>
-        <button type="button" className="crm-btn crm-btn-primary" style={{ fontSize: 12, padding: "5px 12px", flexShrink: 0 }} onClick={handleCopy}>
+        <button type="button" className="crm-btn crm-btn-primary" style={{ fontSize: 12, padding: "5px 12px" }} onClick={handleCopy}>
           Copy link
         </button>
-        <Link href={path} target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary" style={{ fontSize: 12, padding: "5px 12px", flexShrink: 0 }}>
+        <Link href={path} target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary" style={{ fontSize: 12, padding: "5px 12px" }}>
           Preview
         </Link>
-        <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12, padding: "5px 12px", flexShrink: 0 }} onClick={() => setShowQr((v) => !v)}>
+        <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12, padding: "5px 12px" }} onClick={() => setShowQr((v) => !v)}>
           {showQr ? "Hide QR" : "QR code"}
         </button>
         {msg ? <span style={{ fontSize: 12, color: "var(--ok, #16a34a)", fontWeight: 600 }}>{msg}</span> : null}
