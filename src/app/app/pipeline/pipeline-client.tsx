@@ -826,12 +826,9 @@ export default function PipelineClient() {
                     <thead>
                       <tr>
                         <th>Property Address</th>
-                        <th>Seller Name</th>
-                        <th>Source</th>
+                        <th>Seller</th>
                         <th>Asking Price</th>
-                        <th>Offer Price</th>
                         <th>Stage</th>
-                        <th>Days in Stage</th>
                         <th>Next Follow-up</th>
                         <th>Tags</th>
                       </tr>
@@ -843,29 +840,19 @@ export default function PipelineClient() {
                           onClick={() => openDetail(deal)}
                           style={{ cursor: "pointer" }}
                         >
-                          <td style={{ fontWeight: 600, minWidth: 180, whiteSpace: "nowrap" }}>
+                          <td style={{ fontWeight: 600 }}>
                             {deal.property_address || "—"}
                           </td>
-                          <td style={{ whiteSpace: "nowrap" }}>{deal.seller_name || "—"}</td>
-                          <td style={{ whiteSpace: "nowrap" }}>
-                            {deal.seller_source ? (
-                              <StatusBadge
-                                label={sourceChannelLabel(deal.seller_source)}
-                                tone={sourceChannelTone(deal.seller_source)}
-                              />
-                            ) : "—"}
-                          </td>
-                          <td style={{ whiteSpace: "nowrap" }}>{priceDisplay(deal.price)}</td>
-                          <td style={{ whiteSpace: "nowrap" }}>{priceDisplay(deal.offer_price)}</td>
-                          <td style={{ whiteSpace: "nowrap" }}>
+                          <td>{deal.seller_name || "—"}</td>
+                          <td>{priceDisplay(deal.price)}</td>
+                          <td>
                             <StatusBadge
                               label={pipelineStageLabel(deal.stage)}
                               tone={pipelineStageTone(deal.stage)}
                             />
                           </td>
-                          <td style={{ whiteSpace: "nowrap" }}>{daysInStage(deal.stage_entered_at, deal.updated_at)}d</td>
-                          <td style={{ whiteSpace: "nowrap" }}>{dateDisplay(deal.next_followup_date)}</td>
-                          <td style={{ minWidth: 140 }}>
+                          <td>{dateDisplay(deal.next_followup_date)}</td>
+                          <td>
                             {deal.tags.length > 0 ? (
                               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                                 {deal.tags.map((tag) => (
