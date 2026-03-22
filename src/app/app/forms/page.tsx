@@ -1,5 +1,6 @@
 "use client";
 
+import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -54,13 +55,16 @@ function FormShareRow({
   const [url, setUrl] = useState(`https://lockboxhq.com${path}`);
   const [msg, setMsg] = useState("");
   const [showQr, setShowQr] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => { setUrl(`${window.location.origin}${path}`); }, [path]);
 
-  const qrUrl = useMemo(
-    () => `https://api.qrserver.com/v1/create-qr-code/?format=png&size=400x400&data=${encodeURIComponent(url)}`,
-    [url]
-  );
+  useEffect(() => {
+    if (!url) return;
+    QRCode.toDataURL(url, { width: 400, margin: 2 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [url]);
 
   async function handleCopy() {
     const ok = await copyText(url);
@@ -68,21 +72,14 @@ function FormShareRow({
     window.setTimeout(() => setMsg(""), 1800);
   }
 
-  async function handleDownloadQr() {
-    try {
-      const res = await fetch(qrUrl);
-      const blob = await res.blob();
-      const obj = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = obj;
-      a.download = downloadName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(obj);
-    } catch {
-      window.open(qrUrl, "_blank", "noopener,noreferrer");
-    }
+  function handleDownloadQr() {
+    if (!qrDataUrl) return;
+    const a = document.createElement("a");
+    a.href = qrDataUrl;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   return (
@@ -108,7 +105,7 @@ function FormShareRow({
       {/* QR panel */}
       {showQr ? (
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-          <img src={qrUrl} alt="QR code" style={{ width: 100, height: 100, borderRadius: 6, border: "1px solid var(--border)" }} />
+          {qrDataUrl ? <img src={qrDataUrl} alt="QR code" style={{ width: 100, height: 100, borderRadius: 6, border: "1px solid var(--border)" }} /> : <div style={{ width: 100, height: 100, borderRadius: 6, border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--ink-muted)" }}>Loading…</div>}
           <div className="crm-stack-6">
             <p style={{ margin: 0, fontSize: 12, color: "var(--ink-muted)" }}>Print or share this QR code to send people directly to the form.</p>
             <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12, padding: "5px 12px", width: "fit-content" }} onClick={handleDownloadQr}>
