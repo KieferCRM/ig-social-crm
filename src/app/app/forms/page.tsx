@@ -24,7 +24,13 @@ type GenericForm = {
   description: string;
   questions: GenericQuestion[];
   submission_count: number;
+  short_code: string | null;
 };
+
+const LINK_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+function genShortCode(): string {
+  return Array.from({ length: 6 }, () => LINK_CHARS[Math.floor(Math.random() * LINK_CHARS.length)]).join("");
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -47,17 +53,22 @@ function FormShareRow({
   path,
   submissionCount,
   downloadName,
+  shortPath,
 }: {
   path: string;
   submissionCount: number;
   downloadName: string;
+  shortPath?: string;
 }) {
   const [url, setUrl] = useState(`https://lockboxhq.com${path}`);
+  const [shortUrl, setShortUrl] = useState(shortPath ? `https://lockboxhq.com${shortPath}` : "");
   const [msg, setMsg] = useState("");
+  const [shortMsg, setShortMsg] = useState("");
   const [showQr, setShowQr] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => { setUrl(`${window.location.origin}${path}`); }, [path]);
+  useEffect(() => { if (shortPath) setShortUrl(`${window.location.origin}${shortPath}`); }, [shortPath]);
 
   useEffect(() => {
     if (!url) return;
@@ -65,6 +76,12 @@ function FormShareRow({
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(""));
   }, [url]);
+
+  async function handleCopyShort() {
+    const ok = await copyText(shortUrl);
+    setShortMsg(ok ? "Copied!" : "Failed");
+    window.setTimeout(() => setShortMsg(""), 1800);
+  }
 
   async function handleCopy() {
     const ok = await copyText(url);
@@ -84,7 +101,18 @@ function FormShareRow({
 
   return (
     <div className="crm-stack-8">
-      {/* URL */}
+      {/* Short link — shown first when available */}
+      {shortUrl ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-muted)", minWidth: 64 }}>Short link</span>
+          <code style={{ fontSize: 13, color: "var(--ink-body)", fontWeight: 600 }}>{shortUrl}</code>
+          <button type="button" className="crm-btn crm-btn-primary" style={{ fontSize: 12, padding: "5px 12px" }} onClick={handleCopyShort}>
+            Copy
+          </button>
+          {shortMsg ? <span style={{ fontSize: 12, color: "var(--ok, #16a34a)", fontWeight: 600 }}>{shortMsg}</span> : null}
+        </div>
+      ) : null}
+      {/* Full URL */}
       <code style={{ display: "block", fontSize: 12, color: "var(--ink-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {url}
       </code>
@@ -126,12 +154,14 @@ function BuiltInFormCard({
   path,
   submissionCount,
   downloadName,
+  shortPath,
 }: {
   label: string;
   description: string;
   path: string;
   submissionCount: number;
   downloadName: string;
+  shortPath?: string;
 }) {
   return (
     <div className="crm-card crm-section-card crm-stack-10">
@@ -142,7 +172,7 @@ function BuiltInFormCard({
         </div>
         <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>{description}</p>
       </div>
-      <FormShareRow path={path} submissionCount={submissionCount} downloadName={downloadName} />
+      <FormShareRow path={path} submissionCount={submissionCount} downloadName={downloadName} shortPath={shortPath} />
     </div>
   );
 }
@@ -232,11 +262,12 @@ function GenericFormModal({ agentId, editing, onClose, onSaved }: {
     if (!title.trim()) { setError("Form title is required."); return; }
     setSaving(true);
     setError("");
-    const row = { agent_id: agentId, title: title.trim(), description: description.trim() || null, questions, updated_at: new Date().toISOString() };
+    const row: Record<string, unknown> = { agent_id: agentId, title: title.trim(), description: description.trim() || null, questions, updated_at: new Date().toISOString() };
     let err;
     if (editing) {
       ({ error: err } = await supabase.from("generic_forms").update(row).eq("id", editing.id));
     } else {
+      row.short_code = genShortCode();
       ({ error: err } = await supabase.from("generic_forms").insert(row));
     }
     setSaving(false);
@@ -384,6 +415,7 @@ export default function FormsPage() {
   const [buyerCount, setBuyerCount] = useState(0);
   const [genericForms, setGenericForms] = useState<GenericForm[]>([]);
   const [loading, setLoading] = useState(true);
+  const [linkCode, setLinkCode] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingForm, setEditingForm] = useState<GenericForm | null>(null);
   const [viewingSubmissions, setViewingSubmissions] = useState<GenericForm | null>(null);
@@ -403,10 +435,17 @@ export default function FormsPage() {
         setVanitySlug((agentRow?.vanity_slug as string | null) ?? null);
       }
 
+      // Auto-generate link code if not set yet
+      const lcRes = await fetch("/api/agent/link-code", { method: "POST" });
+      if (lcRes.ok && active) {
+        const lcData = await lcRes.json() as { link_code?: string };
+        if (lcData.link_code) setLinkCode(lcData.link_code);
+      }
+
       const [sellerRes, buyerRes, formsRes] = await Promise.all([
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "seller_form"),
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "buyer_form"),
-        supabase.from("generic_forms").select("id, title, description, questions").eq("agent_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("generic_forms").select("id, title, description, questions, short_code").eq("agent_id", user.id).order("created_at", { ascending: false }),
       ]);
 
       if (!active) return;
@@ -424,6 +463,7 @@ export default function FormsPage() {
             description: (f.description as string) || "",
             questions: (f.questions as GenericQuestion[]) || [],
             submission_count: count ?? 0,
+            short_code: (f.short_code as string | null) ?? null,
           };
         })
       );
@@ -449,12 +489,12 @@ export default function FormsPage() {
     setLoading(true);
     const reload = async () => {
       if (!agentId) return;
-      const { data } = await supabase.from("generic_forms").select("id, title, description, questions").eq("agent_id", agentId).order("created_at", { ascending: false });
+      const { data } = await supabase.from("generic_forms").select("id, title, description, questions, short_code").eq("agent_id", agentId).order("created_at", { ascending: false });
       const forms = data || [];
       const withCounts: GenericForm[] = await Promise.all(
         forms.map(async (f) => {
           const { count } = await supabase.from("generic_form_submissions").select("id", { count: "exact", head: true }).eq("form_id", f.id);
-          return { id: f.id as string, title: f.title as string, description: (f.description as string) || "", questions: (f.questions as GenericQuestion[]) || [], submission_count: count ?? 0 };
+          return { id: f.id as string, title: f.title as string, description: (f.description as string) || "", questions: (f.questions as GenericQuestion[]) || [], submission_count: count ?? 0, short_code: (f.short_code as string | null) ?? null };
         })
       );
       setGenericForms(withCounts);
@@ -502,6 +542,7 @@ export default function FormsPage() {
                 path={`/forms/seller/${vanitySlug ?? agentId}`}
                 submissionCount={sellerCount}
                 downloadName="seller-form-qr.png"
+                shortPath={linkCode ? `/s/${linkCode}` : undefined}
               />
               <BuiltInFormCard
                 label={isOffMarketAccount ? "Contact Form" : "Buyer Form"}
@@ -513,6 +554,7 @@ export default function FormsPage() {
                 path={`/forms/buyer/${vanitySlug ?? agentId}`}
                 submissionCount={buyerCount}
                 downloadName={isOffMarketAccount ? "contact-form-qr.png" : "buyer-form-qr.png"}
+                shortPath={linkCode ? `/c/${linkCode}` : undefined}
               />
             </>
           ) : null}
@@ -590,6 +632,7 @@ export default function FormsPage() {
                   path={`/forms/generic/${form.id}`}
                   submissionCount={form.submission_count}
                   downloadName={`${form.title.toLowerCase().replace(/\s+/g, "-")}-qr.png`}
+                  shortPath={form.short_code ? `/f/${form.short_code}` : undefined}
                 />
               </div>
             ))}

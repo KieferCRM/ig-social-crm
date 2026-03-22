@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import EmptyState from "@/components/ui/empty-state";
 import StatusBadge from "@/components/ui/status-badge";
 import { parsePositiveDecimal, formatCurrency, asInputNumber, asInputDate } from "@/lib/deal-metrics";
@@ -189,6 +189,14 @@ export default function PipelineClient() {
   const [status, setStatus] = useState("");
   const [agentId, setAgentId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [viewMode, setViewMode] = useState<"list" | "kanban">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("pipeline_view") as "list" | "kanban") ?? "list";
+    }
+    return "list";
+  });
+
+  const draggedDealIdRef = useRef<string | null>(null);
 
   // Custom tags — loaded from agents.settings.pipeline_tags
   const [agentTags, setAgentTags] = useState<string[]>([...PIPELINE_TAGS]);
@@ -484,6 +492,35 @@ export default function PipelineClient() {
     await saveAgentTags(next);
   }
 
+  // ── Drag-and-drop stage update ────────────────────────────────────────────────
+
+  async function handleDrop(targetStage: OffMarketStage, dealId: string) {
+    const deal = deals.find((d) => d.id === dealId);
+    if (!deal || deal.stage === targetStage) return;
+
+    const now = new Date().toISOString();
+    setDeals((prev) =>
+      prev.map((d) =>
+        d.id === dealId ? { ...d, stage: targetStage, stage_entered_at: now } : d
+      )
+    );
+
+    const { error } = await supabase
+      .from("deals")
+      .update({ stage: targetStage, stage_entered_at: now, updated_at: now })
+      .eq("id", dealId);
+
+    if (error) {
+      setRefreshKey((k) => k + 1);
+      setStatus("Could not move deal. Please try again.");
+    }
+  }
+
+  function toggleView(mode: "list" | "kanban") {
+    setViewMode(mode);
+    localStorage.setItem("pipeline_view", mode);
+  }
+
   // ── Loading / auth guard ──────────────────────────────────────────────────────
 
   if (loading) {
@@ -715,17 +752,51 @@ export default function PipelineClient() {
                   <StatusBadge label={`${filteredDeals.length} shown`} tone="default" />
                 )}
               </div>
-              <button
-                type="button"
-                className="crm-btn crm-btn-primary"
-                onClick={() => {
-                  setAddDraft(EMPTY_ADD_DRAFT);
-                  setAddError("");
-                  setIsAddOpen(true);
-                }}
-              >
-                Add New Deal
-              </button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", border: "1px solid var(--border, var(--line))", borderRadius: 8, overflow: "hidden" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleView("list")}
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: 13,
+                      fontWeight: viewMode === "list" ? 600 : 400,
+                      background: viewMode === "list" ? "var(--ink-primary)" : "transparent",
+                      color: viewMode === "list" ? "#fff" : "var(--ink-muted)",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleView("kanban")}
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: 13,
+                      fontWeight: viewMode === "kanban" ? 600 : 400,
+                      background: viewMode === "kanban" ? "var(--ink-primary)" : "transparent",
+                      color: viewMode === "kanban" ? "#fff" : "var(--ink-muted)",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Kanban
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="crm-btn crm-btn-primary"
+                  onClick={() => {
+                    setAddDraft(EMPTY_ADD_DRAFT);
+                    setAddError("");
+                    setIsAddOpen(true);
+                  }}
+                >
+                  Add New Deal
+                </button>
+              </div>
             </div>
           </section>
 
@@ -735,82 +806,181 @@ export default function PipelineClient() {
             </section>
           )}
 
-          {/* Table */}
-          <section className="crm-card crm-section-card">
-            {filteredDeals.length === 0 ? (
-              <EmptyState
-                title={deals.length === 0 ? "No deals yet" : "No deals match these filters"}
-                body={
-                  deals.length === 0
-                    ? "Add your first off-market deal using the button above."
-                    : "Clear a filter or select a different stage to see more deals."
-                }
-              />
-            ) : (
-              <div className="crm-table-wrap crm-lead-table-scroll">
-                <table className="crm-data-table">
-                  <thead>
-                    <tr>
-                      <th>Property Address</th>
-                      <th>Seller Name</th>
-                      <th>Source</th>
-                      <th>Asking Price</th>
-                      <th>Offer Price</th>
-                      <th>Stage</th>
-                      <th>Days in Stage</th>
-                      <th>Next Follow-up</th>
-                      <th>Tags</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDeals.map((deal) => (
-                      <tr
-                        key={deal.id}
-                        onClick={() => openDetail(deal)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <td style={{ fontWeight: 600, maxWidth: 220 }}>
-                          {deal.property_address || "—"}
-                        </td>
-                        <td>{deal.seller_name || "—"}</td>
-                        <td>
-                          {deal.seller_source ? (
+          {/* Table / Kanban */}
+          {viewMode === "list" ? (
+            <section className="crm-card crm-section-card">
+              {filteredDeals.length === 0 ? (
+                <EmptyState
+                  title={deals.length === 0 ? "No deals yet" : "No deals match these filters"}
+                  body={
+                    deals.length === 0
+                      ? "Add your first off-market deal using the button above."
+                      : "Clear a filter or select a different stage to see more deals."
+                  }
+                />
+              ) : (
+                <div className="crm-table-wrap crm-lead-table-scroll">
+                  <table className="crm-data-table">
+                    <thead>
+                      <tr>
+                        <th>Property Address</th>
+                        <th>Seller Name</th>
+                        <th>Source</th>
+                        <th>Asking Price</th>
+                        <th>Offer Price</th>
+                        <th>Stage</th>
+                        <th>Days in Stage</th>
+                        <th>Next Follow-up</th>
+                        <th>Tags</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDeals.map((deal) => (
+                        <tr
+                          key={deal.id}
+                          onClick={() => openDetail(deal)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <td style={{ fontWeight: 600, maxWidth: 220 }}>
+                            {deal.property_address || "—"}
+                          </td>
+                          <td>{deal.seller_name || "—"}</td>
+                          <td>
+                            {deal.seller_source ? (
+                              <StatusBadge
+                                label={sourceChannelLabel(deal.seller_source)}
+                                tone={sourceChannelTone(deal.seller_source)}
+                              />
+                            ) : "—"}
+                          </td>
+                          <td>{priceDisplay(deal.price)}</td>
+                          <td>{priceDisplay(deal.offer_price)}</td>
+                          <td>
                             <StatusBadge
-                              label={sourceChannelLabel(deal.seller_source)}
-                              tone={sourceChannelTone(deal.seller_source)}
+                              label={pipelineStageLabel(deal.stage)}
+                              tone={pipelineStageTone(deal.stage)}
                             />
-                          ) : "—"}
-                        </td>
-                        <td>{priceDisplay(deal.price)}</td>
-                        <td>{priceDisplay(deal.offer_price)}</td>
-                        <td>
-                          <StatusBadge
-                            label={pipelineStageLabel(deal.stage)}
-                            tone={pipelineStageTone(deal.stage)}
-                          />
-                        </td>
-                        <td>{daysInStage(deal.stage_entered_at, deal.updated_at)}d</td>
-                        <td>{dateDisplay(deal.next_followup_date)}</td>
-                        <td className="crm-truncate-cell" style={{ maxWidth: 160 }}>
-                          {deal.tags.length > 0 ? (
-                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          </td>
+                          <td>{daysInStage(deal.stage_entered_at, deal.updated_at)}d</td>
+                          <td>{dateDisplay(deal.next_followup_date)}</td>
+                          <td className="crm-truncate-cell" style={{ maxWidth: 160 }}>
+                            {deal.tags.length > 0 ? (
+                              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                {deal.tags.map((tag) => (
+                                  <span key={tag} className="crm-chip" style={{ fontSize: 11 }}>
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          ) : (
+            /* ── Kanban board ── */
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                overflowX: "auto",
+                alignItems: "flex-start",
+                paddingBottom: 8,
+              }}
+            >
+              {OFF_MARKET_STAGES.map((stage) => {
+                const stageDeals = filteredDeals.filter((d) => d.stage === stage);
+                return (
+                  <div
+                    key={stage}
+                    style={{ minWidth: 230, flex: "0 0 230px" }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const id = e.dataTransfer.getData("text/plain");
+                      if (id) void handleDrop(stage, id);
+                    }}
+                  >
+                    {/* Column header */}
+                    <div
+                      className="crm-card"
+                      style={{
+                        padding: "8px 12px",
+                        marginBottom: 8,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>
+                        {offMarketStageLabel(stage)}
+                      </span>
+                      <span className="crm-chip" style={{ fontSize: 11 }}>
+                        {stageDeals.length}
+                      </span>
+                    </div>
+
+                    {/* Cards */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 60 }}>
+                      {stageDeals.map((deal) => (
+                        <div
+                          key={deal.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", deal.id);
+                            draggedDealIdRef.current = deal.id;
+                          }}
+                          onClick={() => openDetail(deal)}
+                          className="crm-card"
+                          style={{
+                            padding: "10px 12px",
+                            cursor: "pointer",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            userSelect: "none",
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>
+                            {deal.property_address || "No address"}
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                            {deal.seller_name || "—"}
+                          </div>
+                          {deal.price != null && (
+                            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                              {priceDisplay(deal.price)}
+                            </div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--ink-muted)" }}>
+                            <span>{daysInStage(deal.stage_entered_at, deal.updated_at)}d in stage</span>
+                            {deal.next_followup_date && (
+                              <span>↑ {dateDisplay(deal.next_followup_date)}</span>
+                            )}
+                          </div>
+                          {deal.tags.length > 0 && (
+                            <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                               {deal.tags.map((tag) => (
-                                <span key={tag} className="crm-chip" style={{ fontSize: 11 }}>
+                                <span key={tag} className="crm-chip" style={{ fontSize: 10 }}>
                                   {tag}
                                 </span>
                               ))}
                             </div>
-                          ) : (
-                            "—"
                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

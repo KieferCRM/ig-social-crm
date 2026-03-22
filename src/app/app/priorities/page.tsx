@@ -921,8 +921,8 @@ export default function PrioritiesPage() {
             <button className="crm-btn crm-btn-primary" onClick={() => setShowModal(true)}>
               + Add Task
             </button>
-            <Link href="/app/deals" className="crm-btn crm-btn-secondary">
-              Open deals
+            <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">
+              Open pipeline
             </Link>
           </div>
         </div>

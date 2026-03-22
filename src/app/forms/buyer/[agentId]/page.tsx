@@ -32,19 +32,22 @@ export default async function BuyerFormPage({
 
   if (UUID_RE.test(param)) {
     // UUID path: if agent has a slug, redirect to clean URL
-    const { data } = await admin
+    const { data, error } = await admin
       .from("agents")
       .select("id, vanity_slug")
       .eq("id", param)
       .maybeSingle();
 
-    if (!data) return <FormNotFound />;
-
-    if (data.vanity_slug) {
-      redirect(`/forms/buyer/${data.vanity_slug}`);
+    if (error) {
+      // vanity_slug column may not exist yet — fall back to bare existence check
+      const { data: basic } = await admin.from("agents").select("id").eq("id", param).maybeSingle();
+      if (!basic) return <FormNotFound />;
+      resolvedAgentId = basic.id as string;
+    } else {
+      if (!data) return <FormNotFound />;
+      if (data.vanity_slug) redirect(`/forms/buyer/${data.vanity_slug}`);
+      resolvedAgentId = data.id as string;
     }
-
-    resolvedAgentId = data.id as string;
   } else {
     // Slug path: case-insensitive lookup
     const { data } = await admin
