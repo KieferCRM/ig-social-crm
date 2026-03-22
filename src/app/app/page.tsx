@@ -307,7 +307,7 @@ export default async function AppHome() {
               <div>
                 <h2 className="crm-section-title">Follow-ups Due</h2>
               </div>
-              <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Pipeline</Link>
+              <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
             </div>
 
             <div className="crm-stack-8">
@@ -346,8 +346,8 @@ export default async function AppHome() {
                 </div>
               ))}
 
-              {/* Active deals without a follow-up set */}
-              {activeDeals.filter((d) => !d.nextFollowupDate).length > 0 && followupsDue.length === 0 ? (
+              {/* Active deals without a follow-up set — always show if any exist */}
+              {activeDeals.filter((d) => !d.nextFollowupDate).length > 0 ? (
                 <div className="crm-card-muted" style={{ padding: 14 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
                     {activeDeals.filter((d) => !d.nextFollowupDate).length} deals have no follow-up date set
@@ -369,6 +369,7 @@ export default async function AppHome() {
                 <div>
                   <h2 className="crm-section-title">Stale Deals</h2>
                 </div>
+                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
               </div>
               <div className="crm-stack-8">
                 {staleDeals.length === 0 ? (
