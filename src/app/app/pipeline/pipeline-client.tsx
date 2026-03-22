@@ -843,11 +843,11 @@ export default function PipelineClient() {
                           onClick={() => openDetail(deal)}
                           style={{ cursor: "pointer" }}
                         >
-                          <td style={{ fontWeight: 600, maxWidth: 220 }}>
+                          <td style={{ fontWeight: 600, minWidth: 180, whiteSpace: "nowrap" }}>
                             {deal.property_address || "—"}
                           </td>
-                          <td>{deal.seller_name || "—"}</td>
-                          <td>
+                          <td style={{ whiteSpace: "nowrap" }}>{deal.seller_name || "—"}</td>
+                          <td style={{ whiteSpace: "nowrap" }}>
                             {deal.seller_source ? (
                               <StatusBadge
                                 label={sourceChannelLabel(deal.seller_source)}
@@ -855,17 +855,17 @@ export default function PipelineClient() {
                               />
                             ) : "—"}
                           </td>
-                          <td>{priceDisplay(deal.price)}</td>
-                          <td>{priceDisplay(deal.offer_price)}</td>
-                          <td>
+                          <td style={{ whiteSpace: "nowrap" }}>{priceDisplay(deal.price)}</td>
+                          <td style={{ whiteSpace: "nowrap" }}>{priceDisplay(deal.offer_price)}</td>
+                          <td style={{ whiteSpace: "nowrap" }}>
                             <StatusBadge
                               label={pipelineStageLabel(deal.stage)}
                               tone={pipelineStageTone(deal.stage)}
                             />
                           </td>
-                          <td>{daysInStage(deal.stage_entered_at, deal.updated_at)}d</td>
-                          <td>{dateDisplay(deal.next_followup_date)}</td>
-                          <td className="crm-truncate-cell" style={{ maxWidth: 160 }}>
+                          <td style={{ whiteSpace: "nowrap" }}>{daysInStage(deal.stage_entered_at, deal.updated_at)}d</td>
+                          <td style={{ whiteSpace: "nowrap" }}>{dateDisplay(deal.next_followup_date)}</td>
+                          <td style={{ minWidth: 140 }}>
                             {deal.tags.length > 0 ? (
                               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                                 {deal.tags.map((tag) => (
