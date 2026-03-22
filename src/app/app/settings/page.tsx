@@ -1,5 +1,4 @@
 import Link from "next/link";
-import WorkspaceSettingsClient from "./workspace-settings-client";
 
 export default async function SettingsPage() {
   return (
@@ -14,8 +13,6 @@ export default async function SettingsPage() {
           </div>
         </div>
       </section>
-
-      <WorkspaceSettingsClient />
 
       <div className="crm-grid-cards-3">
         <section className="crm-card crm-section-card crm-stack-10">
