@@ -994,7 +994,6 @@ export default function PipelineClient() {
           <section
             className="crm-card crm-deal-detail-modal"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 560 }}
           >
             <div className="crm-section-head">
               <div>
@@ -1166,7 +1165,6 @@ export default function PipelineClient() {
           <section
             className="crm-card crm-deal-detail-modal"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 560 }}
           >
             <div className="crm-section-head">
               <div>
