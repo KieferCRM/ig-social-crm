@@ -19,6 +19,7 @@ type Body = {
   title?: string;
   due_at?: string;
   priority?: "urgent" | "high" | "medium" | "low";
+  deal_id?: string | null;
 };
 
 const ALLOWED_PRIORITIES = new Set(["urgent", "high", "medium", "low"]);
@@ -32,7 +33,7 @@ export async function PATCH(request: Request, { params }: Params): Promise<NextR
   const parsed = await parseJsonBody<Body>(request, { maxBytes: 4096 });
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
 
-  const { status, title, due_at, priority } = parsed.data;
+  const { status, title, due_at, priority, deal_id } = parsed.data;
   const agentId = auth.context.user.id;
   const admin = supabaseAdmin();
   const now = new Date().toISOString();
@@ -71,6 +72,9 @@ export async function PATCH(request: Request, { params }: Params): Promise<NextR
     if (!ALLOWED_PRIORITIES.has(priority)) return NextResponse.json({ error: "Invalid priority." }, { status: 400 });
     update.priority = priority;
   }
+  if (deal_id !== undefined) {
+    update.deal_id = deal_id || null;
+  }
 
   if (Object.keys(update).length === 1) {
     return NextResponse.json({ error: "No fields to update." }, { status: 400 });
@@ -81,7 +85,7 @@ export async function PATCH(request: Request, { params }: Params): Promise<NextR
     .update(update)
     .eq("id", id)
     .or(ownerClause)
-    .select("id, title, description, priority, status, due_at, reason_code, metadata, lead_id, completed_at, created_at, updated_at")
+    .select("id, title, description, priority, status, due_at, reason_code, metadata, lead_id, deal_id, completed_at, created_at, updated_at")
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

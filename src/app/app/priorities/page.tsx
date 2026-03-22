@@ -26,9 +26,11 @@ type Task = {
   reason_code: string;
   metadata: Record<string, unknown>;
   lead_id: string | null;
+  deal_id: string | null;
   completed_at: string | null;
   updated_at: string;
   lead: { id: string; full_name: string | null; canonical_phone: string | null } | null;
+  deal: { id: string; property_address: string | null } | null;
 };
 
 type Reminder = {
@@ -55,6 +57,12 @@ type LeadOption = {
   last_name: string | null;
   canonical_phone: string | null;
   ig_username: string | null;
+};
+
+type DealOption = {
+  id: string;
+  property_address: string | null;
+  stage: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -160,16 +168,19 @@ function ReminderBadge() {
 
 function EditTaskModal({
   task,
+  deals,
   onClose,
   onSaved,
 }: {
   task: Task;
+  deals: DealOption[];
   onClose: () => void;
   onSaved: (updated: Task) => void;
 }) {
   const [title, setTitle] = useState(task.title);
   const [dueAt, setDueAt] = useState(task.due_at ? task.due_at.slice(0, 10) : "");
   const [priority, setPriority] = useState<Priority>(task.priority);
+  const [dealId, setDealId] = useState(task.deal_id ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -181,11 +192,12 @@ function EditTaskModal({
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), due_at: dueAt || undefined, priority }),
+        body: JSON.stringify({ title: title.trim(), due_at: dueAt || undefined, priority, deal_id: dealId || null }),
       });
       const data = await res.json() as { ok?: boolean; task?: Task; error?: string };
       if (!res.ok || !data.ok) { setError(data.error ?? "Could not save task."); return; }
-      onSaved({ ...task, title: title.trim(), due_at: dueAt ? new Date(dueAt).toISOString() : task.due_at, priority });
+      const linkedDeal = dealId ? (deals.find((d) => d.id === dealId) ?? null) : null;
+      onSaved({ ...task, title: title.trim(), due_at: dueAt ? new Date(dueAt).toISOString() : task.due_at, priority, deal_id: dealId || null, deal: linkedDeal ? { id: linkedDeal.id, property_address: linkedDeal.property_address } : null });
       onClose();
     } catch {
       setError("Something went wrong.");
@@ -232,6 +244,18 @@ function EditTaskModal({
             </div>
           </div>
         </div>
+
+        {deals.length > 0 && (
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", marginBottom: 4 }}>Related deal</label>
+            <select className="crm-input" style={{ width: "100%", fontSize: 13 }} value={dealId} onChange={(e) => setDealId(e.target.value)}>
+              <option value="">No deal</option>
+              {deals.map((d) => (
+                <option key={d.id} value={d.id}>{d.property_address ?? "Untitled deal"}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button className="crm-btn crm-btn-secondary" onClick={onClose}>Cancel</button>
@@ -293,6 +317,14 @@ function TaskCard({
               style={{ fontSize: 12, color: "var(--ink-primary)", textDecoration: "none", marginTop: 2, display: "block" }}
             >
               {leadDisplayName(task.lead)} →
+            </Link>
+          )}
+          {task.deal && (
+            <Link
+              href="/app/pipeline"
+              style={{ fontSize: 12, color: "var(--ink-primary)", textDecoration: "none", marginTop: 1, display: "block" }}
+            >
+              {task.deal.property_address ?? "Deal"} →
             </Link>
           )}
         </div>
@@ -405,15 +437,18 @@ function ReminderCard({
 
 function AddTaskModal({
   leads,
+  deals,
   onClose,
   onAdd,
 }: {
   leads: LeadOption[];
+  deals: DealOption[];
   onClose: () => void;
   onAdd: (task: Task) => void;
 }) {
   const [title, setTitle] = useState("");
   const [leadId, setLeadId] = useState("");
+  const [dealId, setDealId] = useState("");
   const [leadSearch, setLeadSearch] = useState("");
   const [dueAt, setDueAt] = useState(() => {
     const d = new Date();
@@ -446,7 +481,7 @@ function AddTaskModal({
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), lead_id: leadId || null, due_at: dueAt, priority, notes: notes.trim() || null }),
+        body: JSON.stringify({ title: title.trim(), lead_id: leadId || null, deal_id: dealId || null, due_at: dueAt, priority, notes: notes.trim() || null }),
       });
       const data = await res.json() as { task?: Task; error?: string };
       if (!res.ok || !data.task) { setError(data.error ?? "Could not create task."); return; }
@@ -547,6 +582,25 @@ function AddTaskModal({
             {leadId && (
               <div style={{ fontSize: 11, color: "#16a34a", marginTop: 2 }}>✓ Lead linked</div>
             )}
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", marginBottom: 4 }}>
+              Related deal (optional)
+            </label>
+            <select
+              className="crm-input"
+              style={{ width: "100%", fontSize: 13 }}
+              value={dealId}
+              onChange={(e) => setDealId(e.target.value)}
+            >
+              <option value="">No deal selected</option>
+              {deals.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.property_address ?? "Untitled deal"}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -727,6 +781,7 @@ export default function PrioritiesPage() {
   const [doneReminders, setDoneReminders] = useState<Reminder[]>([]);
   const [staleDeals, setStaleDeals] = useState<StaleDeal[]>([]);
   const [leads, setLeads] = useState<LeadOption[]>([]);
+  const [deals, setDeals] = useState<DealOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [markingTask, setMarkingTask] = useState<string | null>(null);
@@ -736,23 +791,26 @@ export default function PrioritiesPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [tasksRes, remRes, dealsRes, leadsRes] = await Promise.all([
+      const [tasksRes, remRes, staleRes, leadsRes, dealsRes] = await Promise.all([
         fetch("/api/tasks"),
         fetch("/api/tasks/reminders"),
         fetch("/api/tasks/stale-deals"),
         fetch("/api/tasks/leads-search"),
+        fetch("/api/tasks/deals-search"),
       ]);
-      const [tasksData, remData, dealsData, leadsData] = await Promise.all([
+      const [tasksData, remData, staleData, leadsData, dealsData] = await Promise.all([
         tasksRes.json() as Promise<{ open?: Task[]; completed_today?: Task[] }>,
         remRes.json() as Promise<{ reminders?: Reminder[] }>,
-        dealsRes.json() as Promise<{ deals?: StaleDeal[] }>,
+        staleRes.json() as Promise<{ deals?: StaleDeal[] }>,
         leadsRes.json() as Promise<{ leads?: LeadOption[] }>,
+        dealsRes.json() as Promise<{ deals?: DealOption[] }>,
       ]);
       setTasks(tasksData.open ?? []);
       setCompletedToday(tasksData.completed_today ?? []);
       setReminders(remData.reminders ?? []);
-      setStaleDeals(dealsData.deals ?? []);
+      setStaleDeals(staleData.deals ?? []);
       setLeads(leadsData.leads ?? []);
+      setDeals(dealsData.deals ?? []);
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
@@ -978,6 +1036,7 @@ export default function PrioritiesPage() {
       {showModal && (
         <AddTaskModal
           leads={leads}
+          deals={deals}
           onClose={() => setShowModal(false)}
           onAdd={addTask}
         />
@@ -987,6 +1046,7 @@ export default function PrioritiesPage() {
       {editingTask && (
         <EditTaskModal
           task={editingTask}
+          deals={deals}
           onClose={() => setEditingTask(null)}
           onSaved={saveEditedTask}
         />

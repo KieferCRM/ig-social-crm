@@ -28,16 +28,18 @@ export async function GET(): Promise<NextResponse> {
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
 
+  const TASK_SELECT = "id, title, description, priority, status, due_at, reason_code, metadata, lead_id, deal_id, completed_at, created_at, updated_at";
+
   const [{ data: open }, { data: done }] = await Promise.all([
     admin
       .from("lead_recommendations")
-      .select("id, title, description, priority, status, due_at, reason_code, metadata, lead_id, completed_at, created_at, updated_at")
+      .select(TASK_SELECT)
       .or(ownerFilter)
       .eq("status", "open")
       .order("due_at", { ascending: true, nullsFirst: false }),
     admin
       .from("lead_recommendations")
-      .select("id, title, description, priority, status, due_at, reason_code, metadata, lead_id, completed_at, created_at, updated_at")
+      .select(TASK_SELECT)
       .or(ownerFilter)
       .eq("status", "done")
       .gte("updated_at", todayMidnight.toISOString())
@@ -45,20 +47,31 @@ export async function GET(): Promise<NextResponse> {
       .limit(20),
   ]);
 
-  // Enrich with lead names
+  // Enrich with lead and deal info
   const allTasks = [...(open ?? []), ...(done ?? [])];
   const leadIds = [...new Set(allTasks.map((t) => t.lead_id).filter(Boolean) as string[])];
+  const dealIds = [...new Set(allTasks.map((t) => t.deal_id).filter(Boolean) as string[])];
+
   let leadsMap: Record<string, { id: string; full_name: string | null; canonical_phone: string | null }> = {};
-  if (leadIds.length > 0) {
-    const { data: leads } = await admin
-      .from("leads")
-      .select("id, full_name, canonical_phone")
-      .in("id", leadIds);
-    leadsMap = Object.fromEntries((leads ?? []).map((l) => [l.id, l]));
-  }
+  let dealsMap: Record<string, { id: string; property_address: string | null }> = {};
+
+  await Promise.all([
+    leadIds.length > 0
+      ? admin.from("leads").select("id, full_name, canonical_phone").in("id", leadIds)
+          .then(({ data }) => { leadsMap = Object.fromEntries((data ?? []).map((l) => [l.id, l])); })
+      : Promise.resolve(),
+    dealIds.length > 0
+      ? admin.from("deals").select("id, property_address").in("id", dealIds)
+          .then(({ data }) => { dealsMap = Object.fromEntries((data ?? []).map((d) => [d.id, d])); })
+      : Promise.resolve(),
+  ]);
 
   const enrich = (tasks: typeof allTasks) =>
-    tasks.map((t) => ({ ...t, lead: t.lead_id ? (leadsMap[t.lead_id] ?? null) : null }));
+    tasks.map((t) => ({
+      ...t,
+      lead: t.lead_id ? (leadsMap[t.lead_id] ?? null) : null,
+      deal: t.deal_id ? (dealsMap[t.deal_id] ?? null) : null,
+    }));
 
   return NextResponse.json({
     open: enrich(open ?? []),
@@ -73,6 +86,7 @@ export async function GET(): Promise<NextResponse> {
 type CreateTaskBody = {
   title?: string;
   lead_id?: string | null;
+  deal_id?: string | null;
   due_at?: string;
   priority?: "urgent" | "high" | "medium" | "low";
   notes?: string | null;
@@ -88,7 +102,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = await parseJsonBody<CreateTaskBody>(request, { maxBytes: 8 * 1024 });
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
 
-  const { title, lead_id, due_at, priority = "medium", notes } = parsed.data;
+  const { title, lead_id, deal_id, due_at, priority = "medium", notes } = parsed.data;
 
   if (!title?.trim()) return NextResponse.json({ error: "Title is required." }, { status: 400 });
   if (!due_at) return NextResponse.json({ error: "Due date is required." }, { status: 400 });
@@ -106,6 +120,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       agent_id: agentId,
       owner_user_id: agentId,
       lead_id: lead_id || null,
+      deal_id: deal_id || null,
       reason_code: "manual",
       title: title.trim(),
       description: notes?.trim() || null,
@@ -114,21 +129,24 @@ export async function POST(request: Request): Promise<NextResponse> {
       due_at: dueDate.toISOString(),
       metadata: { source: "manual", notes: notes?.trim() || null },
     })
-    .select("id, title, description, priority, status, due_at, reason_code, metadata, lead_id, completed_at, created_at, updated_at")
+    .select("id, title, description, priority, status, due_at, reason_code, metadata, lead_id, deal_id, completed_at, created_at, updated_at")
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Enrich with lead name
+  // Enrich with lead and deal
   let lead = null;
-  if (data?.lead_id) {
-    const { data: leadRow } = await admin
-      .from("leads")
-      .select("id, full_name, canonical_phone")
-      .eq("id", data.lead_id)
-      .maybeSingle();
-    lead = leadRow ?? null;
-  }
+  let deal = null;
+  await Promise.all([
+    data?.lead_id
+      ? admin.from("leads").select("id, full_name, canonical_phone").eq("id", data.lead_id).maybeSingle()
+          .then(({ data: row }) => { lead = row ?? null; })
+      : Promise.resolve(),
+    data?.deal_id
+      ? admin.from("deals").select("id, property_address").eq("id", data.deal_id).maybeSingle()
+          .then(({ data: row }) => { deal = row ?? null; })
+      : Promise.resolve(),
+  ]);
 
-  return NextResponse.json({ task: { ...data, lead } }, { status: 201 });
+  return NextResponse.json({ task: { ...data, lead, deal } }, { status: 201 });
 }
