@@ -64,6 +64,9 @@ export default function ProfileSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [loading, setLoading] = useState(true);
+  const [timezone, setTimezone] = useState("America/New_York");
+  const [savingTz, setSavingTz] = useState(false);
+  const [tzMsg, setTzMsg] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -71,10 +74,11 @@ export default function ProfileSettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setAgentId(user.id);
-      const { data } = await supabase.from("agents").select("vanity_slug").eq("id", user.id).maybeSingle();
+      const { data } = await supabase.from("agents").select("vanity_slug, timezone").eq("id", user.id).maybeSingle();
       const s = (data?.vanity_slug as string | null) ?? null;
       setCurrentSlug(s);
       setSlug(s ?? "");
+      if (data?.timezone) setTimezone(data.timezone as string);
       setLoading(false);
     }
     void load();
@@ -138,6 +142,20 @@ export default function ProfileSettingsPage() {
       setSlug(data.slug ?? s);
       setSaveMsg("Slug updated!");
       window.setTimeout(() => setSaveMsg(""), 3000);
+    }
+  }
+
+  async function handleSaveTimezone() {
+    if (!agentId) return;
+    setSavingTz(true);
+    setTzMsg("");
+    const { error } = await supabase.from("agents").update({ timezone }).eq("id", agentId);
+    setSavingTz(false);
+    if (error) {
+      setTzMsg("Could not save timezone.");
+    } else {
+      setTzMsg("Timezone saved.");
+      window.setTimeout(() => setTzMsg(""), 3000);
     }
   }
 
@@ -209,6 +227,47 @@ export default function ProfileSettingsPage() {
             </div>
           </div>
         )}
+      </section>
+
+      {/* Timezone */}
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div>
+          <h2 className="crm-section-title">Timezone</h2>
+          <p className="crm-section-subtitle">
+            Used for "due today" and follow-up date logic. Set this to your local timezone.
+          </p>
+        </div>
+        <label className="crm-filter-field">
+          <span>Your timezone</span>
+          <select value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+            <optgroup label="United States">
+              <option value="America/New_York">Eastern Time (ET)</option>
+              <option value="America/Chicago">Central Time (CT)</option>
+              <option value="America/Denver">Mountain Time (MT)</option>
+              <option value="America/Phoenix">Mountain Time – Arizona (no DST)</option>
+              <option value="America/Los_Angeles">Pacific Time (PT)</option>
+              <option value="America/Anchorage">Alaska Time (AKT)</option>
+              <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+            </optgroup>
+            <optgroup label="Canada">
+              <option value="America/Toronto">Eastern – Toronto</option>
+              <option value="America/Vancouver">Pacific – Vancouver</option>
+              <option value="America/Edmonton">Mountain – Edmonton</option>
+              <option value="America/Winnipeg">Central – Winnipeg</option>
+              <option value="America/Halifax">Atlantic – Halifax</option>
+            </optgroup>
+          </select>
+        </label>
+        {tzMsg ? (
+          <div style={{ fontSize: 13, color: tzMsg === "Timezone saved." ? "var(--ok, #16a34a)" : "var(--danger, #dc2626)", fontWeight: 600 }}>
+            {tzMsg}
+          </div>
+        ) : null}
+        <div>
+          <button type="button" className="crm-btn crm-btn-primary" disabled={savingTz} onClick={() => void handleSaveTimezone()}>
+            {savingTz ? "Saving..." : "Save timezone"}
+          </button>
+        </div>
       </section>
 
       {/* Change slug */}

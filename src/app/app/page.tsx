@@ -189,7 +189,7 @@ export default async function AppHome() {
         .eq("status", "open")
         .order("created_at", { ascending: false })
         .limit(12),
-      supabase.from("agents").select("settings").eq("id", user.id).maybeSingle(),
+      supabase.from("agents").select("settings, timezone").eq("id", user.id).maybeSingle(),
       supabase
         .from("leads")
         .select("id,full_name,canonical_phone,source,time_last_updated")
@@ -223,7 +223,9 @@ export default async function AppHome() {
   const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
   const trueEmptyWorkspace = leads.length === 0 && deals.length === 0 && recommendations.length === 0;
 
-  const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const agentTimezone = (agentRow?.timezone as string | null) ?? "America/New_York";
+  // YYYY-MM-DD in the agent's local timezone (en-CA locale produces this format)
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: agentTimezone });
   const followupsDue = activeDeals
     .filter((deal) => deal.nextFollowupDate && deal.nextFollowupDate <= todayStr)
     .sort((a, b) => (a.nextFollowupDate ?? "").localeCompare(b.nextFollowupDate ?? ""));
