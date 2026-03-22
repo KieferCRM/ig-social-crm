@@ -42,7 +42,9 @@ export function appointmentTypeLabel(type: string): string {
   return APPOINTMENT_TYPE_LABELS[type as AppointmentType] ?? type;
 }
 
-export function appointmentStatusTone(status: string): string {
+type StatusTone = "ok" | "warn" | "danger" | "info" | "stage-closed" | "default";
+
+export function appointmentStatusTone(status: string): StatusTone {
   switch (status) {
     case "confirmed":  return "ok";
     case "completed":  return "stage-closed";
