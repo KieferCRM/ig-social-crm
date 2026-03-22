@@ -154,13 +154,109 @@ function ReminderBadge() {
 // Task Card
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Edit Task Modal
+// ---------------------------------------------------------------------------
+
+function EditTaskModal({
+  task,
+  onClose,
+  onSaved,
+}: {
+  task: Task;
+  onClose: () => void;
+  onSaved: (updated: Task) => void;
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [dueAt, setDueAt] = useState(task.due_at ? task.due_at.slice(0, 10) : "");
+  const [priority, setPriority] = useState<Priority>(task.priority);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!title.trim()) { setError("Title is required."); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), due_at: dueAt || undefined, priority }),
+      });
+      const data = await res.json() as { ok?: boolean; task?: Task; error?: string };
+      if (!res.ok || !data.ok) { setError(data.error ?? "Could not save task."); return; }
+      onSaved({ ...task, title: title.trim(), due_at: dueAt ? new Date(dueAt).toISOString() : task.due_at, priority });
+      onClose();
+    } catch {
+      setError("Something went wrong.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{ background: "var(--surface, #fff)", borderRadius: 12, padding: 24, width: "100%", maxWidth: 420, display: "grid", gap: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Edit Task</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--ink-muted)", lineHeight: 1 }}>×</button>
+        </div>
+
+        {error && (
+          <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 6, padding: "8px 12px", fontSize: 13, color: "#991b1b" }}>{error}</div>
+        )}
+
+        <div style={{ display: "grid", gap: 12 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", marginBottom: 4 }}>
+              Title <span style={{ color: "#dc2626" }}>*</span>
+            </label>
+            <input className="crm-input" style={{ width: "100%", fontSize: 13 }} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", marginBottom: 4 }}>Due date</label>
+              <input type="date" className="crm-input" style={{ width: "100%", fontSize: 13 }} value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", marginBottom: 4 }}>Priority</label>
+              <select className="crm-input" style={{ width: "100%", fontSize: 13 }} value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="crm-btn crm-btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="crm-btn crm-btn-primary" onClick={() => void submit()} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Task Card
+// ---------------------------------------------------------------------------
+
 function TaskCard({
   task,
   onDone,
+  onEdit,
   marking,
 }: {
   task: Task;
   onDone: (id: string) => void;
+  onEdit: (task: Task) => void;
   marking: boolean;
 }) {
   const overdue = isOverdue(task.due_at);
@@ -200,14 +296,23 @@ function TaskCard({
             </Link>
           )}
         </div>
-        <button
-          className="crm-btn crm-btn-secondary"
-          style={{ fontSize: 11, padding: "2px 8px", flexShrink: 0, whiteSpace: "nowrap" }}
-          disabled={marking}
-          onClick={() => onDone(task.id)}
-        >
-          {marking ? "…" : "Mark done"}
-        </button>
+        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          <button
+            className="crm-btn crm-btn-secondary"
+            style={{ fontSize: 11, padding: "2px 8px", whiteSpace: "nowrap" }}
+            onClick={() => onEdit(task)}
+          >
+            Edit
+          </button>
+          <button
+            className="crm-btn crm-btn-secondary"
+            style={{ fontSize: 11, padding: "2px 8px", whiteSpace: "nowrap" }}
+            disabled={marking}
+            onClick={() => onDone(task.id)}
+          >
+            {marking ? "…" : "Done"}
+          </button>
+        </div>
       </div>
       <div style={{ fontSize: 11, color: overdue ? "#ea580c" : "var(--ink-faint)" }}>
         {overdue ? `Overdue — was due ${formatDate(task.due_at)}` : `Due ${formatDate(task.due_at)}`}
@@ -627,6 +732,7 @@ export default function PrioritiesPage() {
   const [markingTask, setMarkingTask] = useState<string | null>(null);
   const [markingReminder, setMarkingReminder] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -713,6 +819,11 @@ export default function PrioritiesPage() {
     setTasks((prev) => [task, ...prev]);
   };
 
+  // Save edited task
+  const saveEditedTask = (updated: Task) => {
+    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  };
+
   // Derive columns
   // Due Now: urgent/high tasks + overdue/today reminders
   const dueNowTasks = tasks.filter((t) => t.priority === "urgent" || t.priority === "high");
@@ -783,7 +894,7 @@ export default function PrioritiesPage() {
           empty="Nothing urgent right now."
         >
           {dueNowTasks.map((t) => (
-            <TaskCard key={t.id} task={t} onDone={(id) => void markTaskDone(id)} marking={markingTask === t.id} />
+            <TaskCard key={t.id} task={t} onDone={(id) => void markTaskDone(id)} onEdit={setEditingTask} marking={markingTask === t.id} />
           ))}
           {dueNowReminders.map((r) => (
             <ReminderCard key={r.id} reminder={r} onDone={(id) => void markReminderDone(id)} marking={markingReminder === r.id} showInColumn />
@@ -840,7 +951,7 @@ export default function PrioritiesPage() {
           empty="No lower-priority follow-ups at the moment."
         >
           {upcomingTasks.map((t) => (
-            <TaskCard key={t.id} task={t} onDone={(id) => void markTaskDone(id)} marking={markingTask === t.id} />
+            <TaskCard key={t.id} task={t} onDone={(id) => void markTaskDone(id)} onEdit={setEditingTask} marking={markingTask === t.id} />
           ))}
           {upcomingReminders.map((r) => (
             <ReminderCard key={r.id} reminder={r} onDone={(id) => void markReminderDone(id)} marking={markingReminder === r.id} showInColumn />
@@ -869,6 +980,15 @@ export default function PrioritiesPage() {
           leads={leads}
           onClose={() => setShowModal(false)}
           onAdd={addTask}
+        />
+      )}
+
+      {/* Edit Task Modal */}
+      {editingTask && (
+        <EditTaskModal
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onSaved={saveEditedTask}
         />
       )}
     </main>

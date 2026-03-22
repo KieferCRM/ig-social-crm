@@ -296,6 +296,83 @@ function GenericFormModal({ agentId, editing, onClose, onSaved }: {
   );
 }
 
+// ── Form Submissions Modal ─────────────────────────────────────────────────────
+
+type SubmissionRow = {
+  id: string;
+  submission_data: Record<string, string>;
+  created_at: string;
+};
+
+function FormSubmissionsModal({ form, onClose }: { form: GenericForm; onClose: () => void }) {
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from("generic_form_submissions")
+      .select("id, submission_data, created_at")
+      .eq("form_id", form.id)
+      .order("created_at", { ascending: false })
+      .limit(200)
+      .then(({ data }) => {
+        if (!active) return;
+        setSubmissions((data ?? []) as SubmissionRow[]);
+        setLoading(false);
+      });
+    return () => { active = false; };
+  }, [supabase, form.id]);
+
+  function formatTs(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: 24, overflowY: "auto" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="crm-card" style={{ width: "100%", maxWidth: 720 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 16 }}>{form.title} — Submissions</h3>
+            <div style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 2 }}>{form.submission_count} total</div>
+          </div>
+          <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12 }} onClick={onClose}>Close</button>
+        </div>
+
+        {loading ? (
+          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading submissions...</div>
+        ) : submissions.length === 0 ? (
+          <div style={{ color: "var(--ink-muted)", fontSize: 14 }}>No submissions yet.</div>
+        ) : (
+          <div className="crm-stack-8">
+            {submissions.map((sub) => (
+              <div key={sub.id} className="crm-card-muted" style={{ padding: 14, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-faint)", marginBottom: 10 }}>{formatTs(sub.created_at)}</div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {form.questions.map((q) => {
+                    const answer = sub.submission_data[q.id];
+                    return (
+                      <div key={q.id} style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 8, fontSize: 13 }}>
+                        <div style={{ fontWeight: 600, color: "var(--ink-muted)" }}>{q.label}</div>
+                        <div>{answer ?? <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>—</span>}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function FormsPage() {
@@ -309,6 +386,7 @@ export default function FormsPage() {
   const [loading, setLoading] = useState(true);
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingForm, setEditingForm] = useState<GenericForm | null>(null);
+  const [viewingSubmissions, setViewingSubmissions] = useState<GenericForm | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -484,6 +562,14 @@ export default function FormsPage() {
                       type="button"
                       className="crm-btn crm-btn-secondary"
                       style={{ fontSize: 12, padding: "4px 10px" }}
+                      onClick={() => setViewingSubmissions(form)}
+                    >
+                      Submissions
+                    </button>
+                    <button
+                      type="button"
+                      className="crm-btn crm-btn-secondary"
+                      style={{ fontSize: 12, padding: "4px 10px" }}
                       onClick={() => { setEditingForm(form); setShowBuilder(true); }}
                     >
                       Edit
@@ -510,6 +596,14 @@ export default function FormsPage() {
           </div>
         )}
       </section>
+
+      {/* Submissions modal */}
+      {viewingSubmissions && (
+        <FormSubmissionsModal
+          form={viewingSubmissions}
+          onClose={() => setViewingSubmissions(null)}
+        />
+      )}
 
       {/* Builder modal */}
       {showBuilder && agentId ? (

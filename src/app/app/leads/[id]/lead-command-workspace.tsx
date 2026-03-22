@@ -2,6 +2,24 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+
+type LeadDraft = {
+  full_name: string;
+  canonical_phone: string;
+  canonical_email: string;
+  stage: string;
+  lead_temp: string;
+  intent: string;
+  timeline: string;
+  budget_range: string;
+  location_area: string;
+  next_step: string;
+  notes: string;
+  deal_price: string;
+  commission_percent: string;
+  commission_amount: string;
+  close_date: string;
+};
 import {
   calculateCommissionAmount,
   formatCurrency,
@@ -168,13 +186,83 @@ function MetricField({ label, value }: { label: string; value: string }) {
   );
 }
 
+function draftFromLead(lead: LeadWorkspaceLead): LeadDraft {
+  return {
+    full_name: lead.full_name ?? "",
+    canonical_phone: lead.canonical_phone ?? "",
+    canonical_email: lead.canonical_email ?? "",
+    stage: lead.stage ?? "New",
+    lead_temp: lead.lead_temp ?? "Warm",
+    intent: lead.intent ?? "",
+    timeline: lead.timeline ?? "",
+    budget_range: lead.budget_range ?? "",
+    location_area: lead.location_area ?? "",
+    next_step: lead.next_step ?? "",
+    notes: lead.notes ?? "",
+    deal_price: lead.deal_price != null ? String(lead.deal_price) : "",
+    commission_percent: lead.commission_percent != null ? String(lead.commission_percent) : "",
+    commission_amount: lead.commission_amount != null ? String(lead.commission_amount) : "",
+    close_date: lead.close_date ?? "",
+  };
+}
+
 export default function LeadCommandWorkspace({
   lead: initialLead,
   reminders,
   conciergeEnabled,
 }: LeadCommandWorkspaceProps) {
-  const lead = initialLead;
+  const [lead, setLead] = useState<LeadWorkspaceLead>(initialLead);
+  const [editMode, setEditMode] = useState(false);
+  const [draft, setDraft] = useState<LeadDraft>(() => draftFromLead(initialLead));
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedQuickStep, setSelectedQuickStep] = useState<string | null>(null);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/leads/simple/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: draft.full_name || null,
+          canonical_phone: draft.canonical_phone || null,
+          canonical_email: draft.canonical_email || null,
+          stage: draft.stage,
+          lead_temp: draft.lead_temp,
+          intent: draft.intent || null,
+          timeline: draft.timeline || null,
+          budget_range: draft.budget_range || null,
+          location_area: draft.location_area || null,
+          next_step: draft.next_step || null,
+          notes: draft.notes || null,
+          deal_price: draft.deal_price || null,
+          commission_percent: draft.commission_percent || null,
+          commission_amount: draft.commission_amount || null,
+          close_date: draft.close_date || null,
+        }),
+      });
+      const data = await res.json() as { lead?: LeadWorkspaceLead; error?: string };
+      if (!res.ok || !data.lead) {
+        setSaveError(data.error ?? "Could not save changes.");
+        return;
+      }
+      setLead(data.lead);
+      setDraft(draftFromLead(data.lead));
+      setEditMode(false);
+    } catch {
+      setSaveError("Something went wrong. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancel() {
+    setDraft(draftFromLead(lead));
+    setEditMode(false);
+    setSaveError(null);
+  }
   const displayName = useMemo(() => leadDisplayName(lead), [lead]);
   const phoneValue = firstNonEmpty(lead.canonical_phone);
   const formattedPhone = formatPhoneDisplay(phoneValue);
@@ -227,34 +315,95 @@ export default function LeadCommandWorkspace({
       <section className="crm-card crm-section-card crm-lead-command-hero">
         <div className="crm-lead-command-hero-main">
           <div className="crm-lead-command-kicker">Lead Command Workspace</div>
-          <h1 className="crm-lead-command-title">{displayName}</h1>
-          <div className="crm-lead-command-contact-line">
-            <span>{formattedPhone || "No phone saved yet"}</span>
-            <span>{emailValue || "No email saved yet"}</span>
-            {handleValue ? <span>{handleValue}</span> : null}
-          </div>
-          <div className="crm-lead-command-chip-row">
-            <span className="crm-chip">{stageLabel}</span>
-            <span className={leadTempChipClass(lead.lead_temp)}>{tempLabel}</span>
-            <span className="crm-chip crm-chip-info">{sourceLabel}</span>
-            {urgencyLabel ? (
-              <span className={urgencyLabel.toLowerCase() === "high" ? "crm-chip crm-chip-danger" : "crm-chip"}>
-                Urgency{urgencyScore !== null ? ` ${urgencyScore}` : ""}: {urgencyLabel}
-              </span>
-            ) : null}
-          </div>
+          {editMode ? (
+            <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                  Full name
+                  <input className="crm-input" style={{ display: "block", width: "100%", marginTop: 3, fontSize: 13 }} value={draft.full_name} onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))} />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                  Phone
+                  <input className="crm-input" style={{ display: "block", width: "100%", marginTop: 3, fontSize: 13 }} value={draft.canonical_phone} onChange={(e) => setDraft((d) => ({ ...d, canonical_phone: e.target.value }))} placeholder="+1 555 000 0000" />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                  Email
+                  <input className="crm-input" type="email" style={{ display: "block", width: "100%", marginTop: 3, fontSize: 13 }} value={draft.canonical_email} onChange={(e) => setDraft((d) => ({ ...d, canonical_email: e.target.value }))} />
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                    Stage
+                    <select className="crm-input" style={{ display: "block", width: "100%", marginTop: 3, fontSize: 13 }} value={draft.stage} onChange={(e) => setDraft((d) => ({ ...d, stage: e.target.value }))}>
+                      <option value="New">New</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Qualified">Qualified</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </label>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                    Temp
+                    <select className="crm-input" style={{ display: "block", width: "100%", marginTop: 3, fontSize: 13 }} value={draft.lead_temp} onChange={(e) => setDraft((d) => ({ ...d, lead_temp: e.target.value }))}>
+                      <option value="Cold">Cold</option>
+                      <option value="Warm">Warm</option>
+                      <option value="Hot">Hot</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1 className="crm-lead-command-title">{displayName}</h1>
+              <div className="crm-lead-command-contact-line">
+                <span>{formattedPhone || "No phone saved yet"}</span>
+                <span>{emailValue || "No email saved yet"}</span>
+                {handleValue ? <span>{handleValue}</span> : null}
+              </div>
+              <div className="crm-lead-command-chip-row">
+                <span className="crm-chip">{stageLabel}</span>
+                <span className={leadTempChipClass(lead.lead_temp)}>{tempLabel}</span>
+                <span className="crm-chip crm-chip-info">{sourceLabel}</span>
+                {urgencyLabel ? (
+                  <span className={urgencyLabel.toLowerCase() === "high" ? "crm-chip crm-chip-danger" : "crm-chip"}>
+                    Urgency{urgencyScore !== null ? ` ${urgencyScore}` : ""}: {urgencyLabel}
+                  </span>
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="crm-lead-command-hero-actions">
           <div className="crm-lead-command-secondary-actions">
-            <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">
-              Open in Pipeline
-            </Link>
-            <ConvertToDealButton leadId={lead.id} defaultPropertyAddress={lead.location_area} />
-            <Link href="/app/contacts" className="crm-btn crm-btn-secondary">
-              Back to Contacts
-            </Link>
+            {editMode ? (
+              <>
+                <button type="button" className="crm-btn crm-btn-primary" onClick={() => void handleSave()} disabled={saving}>
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+                <button type="button" className="crm-btn crm-btn-secondary" onClick={handleCancel} disabled={saving}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="crm-btn crm-btn-primary" onClick={() => setEditMode(true)}>
+                  Edit lead
+                </button>
+                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">
+                  Open in Pipeline
+                </Link>
+                <ConvertToDealButton leadId={lead.id} defaultPropertyAddress={lead.location_area} />
+                <Link href="/app/contacts" className="crm-btn crm-btn-secondary">
+                  Back to Contacts
+                </Link>
+              </>
+            )}
           </div>
+          {saveError ? (
+            <div style={{ marginTop: 8, fontSize: 13, color: "#dc2626", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 6, padding: "6px 10px" }}>
+              {saveError}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -270,14 +419,28 @@ export default function LeadCommandWorkspace({
               </div>
             </div>
 
-            <div className="crm-lead-command-fact-grid">
-              <MetricField label="Phone" value={formattedPhone || "Not provided"} />
-              <MetricField label="Email" value={emailValue || "Not provided"} />
-              <MetricField label="Intent" value={firstNonEmpty(lead.intent) || "Not captured yet"} />
-              <MetricField label="Timeline" value={firstNonEmpty(lead.timeline) || "Not captured yet"} />
-              <MetricField label="Area" value={firstNonEmpty(lead.location_area) || "Not captured yet"} />
-              <MetricField label="Budget" value={firstNonEmpty(lead.budget_range) || "Not captured yet"} />
-            </div>
+            {editMode ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {(["intent", "timeline", "location_area", "budget_range", "next_step"] as const).map((field) => {
+                  const labels: Record<string, string> = { intent: "Intent", timeline: "Timeline", location_area: "Area", budget_range: "Budget", next_step: "Next step" };
+                  return (
+                    <label key={field} style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                      {labels[field]}
+                      <input className="crm-input" style={{ display: "block", width: "100%", marginTop: 3, fontSize: 13 }} value={draft[field]} onChange={(e) => setDraft((d) => ({ ...d, [field]: e.target.value }))} />
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="crm-lead-command-fact-grid">
+                <MetricField label="Phone" value={formattedPhone || "Not provided"} />
+                <MetricField label="Email" value={emailValue || "Not provided"} />
+                <MetricField label="Intent" value={firstNonEmpty(lead.intent) || "Not captured yet"} />
+                <MetricField label="Timeline" value={firstNonEmpty(lead.timeline) || "Not captured yet"} />
+                <MetricField label="Area" value={firstNonEmpty(lead.location_area) || "Not captured yet"} />
+                <MetricField label="Budget" value={firstNonEmpty(lead.budget_range) || "Not captured yet"} />
+              </div>
+            )}
           </section>
 
           <section className="crm-card crm-section-card">
@@ -290,7 +453,15 @@ export default function LeadCommandWorkspace({
               </div>
             </div>
             <div className="crm-lead-command-notes">
-              {firstNonEmpty(lead.notes) ? (
+              {editMode ? (
+                <textarea
+                  className="crm-input"
+                  style={{ width: "100%", minHeight: 100, fontSize: 13, resize: "vertical" }}
+                  value={draft.notes}
+                  onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+                  placeholder="Add context after your first conversation so future follow-ups stay personal."
+                />
+              ) : firstNonEmpty(lead.notes) ? (
                 <div className="crm-lead-command-notes-copy">{lead.notes}</div>
               ) : (
                 <div className="crm-lead-command-empty">
@@ -385,12 +556,30 @@ export default function LeadCommandWorkspace({
               ) : null}
             </div>
 
-            <div className="crm-lead-command-fact-grid">
-              <MetricField label="Sale price" value={formatCurrency(dealPrice)} />
-              <MetricField label="Commission %" value={formatPercentLabel(commissionPercent)} />
-              <MetricField label="Commission amount" value={formatCurrency(commissionAmount)} />
-              <MetricField label="Close date" value={firstNonEmpty(lead.close_date) || "Not scheduled yet"} />
-            </div>
+            {editMode ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {(["deal_price", "commission_percent", "commission_amount"] as const).map((field) => {
+                  const labels: Record<string, string> = { deal_price: "Sale price", commission_percent: "Commission %", commission_amount: "Commission amount" };
+                  return (
+                    <label key={field} style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                      {labels[field]}
+                      <input type="number" className="crm-input" style={{ display: "block", width: "100%", marginTop: 3, fontSize: 13 }} value={draft[field]} onChange={(e) => setDraft((d) => ({ ...d, [field]: e.target.value }))} />
+                    </label>
+                  );
+                })}
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                  Close date
+                  <input type="date" className="crm-input" style={{ display: "block", width: "100%", marginTop: 3, fontSize: 13 }} value={draft.close_date} onChange={(e) => setDraft((d) => ({ ...d, close_date: e.target.value }))} />
+                </label>
+              </div>
+            ) : (
+              <div className="crm-lead-command-fact-grid">
+                <MetricField label="Sale price" value={formatCurrency(dealPrice)} />
+                <MetricField label="Commission %" value={formatPercentLabel(commissionPercent)} />
+                <MetricField label="Commission amount" value={formatCurrency(commissionAmount)} />
+                <MetricField label="Close date" value={firstNonEmpty(lead.close_date) || "Not scheduled yet"} />
+              </div>
+            )}
 
             <div className="crm-lead-command-inline-note">
               {hasDealDetails
