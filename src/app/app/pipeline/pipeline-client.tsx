@@ -93,6 +93,11 @@ function dateDisplay(value: string | null): string {
   return d.toLocaleDateString();
 }
 
+function isOverdue(value: string | null): boolean {
+  if (!value) return false;
+  return new Date(value).getTime() < Date.now();
+}
+
 function toggleTag(current: string[], tag: string): string[] {
   return current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag];
 }
@@ -725,33 +730,25 @@ export default function PipelineClient() {
         <div className="crm-stack-12">
           {/* Header */}
           <section className="crm-card crm-section-card">
-            <div>
-              <p className="crm-page-kicker">Off-Market</p>
-              <h1 className="crm-page-title">Pipeline</h1>
-              <p className="crm-page-subtitle">
-                Track every off-market opportunity from first contact to close. Filter by stage or
-                tag to focus on what needs attention now.
-              </p>
-            </div>
-
-            {/* Stats + action */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-                flexWrap: "wrap",
-              }}
-            >
-              <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
-                <StatusBadge label={`${deals.filter((d) => d.stage !== "closed" && d.stage !== "dead").length} active`} tone="ok" />
-                <StatusBadge label={`${deals.filter((d) => d.stage === "under_contract").length} under contract`} tone="stage-contract" />
-                <StatusBadge label={`${deals.filter((d) => d.stage === "closed").length} closed`} tone="stage-closed" />
-                {filteredDeals.length !== deals.length && (
-                  <StatusBadge label={`${filteredDeals.length} shown`} tone="default" />
-                )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              {/* Left: title + stats */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div>
+                  <p className="crm-page-kicker" style={{ marginBottom: 2 }}>Off-Market</p>
+                  <h1 className="crm-page-title" style={{ margin: 0 }}>Pipeline</h1>
+                </div>
+                <div style={{ width: 1, height: 32, background: "var(--line)", flexShrink: 0 }} />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <StatusBadge label={`${deals.filter((d) => d.stage !== "closed" && d.stage !== "dead").length} active`} tone="ok" />
+                  <StatusBadge label={`${deals.filter((d) => d.stage === "under_contract").length} under contract`} tone="stage-contract" />
+                  <StatusBadge label={`${deals.filter((d) => d.stage === "closed").length} closed`} tone="stage-closed" />
+                  {filteredDeals.length !== deals.length && (
+                    <StatusBadge label={`${filteredDeals.length} shown`} tone="default" />
+                  )}
+                </div>
               </div>
+
+              {/* Right: view toggle + primary action */}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ display: "flex", border: "2px solid var(--ink-primary)", borderRadius: 8, overflow: "hidden" }}>
                   <button
@@ -796,7 +793,7 @@ export default function PipelineClient() {
                     setIsAddOpen(true);
                   }}
                 >
-                  Add New Deal
+                  + Add Deal
                 </button>
               </div>
             </div>
@@ -810,18 +807,20 @@ export default function PipelineClient() {
 
           {/* Table / Kanban */}
           {viewMode === "list" ? (
-            <section className="crm-card crm-section-card">
+            <section className="crm-card">
               {filteredDeals.length === 0 ? (
-                <EmptyState
-                  title={deals.length === 0 ? "No deals yet" : "No deals match these filters"}
-                  body={
-                    deals.length === 0
-                      ? "Add your first off-market deal using the button above."
-                      : "Clear a filter or select a different stage to see more deals."
-                  }
-                />
+                <div style={{ padding: "24px 20px" }}>
+                  <EmptyState
+                    title={deals.length === 0 ? "No deals yet" : "No deals match these filters"}
+                    body={
+                      deals.length === 0
+                        ? "Add your first off-market deal using the button above."
+                        : "Clear a filter or select a different stage to see more deals."
+                    }
+                  />
+                </div>
               ) : (
-                <div className="crm-table-wrap crm-lead-table-scroll">
+                <div className="crm-table-wrap">
                   <table className="crm-data-table">
                     <thead>
                       <tr>
@@ -834,39 +833,50 @@ export default function PipelineClient() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredDeals.map((deal) => (
-                        <tr
-                          key={deal.id}
-                          onClick={() => openDetail(deal)}
-                          style={{ cursor: "pointer" }}
-                        >
-                          <td style={{ fontWeight: 600 }}>
-                            {deal.property_address || "—"}
-                          </td>
-                          <td>{deal.seller_name || "—"}</td>
-                          <td>{priceDisplay(deal.price)}</td>
-                          <td>
-                            <StatusBadge
-                              label={pipelineStageLabel(deal.stage)}
-                              tone={pipelineStageTone(deal.stage)}
-                            />
-                          </td>
-                          <td>{dateDisplay(deal.next_followup_date)}</td>
-                          <td>
-                            {deal.tags.length > 0 ? (
-                              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                                {deal.tags.map((tag) => (
-                                  <span key={tag} className="crm-chip" style={{ fontSize: 11 }}>
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredDeals.map((deal) => {
+                        const overdue = isOverdue(deal.next_followup_date);
+                        return (
+                          <tr
+                            key={deal.id}
+                            onClick={() => openDetail(deal)}
+                            style={{ cursor: "pointer" }}
+                          >
+                            <td style={{ fontWeight: 600 }}>
+                              {deal.property_address || "—"}
+                            </td>
+                            <td>{deal.seller_name || "—"}</td>
+                            <td>{priceDisplay(deal.price)}</td>
+                            <td>
+                              <StatusBadge
+                                label={pipelineStageLabel(deal.stage)}
+                                tone={pipelineStageTone(deal.stage)}
+                              />
+                            </td>
+                            <td style={{ color: overdue ? "#dc2626" : undefined, fontWeight: overdue ? 600 : undefined }}>
+                              {overdue && <span style={{ marginRight: 4 }}>⚠</span>}
+                              {dateDisplay(deal.next_followup_date)}
+                            </td>
+                            <td>
+                              {deal.tags.length > 0 ? (
+                                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                  {deal.tags.slice(0, 2).map((tag) => (
+                                    <span key={tag} className="crm-chip" style={{ fontSize: 11 }}>
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {deal.tags.length > 2 && (
+                                    <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>
+                                      +{deal.tags.length - 2}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
