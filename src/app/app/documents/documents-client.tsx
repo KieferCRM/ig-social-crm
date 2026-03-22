@@ -93,6 +93,9 @@ export default function DocumentsClient({
 
   useEffect(() => {
     void loadDocuments();
+    // Re-fetch every 55 min so signed URLs (1hr TTL) don't expire in open tabs
+    const timer = setInterval(() => void loadDocuments(), 55 * 60 * 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const filteredDocuments = useMemo(() => {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import FormAlertsSection from "@/components/today/FormAlertsSection";
 import EmptyState from "@/components/ui/empty-state";
 import KpiCard from "@/components/ui/kpi-card";
 import StatusBadge from "@/components/ui/status-badge";
@@ -250,27 +251,7 @@ export default async function AppHome() {
   if (isOffMarketAccount) {
     return (
       <main className="crm-page crm-page-wide crm-stack-12">
-        {/* Form submission alerts */}
-        {formAlerts.length > 0 ? (
-          <section className="crm-card crm-section-card crm-stack-8">
-            <div className="crm-section-head">
-              <div>
-                <h2 className="crm-section-title">New Form Submissions</h2>
-              </div>
-            </div>
-            <div className="crm-stack-6">
-              {formAlerts.map((alert) => (
-                <div key={alert.id} className="crm-card-muted" style={{ padding: 12, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{alert.title}</div>
-                    <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{alert.message}</div>
-                  </div>
-                  <span style={{ fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>{formatTimeAgo(alert.created_at)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
+        <FormAlertsSection initialAlerts={formAlerts} />
 
         {/* KPIs */}
         <section className="crm-kpi-grid crm-dashboard-kpi-grid">
@@ -477,26 +458,7 @@ export default async function AppHome() {
 
   return (
     <main className="crm-page crm-page-wide crm-stack-12">
-      {formAlerts.length > 0 ? (
-        <section className="crm-card crm-section-card crm-stack-8">
-          <div className="crm-section-head">
-            <div>
-              <h2 className="crm-section-title">New Form Submissions</h2>
-            </div>
-          </div>
-          <div className="crm-stack-6">
-            {formAlerts.map((alert) => (
-              <div key={alert.id} className="crm-card-muted" style={{ padding: 12, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{alert.title}</div>
-                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{alert.message}</div>
-                </div>
-                <span style={{ fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>{formatTimeAgo(alert.created_at)}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <FormAlertsSection initialAlerts={formAlerts} />
 
       <section className="crm-kpi-grid crm-dashboard-kpi-grid">
         <KpiCard label="Active Deals" value={activeDeals.length} tone="ok" href="/app/deals" compact />
