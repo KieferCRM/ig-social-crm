@@ -183,6 +183,10 @@ export default function AuthPage() {
 
   async function handleSignUp() {
     if (!validateEmail() || !validatePassword()) return;
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
     setBusyAction("sign_up");
     setError(null);
@@ -325,7 +329,9 @@ export default function AuthPage() {
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">For solo real estate agents</div>
+            <div className="crm-auth-kicker">
+              {track === "off_market_agent" ? "For off-market real estate agents" : "For solo real estate agents"}
+            </div>
           </div>
 
           <div className="crm-auth-copy">
@@ -406,14 +412,14 @@ export default function AuthPage() {
               />
             </div>
 
-            {mode === "recovery" ? (
+            {mode === "recovery" || mode === "sign_up" ? (
               <div className="crm-auth-field">
                 <label htmlFor="confirmPassword">Confirm password</label>
                 <input
                   id="confirmPassword"
                   type="password"
                   autoComplete="new-password"
-                  placeholder="Re-enter your new password"
+                  placeholder="Re-enter your password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   disabled={isBusy}

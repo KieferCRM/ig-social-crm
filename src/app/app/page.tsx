@@ -172,7 +172,8 @@ export default async function AppHome() {
           "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,stage,source,intent,timeline,location_area,budget_range,notes,time_last_updated"
         )
         .eq("agent_id", user.id)
-        .order("time_last_updated", { ascending: false }),
+        .order("time_last_updated", { ascending: false })
+        .limit(200),
       supabase
         .from("deals")
         .select(
@@ -240,12 +241,6 @@ export default async function AppHome() {
     created_at: string;
   }>;
 
-  const heroTitle = isOffMarketAccount
-    ? "Keep active opportunities organized without working out of memory."
-    : "Keep the deals moving without manual CRM cleanup.";
-  const heroSubtitle = isOffMarketAccount
-    ? "Deals stay at the center. Documents, contacts, tasks, and recent activity stay attached to the work so you can see what needs attention immediately."
-    : "New intake should become organized work immediately. This page keeps the next call, hottest inquiry, and most active deals in view.";
   const emptyStateBody = isOffMarketAccount
     ? "We did not find any deals, contacts, or follow-up items yet. Start with deals, documents, or a contact so the off-market workspace has something real to organize."
     : "We did not find any deals, contacts, or follow-up items yet. Start by opening intake or sharing a buyer or seller form so the workspace has something real to work with.";
@@ -255,27 +250,12 @@ export default async function AppHome() {
   if (isOffMarketAccount) {
     return (
       <main className="crm-page crm-page-wide crm-stack-12">
-        {/* Hero */}
-        <section className="crm-today-hero">
-          <div>
-            <p className="crm-page-kicker">Today</p>
-            <h2 className="crm-page-title" style={{ marginTop: 6 }}>{heroTitle}</h2>
-            <p className="crm-page-subtitle">{heroSubtitle}</p>
-          </div>
-          <div className="crm-inline-actions">
-            <Link href="/app/pipeline" className="crm-btn crm-btn-primary">Open pipeline</Link>
-            <Link href="/app/forms" className="crm-btn crm-btn-secondary">Share forms</Link>
-            <Link href="/app/documents" className="crm-btn crm-btn-secondary">Documents</Link>
-          </div>
-        </section>
-
         {/* Form submission alerts */}
         {formAlerts.length > 0 ? (
           <section className="crm-card crm-section-card crm-stack-8">
             <div className="crm-section-head">
               <div>
                 <h2 className="crm-section-title">New Form Submissions</h2>
-                <p className="crm-section-subtitle">Leads who submitted a form and are waiting for a response.</p>
               </div>
             </div>
             <div className="crm-stack-6">
@@ -343,7 +323,6 @@ export default async function AppHome() {
             <div className="crm-section-head">
               <div>
                 <h2 className="crm-section-title">Follow-ups Due</h2>
-                <p className="crm-section-subtitle">Deals with a follow-up date that has arrived.</p>
               </div>
               <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Pipeline</Link>
             </div>
@@ -406,7 +385,6 @@ export default async function AppHome() {
               <div className="crm-section-head">
                 <div>
                   <h2 className="crm-section-title">Stale Deals</h2>
-                  <p className="crm-section-subtitle">No movement in 7+ days.</p>
                 </div>
               </div>
               <div className="crm-stack-8">
@@ -434,7 +412,6 @@ export default async function AppHome() {
               <div className="crm-section-head">
                 <div>
                   <h2 className="crm-section-title">New Leads</h2>
-                  <p className="crm-section-subtitle">Leads added in the last 7 days from any source.</p>
                 </div>
                 <Link href="/app/contacts" className="crm-btn crm-btn-secondary">Contacts</Link>
               </div>
@@ -470,18 +447,6 @@ export default async function AppHome() {
               </div>
             </article>
 
-            {/* Quick actions */}
-            <article className="crm-card crm-section-card crm-stack-8">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Quick Actions</h2>
-              </div>
-              <div className="crm-stack-6">
-                <Link href="/app/pipeline" className="crm-btn crm-btn-primary">Open pipeline</Link>
-                <Link href="/app/forms" className="crm-btn crm-btn-secondary">Share forms</Link>
-                <Link href="/app/documents" className="crm-btn crm-btn-secondary">Manage documents</Link>
-                <Link href="/app/contacts?add=true" className="crm-btn crm-btn-secondary">Add contact</Link>
-              </div>
-            </article>
           </div>
         </section>
       </main>
@@ -512,33 +477,11 @@ export default async function AppHome() {
 
   return (
     <main className="crm-page crm-page-wide crm-stack-12">
-      <section className="crm-today-hero">
-        <div>
-          <p className="crm-page-kicker">Today</p>
-          <h2 className="crm-page-title" style={{ marginTop: 6 }}>
-            {heroTitle}
-          </h2>
-          <p className="crm-page-subtitle">{heroSubtitle}</p>
-        </div>
-        <div className="crm-inline-actions">
-          <Link href="/app/deals" className="crm-btn crm-btn-primary">
-            Open deals
-          </Link>
-          <Link href="/app/intake" className="crm-btn crm-btn-secondary">
-            Review intake
-          </Link>
-          <Link href="/app/contacts?add=true" className="crm-btn crm-btn-secondary">
-            Add contact
-          </Link>
-        </div>
-      </section>
-
       {formAlerts.length > 0 ? (
         <section className="crm-card crm-section-card crm-stack-8">
           <div className="crm-section-head">
             <div>
               <h2 className="crm-section-title">New Form Submissions</h2>
-              <p className="crm-section-subtitle">Leads who submitted a form and are waiting for a response.</p>
             </div>
           </div>
           <div className="crm-stack-6">
@@ -608,9 +551,6 @@ export default async function AppHome() {
           <div className="crm-section-head">
             <div>
               <h2 className="crm-section-title">Needs Attention Now</h2>
-              <p className="crm-section-subtitle">
-                Quiet guidance for the work that should happen next.
-              </p>
             </div>
             <Link href="/app/priorities" className="crm-btn crm-btn-secondary">
               Open priorities
@@ -682,7 +622,6 @@ export default async function AppHome() {
             <div className="crm-section-head">
               <div>
                 <h2 className="crm-section-title">Active Deals Snapshot</h2>
-                <p className="crm-section-subtitle">The most recent deals, sorted for easy scan.</p>
               </div>
             </div>
             <div className="crm-stack-8">
@@ -721,7 +660,6 @@ export default async function AppHome() {
             <div className="crm-section-head">
               <div>
                 <h2 className="crm-section-title">Hot / Stale / Due</h2>
-                <p className="crm-section-subtitle">What matters now without turning this page into a dashboard wall.</p>
               </div>
             </div>
             <div className="crm-stack-8">
@@ -745,9 +683,6 @@ export default async function AppHome() {
             <div className="crm-section-head">
               <div>
                 <h2 className="crm-section-title">Documents and social</h2>
-                <p className="crm-section-subtitle">
-                  Keep recent files and outbound reminders close to the deal view.
-                </p>
               </div>
             </div>
 

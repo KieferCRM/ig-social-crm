@@ -13,7 +13,7 @@ export default function EmptyState({
   title,
   body,
   action,
-  eyebrow = "Merlyn Insight",
+  eyebrow = "Next step",
 }: EmptyStateProps) {
   return (
     <div className="crm-empty-state">

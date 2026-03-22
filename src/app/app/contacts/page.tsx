@@ -69,6 +69,7 @@ export default async function ContactsPage({
   const params = await searchParams;
   const showAddForm = params.add === "true";
   const selectedDealId = typeof params.dealId === "string" ? params.dealId : "";
+  const searchQuery = typeof params.q === "string" ? params.q.trim() : "";
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -78,15 +79,23 @@ export default async function ContactsPage({
     redirect("/auth");
   }
 
+  let contactQuery = supabase
+    .from("leads")
+    .select(
+      "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,stage,lead_temp,source,intent,timeline,time_last_updated,source_detail"
+    )
+    .eq("agent_id", user.id)
+    .order("time_last_updated", { ascending: false })
+    .limit(200);
+
+  if (searchQuery) {
+    contactQuery = contactQuery.or(
+      `full_name.ilike.%${searchQuery}%,canonical_phone.ilike.%${searchQuery}%,canonical_email.ilike.%${searchQuery}%`
+    );
+  }
+
   const [{ data: contactData }, { data: dealData }, { data: agentRow }] = await Promise.all([
-    supabase
-      .from("leads")
-      .select(
-        "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,stage,lead_temp,source,intent,timeline,time_last_updated,source_detail"
-      )
-      .eq("agent_id", user.id)
-      .order("time_last_updated", { ascending: false })
-      .limit(60),
+    contactQuery,
     supabase
       .from("deals")
       .select("id,lead_id,stage,property_address")
@@ -148,6 +157,21 @@ export default async function ContactsPage({
         </div>
 
         {showAddForm ? <AddContactPanel /> : null}
+
+        <form method="GET" action="/app/contacts" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            name="q"
+            defaultValue={searchQuery}
+            placeholder="Search by name, phone, or email…"
+            className="crm-input"
+            style={{ maxWidth: 300, fontSize: 13 }}
+            autoComplete="off"
+          />
+          <button type="submit" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>Search</button>
+          {searchQuery ? (
+            <a href="/app/contacts" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>Clear</a>
+          ) : null}
+        </form>
 
         <div className="crm-inline-actions" style={{ gap: 10, flexWrap: "wrap" }}>
           <span className="crm-chip">Contacts: {contacts.length}</span>
@@ -273,7 +297,7 @@ export default async function ContactsPage({
                     <div className="crm-detail-label">Deal links</div>
                     <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                       {linkedDeals.slice(0, 3).map((deal) => (
-                        <Link key={deal.id} href={`/app/documents?dealId=${deal.id}`} className="crm-chip">
+                        <Link key={deal.id} href="/app/pipeline" className="crm-chip">
                           {deal.property_address || "Untitled deal"}
                         </Link>
                       ))}

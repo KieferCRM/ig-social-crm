@@ -104,7 +104,7 @@ export default function DocumentsClient({
     });
   }, [documents, filterDealId, filterLeadId, filterStatus]);
 
-  const recentDocuments = useMemo(() => filteredDocuments.slice(0, 12), [filteredDocuments]);
+  const recentDocuments = filteredDocuments;
 
   async function uploadDocument() {
     if (!file) {
@@ -150,6 +150,9 @@ export default function DocumentsClient({
   }
 
   async function deleteDocument(id: string) {
+    const doc = documents.find((d) => d.id === id);
+    const label = doc?.file_name ?? "this document";
+    if (!window.confirm(`Remove "${label}"? This cannot be undone.`)) return;
     try {
       const response = await fetch("/api/documents", {
         method: "DELETE",

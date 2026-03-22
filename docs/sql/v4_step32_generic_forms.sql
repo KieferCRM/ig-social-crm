@@ -14,6 +14,7 @@ alter table public.generic_forms enable row level security;
 -- Agents can fully manage their own forms
 create policy "agents_manage_own_generic_forms"
   on public.generic_forms
+
   for all
   using  (agent_id = auth.uid())
   with check (agent_id = auth.uid());

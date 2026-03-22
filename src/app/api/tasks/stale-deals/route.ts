@@ -11,7 +11,7 @@ import { loadAccessContext } from "@/lib/access-context";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const STALE_DAYS = 5;
+const STALE_DAYS = 7;
 
 export async function GET(): Promise<NextResponse> {
   const supabase = await supabaseServer();

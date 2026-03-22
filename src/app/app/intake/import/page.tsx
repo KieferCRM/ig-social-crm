@@ -269,33 +269,35 @@ export default function ImportPage() {
   const visibleSkips = result?.skipped_rows?.slice(0, 20) ?? [];
 
   return (
-    <main className="crm-page" style={{ maxWidth: 980 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0 }}>CSV Import</h1>
-          <p style={{ marginTop: 8, color: "var(--ink-muted)" }}>
-            Import safely with validation, mapping preview, and clear post-import reporting inside the Lead Intake system.
-          </p>
+    <main className="crm-page crm-stack-12" style={{ maxWidth: 980 }}>
+      <section className="crm-card crm-section-card">
+        <div className="crm-page-header">
+          <div className="crm-page-header-main">
+            <h1 className="crm-page-title">CSV Import</h1>
+            <p className="crm-page-subtitle">
+              Import safely with validation, mapping preview, and clear post-import reporting inside the Lead Intake system.
+            </p>
+          </div>
+          <div className="crm-page-actions">
+            <Link href="/app/intake" className="crm-btn crm-btn-secondary">
+              Lead Intake Hub
+            </Link>
+            <Link href="/app/list" className="crm-btn crm-btn-secondary">
+              Leads
+            </Link>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Link href="/app/intake" className="crm-btn crm-btn-secondary">
-            Lead Intake Hub
-          </Link>
-          <Link href="/app/list" className="crm-btn crm-btn-secondary">
-            Leads
-          </Link>
-        </div>
-      </div>
+      </section>
 
-      <section className="crm-card" style={{ marginTop: 16, padding: 16 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <section className="crm-card crm-section-card crm-stack-12">
+        <div className="crm-inline-actions">
           <StatusBadge label={`1. Upload ${step === "upload" ? "(Current)" : ""}`.trim()} tone={step === "upload" ? "info" : "default"} />
           <StatusBadge label={`2. Review ${step === "review" ? "(Current)" : ""}`.trim()} tone={step === "review" ? "info" : "default"} />
           <StatusBadge label={`3. Import ${step === "importing" ? "(Current)" : ""}`.trim()} tone={step === "importing" ? "warn" : "default"} />
           <StatusBadge label={`4. Report ${step === "complete" ? "(Current)" : ""}`.trim()} tone={step === "complete" ? "ok" : "default"} />
         </div>
 
-        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+        <div className="crm-stack-10">
           <input
             type="file"
             accept=".csv,text/csv"
@@ -303,7 +305,7 @@ export default function ImportPage() {
             onChange={(event) => void handleFileChange(event.target.files?.[0] ?? null)}
           />
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div className="crm-inline-actions">
             <button
               onClick={() => void runImport()}
               disabled={step === "importing" || !file}
@@ -332,16 +334,16 @@ export default function ImportPage() {
         </div>
       </section>
 
-      <section className="crm-card" style={{ marginTop: 16, padding: 16 }}>
-        <div style={{ fontWeight: 700 }}>Pre-Import Review</div>
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div className="crm-section-head">
+          <h2 className="crm-section-title">Pre-Import Review</h2>
+        </div>
 
         {!preview ? (
-          <div style={{ marginTop: 10 }}>
-            <EmptyState title="No file analyzed yet" body="Upload a CSV to review rows, columns, and stage mappings before import." />
-          </div>
+          <EmptyState title="No file analyzed yet" body="Upload a CSV to review rows, columns, and stage mappings before import." />
         ) : (
-          <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div className="crm-stack-10">
+            <div className="crm-inline-actions">
               <StatusBadge label={`${preview.rowCount} rows detected`} tone="info" />
               <StatusBadge label={`${preview.headers.length} columns detected`} tone="info" />
               <StatusBadge label={identityHeadersPresent ? "Identity columns found" : "No obvious identity headers"} tone={identityHeadersPresent ? "ok" : "warn"} />
@@ -402,10 +404,10 @@ export default function ImportPage() {
       </section>
 
       {result ? (
-        <section className="crm-card" style={{ marginTop: 16, padding: 16, display: "grid", gap: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <div style={{ fontWeight: 700 }}>Import Report</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <section className="crm-card crm-section-card crm-stack-12">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Import Report</h2>
+            <div className="crm-page-actions">
               <button
                 className="crm-btn crm-btn-secondary"
                 onClick={() => downloadTextFile(`import_report_${Date.now()}.csv`, reportCsv)}
@@ -461,9 +463,11 @@ export default function ImportPage() {
         </section>
       ) : null}
 
-      <section className="crm-card" style={{ marginTop: 16, padding: 16 }}>
-        <div style={{ fontWeight: 700 }}>Supported Fields</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: "var(--ink-muted)" }}>
+      <section className="crm-card crm-section-card crm-stack-8">
+        <div className="crm-section-head">
+          <h2 className="crm-section-title">Supported Fields</h2>
+        </div>
+        <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
           Primary identity columns: <b>ig_username</b>, <b>email</b>, <b>phone</b>, <b>external_id</b>, or <b>full_name</b>. Also supports:
           first_name, last_name, full_name, tags, intent, timeline, budget_range, location_area, contact_preference,
           next_step, lead_temp, source, notes, stage. Common stage aliases are auto-mapped and extra columns are saved in custom fields.

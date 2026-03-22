@@ -247,12 +247,12 @@ export default function LeadCommandWorkspace({
 
         <div className="crm-lead-command-hero-actions">
           <div className="crm-lead-command-secondary-actions">
-            <Link href="/app/kanban" className="crm-btn crm-btn-secondary">
+            <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">
               Open in Pipeline
             </Link>
             <ConvertToDealButton leadId={lead.id} defaultPropertyAddress={lead.location_area} />
-            <Link href="/app/list" className="crm-btn crm-btn-secondary">
-              Back to Leads
+            <Link href="/app/contacts" className="crm-btn crm-btn-secondary">
+              Back to Contacts
             </Link>
           </div>
         </div>

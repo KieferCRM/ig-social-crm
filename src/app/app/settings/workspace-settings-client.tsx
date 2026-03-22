@@ -22,6 +22,17 @@ function emptySettings(): WorkspaceSettings {
   };
 }
 
+function isValidUrlOrEmpty(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 export default function WorkspaceSettingsClient() {
   const [settings, setSettings] = useState<WorkspaceSettings>(emptySettings());
   const [loading, setLoading] = useState(true);
@@ -67,6 +78,19 @@ export default function WorkspaceSettingsClient() {
   }
 
   async function saveSettings() {
+    const urlFields: Array<[string, string]> = [
+      ["Instagram URL", settings.instagram_url],
+      ["Facebook URL", settings.facebook_url],
+      ["TikTok URL", settings.tiktok_url],
+      ["Booking link", settings.booking_link],
+    ];
+    for (const [label, value] of urlFields) {
+      if (!isValidUrlOrEmpty(value)) {
+        setMessage(`${label} must be a valid URL (e.g. https://instagram.com/yourprofile).`);
+        return;
+      }
+    }
+
     setSaving(true);
     setMessage("");
 

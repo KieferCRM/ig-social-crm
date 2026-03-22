@@ -626,6 +626,7 @@ export default function PrioritiesPage() {
   const [showModal, setShowModal] = useState(false);
   const [markingTask, setMarkingTask] = useState<string | null>(null);
   const [markingReminder, setMarkingReminder] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -656,18 +657,26 @@ export default function PrioritiesPage() {
   // Mark task done
   const markTaskDone = async (taskId: string) => {
     setMarkingTask(taskId);
+    setActionError(null);
     try {
-      await fetch(`/api/tasks/${taskId}`, {
+      const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "done" }),
       });
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        setActionError(data.error ?? "Could not mark task done. Try again.");
+        return;
+      }
       setTasks((prev) => {
         const task = prev.find((t) => t.id === taskId);
         if (task) setCompletedToday((c) => [{ ...task, status: "done", completed_at: new Date().toISOString() }, ...c]);
         return prev.filter((t) => t.id !== taskId);
       });
-    } catch { /* ignore */ } finally {
+    } catch {
+      setActionError("Could not mark task done. Check your connection and try again.");
+    } finally {
       setMarkingTask(null);
     }
   };
@@ -675,18 +684,26 @@ export default function PrioritiesPage() {
   // Mark reminder done
   const markReminderDone = async (reminderId: string) => {
     setMarkingReminder(reminderId);
+    setActionError(null);
     try {
-      await fetch(`/api/reminders/${reminderId}`, {
+      const res = await fetch(`/api/reminders/${reminderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "done" }),
       });
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        setActionError(data.error ?? "Could not dismiss reminder. Try again.");
+        return;
+      }
       setReminders((prev) => {
         const rem = prev.find((r) => r.id === reminderId);
         if (rem) setDoneReminders((d) => [{ ...rem, status: "done" }, ...d]);
         return prev.filter((r) => r.id !== reminderId);
       });
-    } catch { /* ignore */ } finally {
+    } catch {
+      setActionError("Could not dismiss reminder. Check your connection and try again.");
+    } finally {
       setMarkingReminder(null);
     }
   };
@@ -707,8 +724,9 @@ export default function PrioritiesPage() {
   const upcomingReminders = reminders.filter((r) => !isOverdue(r.due_at) && !isDueToday(r.due_at) && isThisWeek(r.due_at));
   const upcomingCount = upcomingTasks.length + upcomingReminders.length;
 
-  // Reminders This Week: all pending reminders (sorted by due_at asc — already sorted from API)
-  const remindersThisWeek = reminders;
+  // Reminders This Week: pending reminders not already shown in Due Now
+  const dueNowReminderIds = new Set(dueNowReminders.map((r) => r.id));
+  const remindersThisWeek = reminders.filter((r) => !dueNowReminderIds.has(r.id));
 
   if (loading) {
     return (
@@ -740,6 +758,13 @@ export default function PrioritiesPage() {
           </div>
         </div>
       </section>
+
+      {actionError ? (
+        <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#991b1b" }}>
+          {actionError}
+          <button onClick={() => setActionError(null)} style={{ marginLeft: 12, background: "none", border: "none", cursor: "pointer", color: "#991b1b", fontWeight: 600 }}>Dismiss</button>
+        </div>
+      ) : null}
 
       {/* Four columns — responsive grid */}
       <div
@@ -794,14 +819,14 @@ export default function PrioritiesPage() {
                   </span>
                 )}
                 <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>
-                  No activity in 5+ days
+                  No activity in 7+ days
                 </span>
               </div>
               <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.5 }}>
                 This deal likely needs a quick update or follow-up to keep momentum.
               </div>
-              <Link href={`/app/documents?dealId=${deal.id}`} style={{ fontSize: 12, color: "var(--ink-primary)", textDecoration: "none" }}>
-                Open related documents →
+              <Link href="/app/pipeline" style={{ fontSize: 12, color: "var(--ink-primary)", textDecoration: "none" }}>
+                Open pipeline →
               </Link>
             </div>
           ))}

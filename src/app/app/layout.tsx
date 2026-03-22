@@ -247,7 +247,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="crm-sidebar-footer">
-          <span className="crm-chip crm-sidebar-mode-chip">LIVE WORKSPACE</span>
+          <span className="crm-chip crm-sidebar-mode-chip">
+            {process.env.NEXT_PUBLIC_VERCEL_ENV === "preview" ? "PREVIEW" : process.env.NODE_ENV === "development" ? "DEV" : "LIVE WORKSPACE"}
+          </span>
           <button onClick={handleLogout} className="crm-btn crm-btn-secondary crm-sidebar-logout">
             Logout
           </button>
@@ -262,19 +264,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </div>
             <h1 className="crm-topbar-title">{pageMeta.title}</h1>
             <p className="crm-topbar-subtitle">{pageMeta.subtitle}</p>
-          </div>
-          <div className="crm-topbar-signal">
-            <span className="crm-topbar-sigil" aria-hidden />
-            <div>
-              <div className="crm-topbar-signal-title">
-                {isOffMarketAccount ? "Deals, docs, and tasks in one command view" : "Capture once, work the deal"}
-              </div>
-              <div className="crm-topbar-signal-subtitle">
-                {isOffMarketAccount
-                  ? "Seller context, documents, and next steps stay attached to the opportunity."
-                  : "Intake, priorities, and deals stay in one operating system."}
-              </div>
-            </div>
           </div>
         </header>
 

@@ -64,7 +64,7 @@ export default async function SellerFormPage({
         .maybeSingle();
 
       if (hist) {
-        const agent = (hist as { agents: { vanity_slug: string | null; id: string } }).agents;
+        const agent = (hist as unknown as { agents: { vanity_slug: string | null; id: string } }).agents;
         redirect(`/forms/seller/${agent.vanity_slug ?? agent.id}`);
       }
 
