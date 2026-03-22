@@ -45,6 +45,7 @@ export default function AppShellClient({
         { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
         { href: "/app/pipeline", label: "Pipeline", active: pathname.startsWith("/app/pipeline"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
+        { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
         { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
@@ -61,6 +62,7 @@ export default function AppShellClient({
         { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
         { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
+        { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
         {
           href: "/app/intake",
           label: "Intake",

@@ -1,96 +1,55 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { loadAccessContext, ownerFilter } from "@/lib/access-context";
 
-type AppointmentStatus = "booked" | "no_show" | "won" | "lost" | "other";
-
-export async function GET(request: Request) {
+export async function GET() {
   const supabase = await supabaseServer();
-  const auth = await loadAccessContext(supabase);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const url = new URL(request.url);
-  const leadId = url.searchParams.get("lead_id");
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("*,lead:leads(full_name,canonical_phone),deal:deals(property_address)")
+    .eq("agent_id", user.id)
+    .order("scheduled_at", { ascending: true });
 
-  let query = supabase
-    .from("lead_appointments")
-    .select("id, lead_id, status, event_at, note, created_at")
-    .or(ownerFilter(auth.context))
-    .order("event_at", { ascending: false })
-    .limit(100);
-
-  if (leadId) {
-    query = query.eq("lead_id", leadId);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    if (error.code === "42P01") {
-      return NextResponse.json({
-        appointments: [],
-        warning: "lead_appointments table not found. Run step14 SQL migration.",
-      });
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ appointments: data || [] });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ appointments: data ?? [] });
 }
 
 export async function POST(request: Request) {
   const supabase = await supabaseServer();
-  const auth = await loadAccessContext(supabase);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = (await request.json()) as {
-    lead_id?: string;
-    status?: AppointmentStatus;
-    event_at?: string;
-    note?: string;
-  };
-
-  const leadId = body.lead_id || "";
-  const status = body.status || "other";
-  if (!leadId) {
-    return NextResponse.json({ error: "lead_id is required." }, { status: 400 });
-  }
-  if (!["booked", "no_show", "won", "lost", "other"].includes(status)) {
-    return NextResponse.json({ error: "Invalid appointment status." }, { status: 400 });
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { data: lead, error: leadError } = await supabase
-    .from("leads")
-    .select("id")
-    .eq("id", leadId)
-    .or(ownerFilter(auth.context))
-    .maybeSingle();
-
-  if (leadError) return NextResponse.json({ error: leadError.message }, { status: 500 });
-  if (!lead) return NextResponse.json({ error: "Lead not found." }, { status: 404 });
-
-  const eventAt = body.event_at || new Date().toISOString();
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const scheduledAt = typeof body.scheduled_at === "string" ? body.scheduled_at : "";
+  if (!title) return NextResponse.json({ error: "Title is required." }, { status: 400 });
+  if (!scheduledAt) return NextResponse.json({ error: "scheduled_at is required." }, { status: 400 });
 
   const { data, error } = await supabase
-    .from("lead_appointments")
+    .from("appointments")
     .insert({
-      agent_id: auth.context.user.id,
-      lead_id: leadId,
-      status,
-      event_at: eventAt,
-      note: (body.note || "").trim() || null,
+      agent_id:         user.id,
+      lead_id:          typeof body.lead_id === "string" ? body.lead_id : null,
+      deal_id:          typeof body.deal_id === "string" ? body.deal_id : null,
+      title,
+      scheduled_at:     scheduledAt,
+      duration_minutes: typeof body.duration_minutes === "number" ? body.duration_minutes : 30,
+      appointment_type: typeof body.appointment_type === "string" ? body.appointment_type : "call",
+      status:           "scheduled",
+      location:         typeof body.location === "string" ? body.location.trim() || null : null,
+      notes:            typeof body.notes === "string" ? body.notes.trim() || null : null,
     })
-    .select("id, lead_id, status, event_at, note, created_at")
+    .select("*,lead:leads(full_name,canonical_phone),deal:deals(property_address)")
     .single();
 
-  if (error) {
-    if (error.code === "42P01") {
-      return NextResponse.json(
-        { error: "lead_appointments table not found. Run step14 SQL migration." },
-        { status: 500 }
-      );
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ appointment: data });
 }

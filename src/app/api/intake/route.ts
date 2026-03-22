@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
 import { normalizeConsent } from "@/lib/consent";
 import {
   buildPropertyContext,
@@ -33,6 +34,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inferLeadTags, normalizeTagList } from "@/lib/tags";
 
 type IntakeBody = {
+  agent_id?: string | null;
   full_name?: string | null;
   first_name?: string | null;
   last_name?: string | null;
@@ -161,7 +163,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const intakeAgentId = parseIntakeAgentId();
+  const admin = supabaseAdmin();
+  const parsedBody = await parseJsonBody<IntakeBody>(request, {
+    maxBytes: INTAKE_MAX_BODY_BYTES,
+  });
+  if (!parsedBody.ok) {
+    return NextResponse.json({ error: parsedBody.error }, { status: parsedBody.status });
+  }
+  const body = parsedBody.data;
+
+  // Resolve agent: prefer agent_id from body (form passes the agent's UUID), fall back to env
+  const bodyAgentId = optionalString(body.agent_id);
+  const intakeAgentId =
+    bodyAgentId && isUuid(bodyAgentId) ? bodyAgentId : parseIntakeAgentId();
+
   if (!intakeAgentId) {
     return NextResponse.json(
       { error: "Intake destination is not configured. Set INTAKE_AGENT_ID." },
@@ -174,15 +189,6 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-
-  const admin = supabaseAdmin();
-  const parsedBody = await parseJsonBody<IntakeBody>(request, {
-    maxBytes: INTAKE_MAX_BODY_BYTES,
-  });
-  if (!parsedBody.ok) {
-    return NextResponse.json({ error: parsedBody.error }, { status: parsedBody.status });
-  }
-  const body = parsedBody.data;
 
   if (optionalString(body.website)) {
     return NextResponse.json({ ok: true, ignored: true });
@@ -548,6 +554,20 @@ export async function POST(request: Request) {
   if (existingDeal?.id) {
     dealId = String(existingDeal.id);
   } else {
+    const isOffMarketForm = formVariant === "off_market_seller" || formVariant === "off_market_buyer";
+    // Auto-set follow-up date to tomorrow for off-market form submissions
+    const autoFollowupDate = isOffMarketForm
+      ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+      : null;
+    // Capture asking_price from custom_fields if seller form
+    const askingPriceRaw = optionalString(
+      (asRecord(body.custom_fields) || {})["asking_price"] as string | null | undefined
+    );
+    const askingPriceNum = askingPriceRaw
+      ? parseFloat(askingPriceRaw.replace(/[^0-9.]/g, ""))
+      : null;
+    const dealPrice = askingPriceNum && !Number.isNaN(askingPriceNum) ? askingPriceNum : null;
+
     const { data: insertedDeal, error: dealError } = await admin
       .from("deals")
       .insert({
@@ -559,15 +579,10 @@ export async function POST(request: Request) {
           propertyContext: optionalString(resolvedInput.property_context),
         }),
         deal_type: inferDealType(intent),
-        price: null,
-        stage:
-          formVariant === "off_market_seller" || formVariant === "off_market_buyer"
-            ? "prospecting"
-            : "new",
-        stage_entered_at:
-          formVariant === "off_market_seller" || formVariant === "off_market_buyer"
-            ? new Date().toISOString()
-            : null,
+        price: dealPrice,
+        stage: isOffMarketForm ? "prospecting" : "new",
+        stage_entered_at: isOffMarketForm ? new Date().toISOString() : null,
+        next_followup_date: autoFollowupDate,
         expected_close_date: null,
         notes:
           notes ||
@@ -619,6 +634,23 @@ export async function POST(request: Request) {
     }).catch((err: unknown) => {
       console.warn("[intake] form notification failed", err);
     });
+
+    // Confirmation email to seller/buyer (if they provided an email)
+    if (email) {
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (resendApiKey) {
+        const resend = new Resend(resendApiKey);
+        const confirmationName = leadName ? `, ${leadName.split(" ")[0]}` : "";
+        void resend.emails.send({
+          from: "LockboxHQ <onboarding@resend.dev>",
+          to: email,
+          subject: "We received your inquiry",
+          text: `Hi${confirmationName},\n\nThanks for reaching out! We received your information and the agent will follow up with you soon.\n\nIf you have any questions in the meantime, feel free to reply to this email.\n\n— LockboxHQ`,
+        }).catch((err: unknown) => {
+          console.warn("[intake] seller confirmation email failed", err);
+        });
+      }
+    }
   }
 
   let recommendationCreated = false;

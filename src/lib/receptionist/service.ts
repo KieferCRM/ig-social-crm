@@ -1,3 +1,4 @@
+import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import {
@@ -412,6 +413,26 @@ export async function notifyAgentFormSubmission(
   const toPhone = normalizePhoneToE164(context.settings.notification_phone_number);
   if (fromPhone && toPhone) {
     await sendReceptionistSms({ agentId, fromPhone, toPhone, text: smsText });
+  } else {
+    // Email fallback for agents without Secretary SMS configured
+    const apiKey = process.env.RESEND_API_KEY;
+    if (apiKey) {
+      try {
+        const { data: userData } = await admin.auth.admin.getUserById(agentId);
+        const agentEmail = userData?.user?.email;
+        if (agentEmail) {
+          const resend = new Resend(apiKey);
+          await resend.emails.send({
+            from: "LockboxHQ <onboarding@resend.dev>",
+            to: agentEmail,
+            subject: `New ${opts.formLabel} — ${displayName}`,
+            text: `${alertMessage}\n\nLog in to LockboxHQ to view and respond:\nhttps://lockboxhq.com/app`,
+          });
+        }
+      } catch (err) {
+        console.warn("[intake] agent email fallback failed", err instanceof Error ? err.message : err);
+      }
+    }
   }
 }
 

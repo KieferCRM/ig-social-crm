@@ -156,6 +156,7 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
 
     const inferredTemp = inferSellerLeadTemp(timeline);
     const payload: Record<string, unknown> = {
+      agent_id: agentSlug,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       email: email.trim() || undefined,

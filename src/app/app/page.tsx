@@ -165,7 +165,7 @@ export default async function AppHome() {
 
   const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: recentLeadData }, { data: formAlertData }] =
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: formAlertData }] =
     await Promise.all([
       supabase
         .from("leads")
@@ -190,13 +190,6 @@ export default async function AppHome() {
         .order("created_at", { ascending: false })
         .limit(12),
       supabase.from("agents").select("settings, timezone").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("leads")
-        .select("id,full_name,canonical_phone,source,time_last_updated")
-        .eq("agent_id", user.id)
-        .gte("time_last_updated", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .order("time_last_updated", { ascending: false })
-        .limit(5),
       supabase
         .from("receptionist_alerts")
         .select("id,alert_type,severity,title,message,created_at,metadata")
@@ -229,13 +222,6 @@ export default async function AppHome() {
   const followupsDue = activeDeals
     .filter((deal) => deal.nextFollowupDate && deal.nextFollowupDate <= todayStr)
     .sort((a, b) => (a.nextFollowupDate ?? "").localeCompare(b.nextFollowupDate ?? ""));
-  const recentLeads = (recentLeadData || []) as Array<{
-    id: string;
-    full_name: string | null;
-    canonical_phone: string | null;
-    source: string | null;
-    time_last_updated: string | null;
-  }>;
   const formAlerts = (formAlertData || []) as Array<{
     id: string;
     title: string;
@@ -273,10 +259,10 @@ export default async function AppHome() {
             compact
           />
           <KpiCard
-            label="New Leads"
-            value={recentLeads.length}
-            tone={recentLeads.length > 0 ? "ok" : "default"}
-            href="/app/contacts"
+            label="Recent Activity"
+            value={deals.filter((d) => isStale(d.updatedAt, 2) === false).length}
+            tone="default"
+            href="/app/pipeline"
             compact
           />
         </section>
@@ -391,40 +377,33 @@ export default async function AppHome() {
               </div>
             </article>
 
-            {/* Recent new leads */}
+            {/* Pipeline activity */}
             <article className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
                 <div>
-                  <h2 className="crm-section-title">New Leads</h2>
+                  <h2 className="crm-section-title">Pipeline Activity</h2>
                 </div>
-                <Link href="/app/contacts" className="crm-btn crm-btn-secondary">Contacts</Link>
+                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
               </div>
               <div className="crm-stack-8">
-                {recentLeads.length === 0 ? (
+                {deals.length === 0 ? (
                   <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No new leads this week. Share your forms or add a contact manually to get started.
+                    No pipeline activity yet. Add deals or share your seller form to get started.
                   </div>
                 ) : null}
-                {recentLeads.map((lead) => (
-                  <div key={lead.id} className="crm-card-muted crm-stack-4" style={{ padding: 14 }}>
+                {deals.slice(0, 5).map((deal) => (
+                  <div key={deal.id} className="crm-card-muted crm-stack-4" style={{ padding: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                      <div style={{ fontWeight: 700 }}>{lead.full_name || "Anonymous"}</div>
-                      {lead.source ? (
-                        <StatusBadge label={sourceChannelLabel(lead.source)} tone={sourceChannelTone(lead.source)} />
-                      ) : null}
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>
+                        {deal.propertyAddress || leadDisplayName(deal.lead) || "—"}
+                      </div>
+                      <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
                     </div>
-                    <div className="crm-inline-actions" style={{ gap: 8 }}>
-                      {lead.canonical_phone ? (
-                        <a
-                          href={`tel:${lead.canonical_phone}`}
-                          style={{ fontSize: 13, color: "var(--brand)", textDecoration: "none" }}
-                        >
-                          {lead.canonical_phone}
-                        </a>
-                      ) : null}
-                      <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                        {formatTimeAgo(lead.time_last_updated)}
-                      </span>
+                    <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                      Updated {formatTimeAgo(deal.updatedAt)}
+                      {leadDisplayName(deal.lead) && deal.propertyAddress
+                        ? ` · ${leadDisplayName(deal.lead)}`
+                        : ""}
                     </div>
                   </div>
                 ))}
