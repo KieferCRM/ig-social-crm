@@ -753,36 +753,38 @@ export default function PipelineClient() {
                 )}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ display: "flex", border: "1px solid var(--border, var(--line))", borderRadius: 8, overflow: "hidden" }}>
+                <div style={{ display: "flex", border: "2px solid var(--ink-primary)", borderRadius: 8, overflow: "hidden" }}>
                   <button
                     type="button"
                     onClick={() => toggleView("list")}
                     style={{
-                      padding: "6px 14px",
-                      fontSize: 13,
-                      fontWeight: viewMode === "list" ? 600 : 400,
+                      padding: "8px 20px",
+                      fontSize: 14,
+                      fontWeight: 600,
                       background: viewMode === "list" ? "var(--ink-primary)" : "transparent",
-                      color: viewMode === "list" ? "#fff" : "var(--ink-muted)",
+                      color: viewMode === "list" ? "#fff" : "var(--ink-primary)",
                       border: "none",
                       cursor: "pointer",
+                      letterSpacing: "0.01em",
                     }}
                   >
-                    List
+                    ☰ List
                   </button>
                   <button
                     type="button"
                     onClick={() => toggleView("kanban")}
                     style={{
-                      padding: "6px 14px",
-                      fontSize: 13,
-                      fontWeight: viewMode === "kanban" ? 600 : 400,
+                      padding: "8px 20px",
+                      fontSize: 14,
+                      fontWeight: 600,
                       background: viewMode === "kanban" ? "var(--ink-primary)" : "transparent",
-                      color: viewMode === "kanban" ? "#fff" : "var(--ink-muted)",
+                      color: viewMode === "kanban" ? "#fff" : "var(--ink-primary)",
                       border: "none",
                       cursor: "pointer",
+                      letterSpacing: "0.01em",
                     }}
                   >
-                    Kanban
+                    ⊞ Kanban
                   </button>
                 </div>
                 <button
