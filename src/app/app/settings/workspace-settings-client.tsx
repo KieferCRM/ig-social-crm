@@ -27,14 +27,6 @@ export default function WorkspaceSettingsClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [origin, setOrigin] = useState("");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin);
-    }
-  }, []);
-
   useEffect(() => {
     let active = true;
 
@@ -111,9 +103,6 @@ export default function WorkspaceSettingsClient() {
     }
   }
 
-  const buyerLink = origin ? `${origin}/buyer` : "/buyer";
-  const sellerLink = origin ? `${origin}/seller` : "/seller";
-
   return (
     <section className="crm-card crm-section-card crm-stack-12">
       <div className="crm-section-head">
@@ -181,35 +170,6 @@ export default function WorkspaceSettingsClient() {
               />
             </label>
           </div>
-
-          <article className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
-            <div style={{ fontWeight: 700 }}>Public forms</div>
-            <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-              These are the two V1 forms for social profiles, QR codes, DMs, comments, and direct
-              link sharing.
-            </div>
-            <div className="crm-grid-cards-2">
-              <div className="crm-intake-link-box">
-                <div className="crm-detail-label">Buyer form</div>
-                <code>{buyerLink}</code>
-              </div>
-              <div className="crm-intake-link-box">
-                <div className="crm-detail-label">Seller form</div>
-                <code>{sellerLink}</code>
-              </div>
-            </div>
-            <div className="crm-inline-actions" style={{ gap: 10, flexWrap: "wrap" }}>
-              <a href="/buyer" target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
-                Open buyer form
-              </a>
-              <a href="/seller" target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">
-                Open seller form
-              </a>
-              <a href="/app/intake" className="crm-btn crm-btn-primary">
-                Open intake workspace
-              </a>
-            </div>
-          </article>
 
           <article className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
             <div style={{ fontWeight: 700 }}>Saved scripts</div>
