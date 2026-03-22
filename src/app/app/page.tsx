@@ -313,7 +313,7 @@ export default async function AppHome() {
             label="New Leads"
             value={recentLeads.length}
             tone={recentLeads.length > 0 ? "ok" : "default"}
-            href="/app/pipeline"
+            href="/app/contacts"
             compact
           />
         </section>
