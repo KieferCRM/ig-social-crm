@@ -4439,6 +4439,115 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
+/* ── Mobile: compact sidebar at small screens ─────────────────────────────── */
+@media (max-width: 640px) {
+  .crm-shell-v2 {
+    width: calc(100% - 16px);
+    margin: 8px auto;
+    gap: 8px;
+  }
+
+  .crm-sidebar {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .crm-sidebar-brand {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 8px 10px;
+    gap: 10px;
+  }
+
+  .crm-sidebar-brand img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .crm-sidebar-brand-name {
+    font-size: 11px;
+  }
+
+  .crm-sidebar-brand-tag {
+    font-size: 10px;
+  }
+
+  .crm-sidebar-nav {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 4px;
+  }
+
+  .crm-sidebar-nav-link {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .crm-topbar {
+    padding: 12px;
+  }
+
+  .crm-topbar-title {
+    font-size: 1.2rem;
+  }
+
+  .crm-topbar-subtitle {
+    display: none;
+  }
+
+  .crm-page {
+    padding: 0;
+  }
+
+  .crm-card {
+    border-radius: 10px;
+  }
+
+  .crm-modal-overlay {
+    padding: 8px;
+  }
+
+  .crm-modal-shell {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .crm-section-card {
+    padding: 14px;
+  }
+
+  .crm-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .crm-page-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .crm-page-header-actions {
+    width: 100%;
+  }
+
+  .crm-page-header-actions .crm-btn {
+    flex: 1;
+  }
+
+  .crm-filter-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .crm-filter-row .crm-input,
+  .crm-filter-row select {
+    width: 100%;
+  }
+
+  .crm-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .lockbox-nav {
   display: flex;
   align-items: center;

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -20,6 +20,38 @@ export default function AppShellClient({
   const pathname = usePathname();
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [alertCount, setAlertCount] = useState(0);
+
+  // Global search
+  type SearchResult = { id: string; type: "contact" | "deal"; label: string; sub: string; href: string };
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (searchQuery.length < 2) { setSearchResults([]); setSearchOpen(false); return; }
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json() as { results: SearchResult[] };
+        setSearchResults(data.results ?? []);
+        setSearchOpen(true);
+      } catch { /* ignore */ }
+    }, 280);
+    return () => { if (searchDebounce.current) clearTimeout(searchDebounce.current); };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   useEffect(() => {
     const fetchAlertCount = async () => {
@@ -189,6 +221,97 @@ export default function AppShellClient({
             <div className="crm-sidebar-brand-name">{PRODUCT_NAME.toUpperCase()}</div>
             <div className="crm-sidebar-brand-tag">Stay in the field. We&apos;ll run the office.</div>
           </div>
+        </div>
+
+        {/* Global search */}
+        <div ref={searchRef} style={{ position: "relative", padding: "0 4px 4px" }}>
+          <input
+            type="text"
+            placeholder="Search contacts & deals..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "7px 10px",
+              fontSize: 13,
+              border: "1px solid var(--border, #e2e8f0)",
+              borderRadius: 8,
+              background: "var(--surface-1, #fff)",
+              color: "var(--ink)",
+              outline: "none",
+            }}
+          />
+          {searchOpen && searchResults.length > 0 && (
+            <div style={{
+              position: "absolute",
+              top: "calc(100% + 2px)",
+              left: 4,
+              right: 4,
+              background: "var(--surface-1, #fff)",
+              border: "1px solid var(--border, #e2e8f0)",
+              borderRadius: 10,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+              zIndex: 999,
+              overflow: "hidden",
+            }}>
+              {searchResults.map((r) => (
+                <Link
+                  key={r.type + r.id}
+                  href={r.href}
+                  onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                  style={{
+                    display: "block",
+                    padding: "8px 12px",
+                    textDecoration: "none",
+                    borderBottom: "1px solid var(--border-subtle, #f1f5f9)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      color: r.type === "contact" ? "var(--ink-primary, #0ea5e9)" : "#7c3aed",
+                      background: r.type === "contact" ? "#e0f2fe" : "#ede9fe",
+                      borderRadius: 4,
+                      padding: "1px 5px",
+                      flexShrink: 0,
+                    }}>
+                      {r.type === "contact" ? "Contact" : "Deal"}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.label}
+                    </span>
+                  </div>
+                  {r.sub && (
+                    <div style={{ fontSize: 11, color: "var(--ink-muted)", marginTop: 1, paddingLeft: 42, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.sub}
+                    </div>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+          {searchOpen && searchResults.length === 0 && searchQuery.length >= 2 && (
+            <div style={{
+              position: "absolute",
+              top: "calc(100% + 2px)",
+              left: 4,
+              right: 4,
+              background: "var(--surface-1, #fff)",
+              border: "1px solid var(--border, #e2e8f0)",
+              borderRadius: 10,
+              padding: "10px 12px",
+              fontSize: 13,
+              color: "var(--ink-muted)",
+              zIndex: 999,
+            }}>
+              No results
+            </div>
+          )}
         </div>
 
         <nav className="crm-sidebar-nav">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import FormAlertsSection from "@/components/today/FormAlertsSection";
+import WelcomeChecklist from "@/components/today/WelcomeChecklist";
 import EmptyState from "@/components/ui/empty-state";
 import KpiCard from "@/components/ui/kpi-card";
 import StatusBadge from "@/components/ui/status-badge";
@@ -273,6 +274,7 @@ export default async function AppHome() {
     return (
       <main className="crm-page crm-page-wide crm-stack-12">
         <FormAlertsSection initialAlerts={formAlerts} />
+        <WelcomeChecklist />
 
         {/* KPIs */}
         <section className="crm-kpi-grid crm-dashboard-kpi-grid">
