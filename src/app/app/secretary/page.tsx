@@ -14,7 +14,7 @@ import Link from "next/link";
 // Types
 // ---------------------------------------------------------------------------
 
-type Tab = "activity" | "conversations" | "transcripts" | "alerts";
+type Tab = "activity" | "conversations" | "transcripts" | "alerts" | "broadcast";
 type LeadTemp = string | null;
 
 type LeadRef = {
@@ -1059,6 +1059,7 @@ export default function SecretaryPage() {
     { id: "conversations", label: "Conversations" },
     { id: "transcripts",   label: "Transcripts" },
     { id: "alerts",        label: "Alerts", count: alertCount },
+    { id: "broadcast",     label: "Broadcast" },
   ];
 
   const isActive = Boolean(settings?.receptionist_enabled && settings.voice_tier !== "none");
@@ -1143,6 +1144,245 @@ export default function SecretaryPage() {
             onResolve={(id) => void resolveAlert(id)}
             onTempSet={setLeadTemp}
           />
+        )}
+        {tab === "broadcast" && <BroadcastTab />}
+      </div>
+    </div>
+  );
+}
+
+// ── BroadcastTab ─────────────────────────────────────────────────────────────
+
+type BlastRecord = {
+  id: string;
+  tag: string;
+  message: string;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  status: string;
+  recipient_count: number;
+  sent_count: number;
+  failed_count: number;
+  command: string | null;
+  created_at: string;
+};
+
+type BlastPreview = {
+  blast: BlastRecord;
+  interpretation: {
+    tag: string;
+    message: string;
+    scheduled_at: string | null;
+    recipient_summary: string;
+    confirmation: string;
+  };
+  recipient_count: number;
+};
+
+function BroadcastTab() {
+  const [command, setCommand] = useState("");
+  const [interpreting, setInterpreting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [preview, setPreview] = useState<BlastPreview | null>(null);
+  const [blasts, setBlasts] = useState<BlastRecord[]>([]);
+  const [blastsLoading, setBlastsLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    void loadBlasts();
+  }, []);
+
+  async function loadBlasts() {
+    setBlastsLoading(true);
+    try {
+      const res = await fetch("/api/secretary/blast");
+      const data = await res.json() as { blasts?: BlastRecord[] };
+      setBlasts(data.blasts ?? []);
+    } catch { /* ignore */ } finally {
+      setBlastsLoading(false);
+    }
+  }
+
+  async function handleInterpret() {
+    if (!command.trim()) return;
+    setInterpreting(true);
+    setMessage("");
+    setPreview(null);
+    try {
+      const res = await fetch("/api/secretary/blast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      });
+      const data = await res.json() as BlastPreview & { error?: string };
+      if (!res.ok || data.error) {
+        setMessage(data.error ?? "Could not interpret command.");
+        return;
+      }
+      setPreview(data);
+    } catch {
+      setMessage("Something went wrong. Try again.");
+    } finally {
+      setInterpreting(false);
+    }
+  }
+
+  async function handleConfirm() {
+    if (!preview) return;
+    setConfirming(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/secretary/blast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blastId: preview.blast.id, confirm: true }),
+      });
+      const data = await res.json() as { ok?: boolean; status?: string; error?: string };
+      if (!res.ok || data.error) {
+        setMessage(data.error ?? "Could not send blast.");
+        return;
+      }
+      if (data.status === "scheduled") {
+        setMessage(`Scheduled. Your Secretary will send it at the right time.`);
+      } else {
+        setMessage(`Sent successfully.`);
+      }
+      setPreview(null);
+      setCommand("");
+      await loadBlasts();
+    } catch {
+      setMessage("Something went wrong.");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  function blastStatusColor(status: string) {
+    if (status === "sent") return "#15803d";
+    if (status === "sending") return "#1d4ed8";
+    if (status === "failed") return "#dc2626";
+    if (status === "pending") return "#a16207";
+    return "var(--ink-muted)";
+  }
+
+  return (
+    <div className="crm-stack-12">
+      {/* Command input */}
+      <div className="crm-card" style={{ padding: 20, border: "2px solid var(--ink-primary)", borderRadius: 12 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Tell your Secretary what to send</div>
+        <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 14 }}>
+          Describe who to text, what to say, and when. Your Secretary will draft the message and confirm before sending.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+          <textarea
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            placeholder='e.g. "Text all cash buyers tomorrow at 9am about the Elm St deal" or "Send a follow-up to motivated sellers today"'
+            rows={3}
+            style={{ width: "100%", fontSize: 14, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" as const }}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              className="crm-btn crm-btn-primary"
+              onClick={() => void handleInterpret()}
+              disabled={interpreting || !command.trim()}
+            >
+              {interpreting ? "Interpreting..." : "Preview blast"}
+            </button>
+            {preview && (
+              <button type="button" className="crm-btn crm-btn-secondary" onClick={() => setPreview(null)}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Preview / confirmation */}
+      {preview && (
+        <div className="crm-card" style={{ padding: 20, border: "2px solid #15803d", borderRadius: 12, background: "#f0fdf4" }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#15803d", marginBottom: 12 }}>Secretary Preview</div>
+          <div className="crm-stack-8">
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 4 }}>Who</div>
+              <div style={{ fontSize: 14 }}>{preview.interpretation.recipient_summary} — <strong>{preview.recipient_count} contacts</strong></div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 4 }}>Message</div>
+              <div style={{ fontSize: 14, padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #bbf7d0", lineHeight: 1.5 }}>
+                {preview.interpretation.message}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-muted)", marginTop: 4 }}>{preview.interpretation.message.length}/160 characters</div>
+            </div>
+            {preview.interpretation.scheduled_at && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 4 }}>Scheduled for</div>
+                <div style={{ fontSize: 14 }}>{new Date(preview.interpretation.scheduled_at).toLocaleString()}</div>
+              </div>
+            )}
+            <div style={{ fontSize: 13, color: "#15803d", fontStyle: "italic" as const }}>{preview.interpretation.confirmation}</div>
+            <div style={{ display: "flex", gap: 8, paddingTop: 4 }}>
+              <button
+                type="button"
+                className="crm-btn crm-btn-primary"
+                onClick={() => void handleConfirm()}
+                disabled={confirming}
+                style={{ background: "#15803d" }}
+              >
+                {confirming ? "Sending..." : preview.interpretation.scheduled_at ? "Confirm & Schedule" : "Confirm & Send Now"}
+              </button>
+              <button type="button" className="crm-btn crm-btn-secondary" onClick={() => setPreview(null)}>
+                Edit command
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {message && (
+        <div className={`crm-chip ${message.includes("Could not") || message.includes("wrong") ? "crm-chip-danger" : "crm-chip-ok"}`} style={{ width: "fit-content" }}>
+          {message}
+        </div>
+      )}
+
+      {/* Blast history */}
+      <div className="crm-stack-8">
+        <div style={{ fontWeight: 700, fontSize: 14 }}>Broadcast history</div>
+        {blastsLoading ? (
+          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading...</div>
+        ) : blasts.length === 0 ? (
+          <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
+            No broadcasts yet. Use the command above to send your first group text.
+          </div>
+        ) : (
+          blasts.map((blast) => (
+            <div key={blast.id} className="crm-card-muted" style={{ padding: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <div className="crm-stack-4">
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    {blast.tag} — {blast.recipient_count} contacts
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{blast.message}</div>
+                  {blast.command && (
+                    <div style={{ fontSize: 11, color: "var(--ink-faint)", fontStyle: "italic" as const }}>"{blast.command}"</div>
+                  )}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: blastStatusColor(blast.status), textTransform: "uppercase" as const }}>
+                    {blast.status}
+                  </span>
+                  {blast.status === "sent" && (
+                    <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{blast.sent_count} sent · {blast.failed_count} failed</span>
+                  )}
+                  {blast.scheduled_at && blast.status === "pending" && (
+                    <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>Scheduled {new Date(blast.scheduled_at).toLocaleString()}</span>
+                  )}
+                  <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{new Date(blast.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/receptionist-pa",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/blast-scheduler",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
