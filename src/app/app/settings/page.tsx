@@ -51,6 +51,18 @@ export default async function SettingsPage() {
         </section>
 
         <section className="crm-card crm-section-card crm-stack-10">
+          <div style={{ fontWeight: 700 }}>Email</div>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+            Connect your inbox to sync emails with contacts and send directly from the CRM.
+          </p>
+          <div>
+            <Link href="/app/settings/email" className="crm-btn crm-btn-primary">
+              Manage email
+            </Link>
+          </div>
+        </section>
+
+        <section className="crm-card crm-section-card crm-stack-10">
           <div style={{ fontWeight: 700 }}>Legal pages</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
             Review the customer-facing privacy and terms pages before sharing LockboxHQ publicly.

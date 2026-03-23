@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import ContactEmailPanel from "@/components/email/ContactEmailPanel";
 
 type ContactRow = {
   id: string;
@@ -223,6 +224,11 @@ function EditModal({ contact, onClose, onSaved }: {
             <button type="button" className="crm-btn crm-btn-primary" onClick={() => void handleSave()} disabled={saving}>
               {saving ? "Saving..." : "Save contact"}
             </button>
+          </div>
+
+          {/* Email thread */}
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 4 }}>
+            <ContactEmailPanel contactId={contact.id} contactEmail={contact.canonical_email} />
           </div>
         </div>
       </div>
