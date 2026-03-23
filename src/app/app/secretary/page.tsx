@@ -1179,6 +1179,13 @@ type BlastPreview = {
   recipient_count: number;
 };
 
+const BLAST_TEMPLATES = [
+  { label: "Follow-up — motivated sellers", text: "Text all motivated sellers a quick follow-up today" },
+  { label: "Cash buyer update", text: "Text all cash buyers with an update about new deals available" },
+  { label: "Acquisition check-in", text: "Text all acquisition leads to check in this week" },
+  { label: "Cold lead re-engage", text: "Text all cold leads to re-engage them today" },
+];
+
 function BroadcastTab() {
   const [command, setCommand] = useState("");
   const [interpreting, setInterpreting] = useState(false);
@@ -1287,6 +1294,18 @@ function BroadcastTab() {
           Describe who to text, what to say, and when. Your Secretary will draft the message and confirm before sending.
         </div>
         <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+            {BLAST_TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                onClick={() => setCommand(t.text)}
+                style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, border: "1px solid var(--border)", background: "var(--surface-2)", cursor: "pointer", color: "var(--ink-muted)" }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           <textarea
             value={command}
             onChange={(e) => setCommand(e.target.value)}

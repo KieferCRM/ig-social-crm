@@ -232,6 +232,29 @@ function EditModal({ contact, onClose, onSaved }: {
 
 // ── Main List ─────────────────────────────────────────────────────────────────
 
+function exportContactsCSV(contacts: ContactRow[]) {
+  const headers = ["Name", "Phone", "Email", "Temperature", "Intent", "Timeline", "Stage", "Tags", "Last Updated"];
+  const rows = contacts.map((c) => [
+    contactName(c),
+    c.canonical_phone ?? "",
+    c.canonical_email ?? "",
+    c.lead_temp ?? "",
+    c.intent ?? "",
+    c.timeline ?? "",
+    c.stage ?? "",
+    c.tags.join("; "),
+    c.time_last_updated ? new Date(c.time_last_updated).toLocaleDateString() : "",
+  ]);
+  const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ContactsList({
   contacts: initialContacts,
   deals,
@@ -246,6 +269,9 @@ export default function ContactsList({
   const [filterTemp, setFilterTemp] = useState("all");
   const [filterIntent, setFilterIntent] = useState("all");
   const [editingContact, setEditingContact] = useState<ContactRow | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkTag, setBulkTag] = useState("");
+  const [bulkTagging, setBulkTagging] = useState(false);
 
   const dealsByLead = useMemo(() => {
     const map = new Map<string, DealSummary[]>();
@@ -276,9 +302,46 @@ export default function ContactsList({
     setContacts((prev) => prev.map((c) => c.id === id ? { ...c, ...updated } : c));
   }
 
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((c) => c.id)));
+    }
+  }
+
+  async function handleBulkTag() {
+    const tag = bulkTag.trim().toLowerCase();
+    if (!tag || selected.size === 0) return;
+    setBulkTagging(true);
+    const ids = Array.from(selected);
+    await Promise.all(ids.map(async (id) => {
+      const contact = contacts.find((c) => c.id === id);
+      if (!contact) return;
+      const newTags = Array.from(new Set([...contact.tags, tag]));
+      await fetch(`/api/leads/simple/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: newTags }),
+      });
+      setContacts((prev) => prev.map((c) => c.id === id ? { ...c, tags: newTags } : c));
+    }));
+    setBulkTag("");
+    setSelected(new Set());
+    setBulkTagging(false);
+  }
+
   return (
     <div className="crm-stack-10">
-      {/* Filters */}
+      {/* Filters + toolbar */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <input
           value={search}
@@ -302,7 +365,31 @@ export default function ContactsList({
           <option value="Invest">Invest</option>
         </select>
         <span style={{ fontSize: 13, color: "var(--ink-muted)" }}>{filtered.length} of {contacts.length}</span>
+        <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12, marginLeft: "auto" }} onClick={() => exportContactsCSV(filtered)}>
+          Export CSV
+        </button>
       </div>
+
+      {/* Bulk tag bar */}
+      {selected.size > 0 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{selected.size} selected</span>
+          <input
+            value={bulkTag}
+            onChange={(e) => setBulkTag(e.target.value)}
+            placeholder="Tag to add (e.g. cash buyer)"
+            className="crm-input"
+            style={{ fontSize: 13, maxWidth: 220 }}
+            onKeyDown={(e) => { if (e.key === "Enter") void handleBulkTag(); }}
+          />
+          <button type="button" className="crm-btn crm-btn-primary" style={{ fontSize: 12 }} disabled={!bulkTag.trim() || bulkTagging} onClick={() => void handleBulkTag()}>
+            {bulkTagging ? "Tagging..." : "Add tag"}
+          </button>
+          <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12 }} onClick={() => setSelected(new Set())}>
+            Clear selection
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       {filtered.length === 0 ? (
@@ -316,7 +403,10 @@ export default function ContactsList({
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Name", "Phone", "Email", "Temp", "Intent", isOffMarketAccount ? "Deals" : "Stage", "Last touch", ""].map((h) => (
+                <th style={{ padding: "8px 12px", width: 36 }}>
+                  <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} />
+                </th>
+              {["Name", "Phone", "Email", "Temp", "Intent", isOffMarketAccount ? "Deals" : "Stage", "Last touch", ""].map((h) => (
                   <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>
                     {h}
                   </th>
@@ -332,10 +422,13 @@ export default function ContactsList({
                 return (
                   <tr
                     key={contact.id}
-                    style={{ borderBottom: "1px solid var(--border)", transition: "background 0.1s" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover, #f9fafb)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                    style={{ borderBottom: "1px solid var(--border)", transition: "background 0.1s", background: selected.has(contact.id) ? "var(--surface-2)" : undefined }}
+                    onMouseEnter={(e) => { if (!selected.has(contact.id)) e.currentTarget.style.background = "var(--surface-hover, #f9fafb)"; }}
+                    onMouseLeave={(e) => { if (!selected.has(contact.id)) e.currentTarget.style.background = ""; }}
                   >
+                    <td style={{ padding: "10px 12px", width: 36 }}>
+                      <input type="checkbox" checked={selected.has(contact.id)} onChange={() => toggleSelect(contact.id)} />
+                    </td>
                     <td style={{ padding: "10px 12px", fontWeight: 600, whiteSpace: "nowrap", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
                       {contactName(contact)}
                       {contact.tags.length > 0 && (

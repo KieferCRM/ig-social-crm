@@ -298,6 +298,13 @@ export default async function AppHome() {
             href="/app/calendar"
             compact
           />
+          <KpiCard
+            label="Stale Deals"
+            value={staleDeals.length}
+            tone={staleDeals.length > 0 ? "warn" : "default"}
+            href="/app/pipeline"
+            compact
+          />
         </section>
 
         {deals.length === 0 ? (

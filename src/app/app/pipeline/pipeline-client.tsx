@@ -853,6 +853,7 @@ export default function PipelineClient() {
                         <th>Seller</th>
                         <th>Asking Price</th>
                         <th>Stage</th>
+                        <th>Days in Stage</th>
                         <th>Next Follow-up</th>
                         <th>Tags</th>
                       </tr>
@@ -876,6 +877,9 @@ export default function PipelineClient() {
                                 label={pipelineStageLabel(deal.stage)}
                                 tone={pipelineStageTone(deal.stage)}
                               />
+                            </td>
+                            <td style={{ color: daysInStage(deal.stage_entered_at, deal.updated_at) > 14 ? "#dc2626" : "var(--ink-muted)", fontWeight: daysInStage(deal.stage_entered_at, deal.updated_at) > 14 ? 600 : undefined }}>
+                              {daysInStage(deal.stage_entered_at, deal.updated_at)}d
                             </td>
                             <td style={{ color: overdue ? "#dc2626" : undefined, fontWeight: overdue ? 600 : undefined }}>
                               {overdue && <span style={{ marginRight: 4 }}>⚠</span>}
