@@ -38,10 +38,9 @@ function sayFallback(message: string): string {
   return `<Say voice="Polly.Joanna">${escaped}</Say>`;
 }
 
-function playOrSay(text: string, voiceId: string, baseUrl: string): string {
-  const playUrl = buildTtsPlayUrl(text, voiceId, baseUrl);
-  const escapedUrl = playUrl.replace(/&/g, "&amp;");
-  return `<Play>${escapedUrl}</Play>`;
+function playOrSay(text: string, _voiceId: string, _baseUrl: string): string {
+  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return `<Say voice="Polly.Joanna">${escaped}</Say>`;
 }
 
 // ---------------------------------------------------------------------------
