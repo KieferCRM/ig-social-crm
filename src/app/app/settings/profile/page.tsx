@@ -334,6 +334,60 @@ export default function ProfileSettingsPage() {
           </button>
         </div>
       </section>
+
+      {/* Danger zone */}
+      <section className="crm-card crm-section-card crm-stack-10" style={{ border: "1px solid #fca5a5" }}>
+        <div>
+          <h2 className="crm-section-title" style={{ color: "#dc2626" }}>Danger zone</h2>
+          <p className="crm-section-subtitle">
+            Remove all sample data that was added during workspace setup. Your real leads, deals, and contacts are not affected.
+          </p>
+        </div>
+        <ClearSampleDataButton />
+      </section>
     </main>
+  );
+}
+
+function ClearSampleDataButton() {
+  const [clearing, setClearing] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function handleClear() {
+    if (!window.confirm("Remove all sample data from your workspace? This cannot be undone.")) return;
+    setClearing(true);
+    setMsg("");
+    try {
+      const res = await fetch("/api/onboarding/sample-workspace", { method: "DELETE" });
+      const data = await res.json() as { ok?: boolean; removed?: number; error?: string };
+      if (!res.ok || !data.ok) {
+        setMsg(data.error ?? "Could not clear sample data.");
+      } else {
+        setMsg(`Done — ${data.removed ?? 0} sample records removed.`);
+      }
+    } catch {
+      setMsg("Something went wrong.");
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  return (
+    <div className="crm-stack-8">
+      <button
+        type="button"
+        className="crm-btn"
+        disabled={clearing}
+        onClick={() => void handleClear()}
+        style={{ background: "#dc2626", color: "#fff", border: "none" }}
+      >
+        {clearing ? "Clearing..." : "Clear sample data"}
+      </button>
+      {msg && (
+        <div style={{ fontSize: 13, fontWeight: 600, color: msg.startsWith("Done") ? "var(--ok, #16a34a)" : "#dc2626" }}>
+          {msg}
+        </div>
+      )}
+    </div>
   );
 }
