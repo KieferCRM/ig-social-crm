@@ -92,8 +92,8 @@ export async function GET(_: Request, { params }: Params) {
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const leadSelections = [
-    "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,tags,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,created_at,source_detail,custom_fields,deal_price,commission_percent,commission_amount,close_date",
-    "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,tags,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,source_detail,custom_fields,deal_price,commission_percent,commission_amount,close_date",
+    "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,tags,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,created_at,source_detail,custom_fields,deal_price,commission_percent,commission_amount",
+    "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,tags,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,source_detail,custom_fields,deal_price,commission_percent,commission_amount",
     "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,tags,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,created_at,source_detail,custom_fields",
     "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,tags,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,source_detail,custom_fields",
     "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,next_step,notes,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,created_at",
@@ -235,18 +235,6 @@ export async function PATCH(request: Request, { params }: Params) {
     update.commission_amount = parsedAmount;
   }
 
-  if (has("close_date")) {
-    const closeDate = optionalString(body.close_date);
-    if (!closeDate) {
-      update.close_date = null;
-    } else {
-      const date = new Date(closeDate);
-      if (Number.isNaN(date.getTime())) {
-        return NextResponse.json({ error: "close_date is invalid." }, { status: 400 });
-      }
-      update.close_date = date.toISOString().slice(0, 10);
-    }
-  }
 
   const ownerClause = [
     ownerFilter(auth.context, "agent_id"),
@@ -282,7 +270,7 @@ export async function PATCH(request: Request, { params }: Params) {
     .eq("id", id)
     .or(ownerClause)
     .select(
-      "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,tags,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,created_at,source_detail,custom_fields,deal_price,commission_percent,commission_amount,close_date"
+      "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,tags,last_message_preview,time_last_updated,last_communication_at,urgency_level,urgency_score,created_at,source_detail,custom_fields,deal_price,commission_percent,commission_amount"
     )
     .maybeSingle();
 

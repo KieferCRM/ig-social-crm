@@ -154,7 +154,7 @@ async function seedSoloSampleWorkspaceForAgent(admin: AdminClient, agentId: stri
       property_address: "[Sample] East Nashville buyer search",
       deal_type: "buyer",
       price: 625000,
-      stage: "showing",
+      stage: "new",
       notes: "Sample deal created to show an active buyer opportunity.",
     },
     {
@@ -168,10 +168,10 @@ async function seedSoloSampleWorkspaceForAgent(admin: AdminClient, agentId: stri
     },
   ];
 
-  const { error: dealError } = await admin.from("deals").insert(dealRows);
-  if (dealError) {
-    throw new Error(dealError.message);
-  }
+  // Non-fatal: sample deals are nice-to-have, don't block onboarding
+  await admin.from("deals").insert(dealRows).then(({ error }) => {
+    if (error) console.warn("Sample deals insert skipped:", error.message);
+  });
 
   const recommendationRows = [
     {
@@ -294,7 +294,7 @@ async function seedOffMarketSampleWorkspaceForAgent(admin: AdminClient, agentId:
       property_address: "[Sample] 214 County Line Rd",
       deal_type: "listing",
       price: 405000,
-      stage: "under_contract",
+      stage: "prospecting",
       notes: "Sample off-market deal. Seller agreement is in place and buyer outreach is next.",
     },
     {
@@ -303,15 +303,15 @@ async function seedOffMarketSampleWorkspaceForAgent(admin: AdminClient, agentId:
       property_address: "[Sample] Buyer disposition list",
       deal_type: "buyer",
       price: 405000,
-      stage: "showing",
+      stage: "prospecting",
       notes: "Sample off-market deal. Cash buyer list is active for disposition follow-up.",
     },
   ];
 
-  const { error: dealError } = await admin.from("deals").insert(dealRows);
-  if (dealError) {
-    throw new Error(dealError.message);
-  }
+  // Non-fatal: sample deals are nice-to-have, don't block onboarding
+  await admin.from("deals").insert(dealRows).then(({ error }) => {
+    if (error) console.warn("Sample deals insert skipped:", error.message);
+  });
 
   const recommendationRows = [
     {

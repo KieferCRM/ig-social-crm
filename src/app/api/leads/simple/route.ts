@@ -30,7 +30,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("leads")
-    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,intent,timeline,last_message_preview,next_step,deal_price,commission_percent,commission_amount,close_date")
+    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,intent,timeline,last_message_preview,next_step,deal_price,commission_percent,commission_amount")
     .or(ownerFilter(auth.context))
     .order("ig_username", { ascending: true });
 
@@ -282,7 +282,7 @@ export async function POST(request: Request) {
     .from("leads")
     .upsert(payload, { onConflict: "agent_id,ig_username" })
     .select(
-      "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,last_message_preview,time_last_updated,owner_user_id,assignee_user_id,source_detail,deal_price,commission_percent,commission_amount,close_date"
+      "id,ig_username,full_name,first_name,last_name,canonical_email,canonical_phone,stage,lead_temp,source,last_message_preview,time_last_updated,owner_user_id,assignee_user_id,source_detail,deal_price,commission_percent,commission_amount"
     )
     .single();
 
@@ -390,7 +390,7 @@ export async function PATCH(request: Request) {
     })
     .eq("id", id)
     .or(ownerFilter(auth.context))
-    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,time_last_updated,deal_price,commission_percent,commission_amount,close_date")
+    .select("id,ig_username,owner_user_id,assignee_user_id,stage,lead_temp,source,time_last_updated,deal_price,commission_percent,commission_amount")
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
