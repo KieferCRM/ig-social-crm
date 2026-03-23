@@ -79,6 +79,33 @@ type TodayDeal = {
   lead: DealLeadSummary | null;
 };
 
+type TodayAppointment = {
+  id: string;
+  title: string;
+  scheduled_at: string;
+  duration_minutes: number | null;
+  location: string | null;
+  lead: { full_name: string | null } | null;
+  deal: { property_address: string | null } | null;
+};
+
+type PaDraft = {
+  id: string;
+  title: string;
+  message: string;
+  created_at: string;
+  metadata: Record<string, unknown> | null;
+  lead_id: string | null;
+};
+
+type TodayTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: string;
+  due_at: string | null;
+};
+
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
@@ -163,18 +190,32 @@ export default async function AppHome() {
     redirect("/auth");
   }
 
-  const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
+  // Fetch agent config first to branch queries by account type
+  const { data: agentRow } = await supabase
+    .from("agents")
+    .select("settings, timezone")
+    .eq("id", user.id)
+    .maybeSingle();
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: formAlertData }, { data: appointmentData }] =
-    await Promise.all([
-      supabase
-        .from("leads")
-        .select(
-          "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,stage,source,intent,timeline,location_area,budget_range,notes,time_last_updated"
-        )
-        .eq("agent_id", user.id)
-        .order("time_last_updated", { ascending: false })
-        .limit(200),
+  const workspaceSettings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings || null);
+  const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
+  const isOffMarketAccount = onboardingState.account_type === "off_market_agent";
+  const agentTimezone = (agentRow?.timezone as string | null) ?? "America/New_York";
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: agentTimezone });
+  const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+  const todayEnd = new Date(new Date().setHours(23, 59, 59, 999)).toISOString();
+
+  // ── OFF-MARKET BRANCH ──────────────────────────────────────────────────────
+  if (isOffMarketAccount) {
+    const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
+
+    const [
+      { data: dealData },
+      { data: formAlertData },
+      { data: appointmentData },
+      { data: paDraftData },
+      { data: taskData },
+    ] = await Promise.all([
       supabase
         .from("deals")
         .select(
@@ -182,14 +223,6 @@ export default async function AppHome() {
         )
         .eq("agent_id", user.id)
         .order("updated_at", { ascending: false }),
-      supabase
-        .from("lead_recommendations")
-        .select("id,lead_id,title,description,priority,due_at,created_at,metadata")
-        .or(recommendationOwnerFilter)
-        .eq("status", "open")
-        .order("created_at", { ascending: false })
-        .limit(12),
-      supabase.from("agents").select("settings, timezone").eq("id", user.id).maybeSingle(),
       supabase
         .from("receptionist_alerts")
         .select("id,alert_type,severity,title,message,created_at,metadata")
@@ -203,59 +236,40 @@ export default async function AppHome() {
         .select("id,title,scheduled_at,duration_minutes,appointment_type,status,location,lead:leads(full_name),deal:deals(property_address)")
         .eq("agent_id", user.id)
         .neq("status", "cancelled")
-        .gte("scheduled_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
-        .lte("scheduled_at", new Date(new Date().setHours(23, 59, 59, 999)).toISOString())
+        .gte("scheduled_at", todayStart)
+        .lte("scheduled_at", todayEnd)
         .order("scheduled_at", { ascending: true }),
+      supabase
+        .from("receptionist_alerts")
+        .select("id,title,message,created_at,metadata,lead_id")
+        .eq("agent_id", user.id)
+        .eq("alert_type", "pa_reply_draft")
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("lead_recommendations")
+        .select("id,title,description,priority,due_at")
+        .or(recommendationOwnerFilter)
+        .eq("status", "open")
+        .lte("due_at", todayEnd)
+        .order("due_at", { ascending: true })
+        .limit(8),
     ]);
 
-  const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
-  const deals = ((dealData || []) as DealRow[])
-    .map(mapDealRow)
-    .filter((deal): deal is TodayDeal => Boolean(deal));
-  const recommendations = (recommendationData || []) as RecommendationRow[];
-  const workspaceSettings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings || null);
-  const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
-  const recentDocuments = workspaceSettings.documents.slice(0, 4);
-  const isOffMarketAccount = onboardingState.account_type === "off_market_agent";
+    const deals = ((dealData || []) as DealRow[])
+      .map(mapDealRow)
+      .filter((d): d is TodayDeal => Boolean(d));
+    const activeDeals = deals.filter((d) => d.stage !== "closed" && d.stage !== "lost" && d.stage !== "dead");
+    const staleDeals = activeDeals.filter((d) => isStale(d.updatedAt, 7));
+    const followupsDue = activeDeals
+      .filter((d) => d.nextFollowupDate && d.nextFollowupDate <= todayStr)
+      .sort((a, b) => (a.nextFollowupDate ?? "").localeCompare(b.nextFollowupDate ?? ""));
+    const todayAppointments = (appointmentData ?? []) as unknown as TodayAppointment[];
+    const paDrafts = (paDraftData ?? []) as PaDraft[];
+    const tasksDueToday = (taskData ?? []) as TodayTask[];
+    const formAlerts = (formAlertData || []) as Array<{ id: string; title: string; message: string; severity: string; created_at: string }>;
 
-  const activeDeals = deals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost" && deal.stage !== "dead");
-  const hotLeads = leads.filter((lead) => String(lead.lead_temp || "").toLowerCase() === "hot");
-  const staleDeals = activeDeals.filter((deal) => isStale(deal.updatedAt, 7));
-  const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
-  const trueEmptyWorkspace = leads.length === 0 && deals.length === 0 && recommendations.length === 0;
-
-  const agentTimezone = (agentRow?.timezone as string | null) ?? "America/New_York";
-  // YYYY-MM-DD in the agent's local timezone (en-CA locale produces this format)
-  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: agentTimezone });
-  const followupsDue = activeDeals
-    .filter((deal) => deal.nextFollowupDate && deal.nextFollowupDate <= todayStr)
-    .sort((a, b) => (a.nextFollowupDate ?? "").localeCompare(b.nextFollowupDate ?? ""));
-  const formAlerts = (formAlertData || []) as Array<{
-    id: string;
-    title: string;
-    message: string;
-    severity: string;
-    created_at: string;
-  }>;
-
-  type TodayAppointment = {
-    id: string;
-    title: string;
-    scheduled_at: string;
-    duration_minutes: number | null;
-    location: string | null;
-    lead: { full_name: string | null } | null;
-    deal: { property_address: string | null } | null;
-  };
-  const todayAppointments = (appointmentData ?? []) as unknown as TodayAppointment[];
-
-  const emptyStateBody = isOffMarketAccount
-    ? "We did not find any deals, contacts, or follow-up items yet. Start with deals, documents, or a contact so the off-market workspace has something real to organize."
-    : "We did not find any deals, contacts, or follow-up items yet. Start by opening intake or sharing a buyer or seller form so the workspace has something real to work with.";
-
-  const leadMap = new Map(leads.map((lead) => [lead.id, lead]));
-
-  if (isOffMarketAccount) {
     return (
       <main className="crm-page crm-page-wide crm-stack-12">
         <FormAlertsSection initialAlerts={formAlerts} />
@@ -271,10 +285,10 @@ export default async function AppHome() {
             compact
           />
           <KpiCard
-            label="Stale Deals"
-            value={staleDeals.length}
-            tone={staleDeals.length > 0 ? "warn" : "default"}
-            href="/app/pipeline"
+            label="PA Drafts"
+            value={paDrafts.length}
+            tone={paDrafts.length > 0 ? "danger" : "default"}
+            href="/app/secretary"
             compact
           />
           <KpiCard
@@ -286,12 +300,12 @@ export default async function AppHome() {
           />
         </section>
 
-        {trueEmptyWorkspace ? (
+        {deals.length === 0 ? (
           <section className="crm-card crm-section-card">
             <EmptyState
               eyebrow="Off-Market workspace"
               title="Your deal command center is ready."
-              body={emptyStateBody}
+              body="No deals, contacts, or follow-up items yet. Start with the pipeline, share a seller form, or add a contact."
               action={
                 <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                   <Link href="/app/pipeline" className="crm-btn crm-btn-primary">Open pipeline</Link>
@@ -306,74 +320,97 @@ export default async function AppHome() {
         {/* Main grid */}
         <section className="crm-today-grid">
 
-          {/* LEFT — Follow-ups due */}
-          <article className="crm-card crm-section-card crm-stack-10">
-            <div className="crm-section-head">
-              <div>
+          {/* LEFT — Follow-ups due + Stale Deals */}
+          <div className="crm-stack-12">
+            <article className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
                 <h2 className="crm-section-title">Follow-ups Due</h2>
+                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
               </div>
-              <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
-            </div>
-
-            <div className="crm-stack-8">
-              {followupsDue.length === 0 ? (
-                <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                  No follow-ups due right now. Set a follow-up date on a deal in the pipeline to surface it here.
-                </div>
-              ) : null}
-              {followupsDue.map((deal) => (
-                <div key={deal.id} className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
-                      <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{leadDisplayName(deal.lead)}</div>
-                    </div>
-                    <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+              <div className="crm-stack-8">
+                {followupsDue.length === 0 ? (
+                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
+                    No follow-ups due right now. Set a follow-up date on a deal to surface it here.
                   </div>
-                  <div className="crm-inline-actions" style={{ gap: 8 }}>
-                    {deal.nextFollowupDate && deal.nextFollowupDate < todayStr ? (
-                      <StatusBadge label="Overdue" tone="danger" />
-                    ) : (
-                      <StatusBadge label="Due today" tone="warn" />
-                    )}
+                ) : null}
+                {followupsDue.map((deal) => (
+                  <div key={deal.id} className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
+                        <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{leadDisplayName(deal.lead)}</div>
+                      </div>
+                      <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                    </div>
+                    <div className="crm-inline-actions" style={{ gap: 8 }}>
+                      {deal.nextFollowupDate && deal.nextFollowupDate < todayStr ? (
+                        <StatusBadge label="Overdue" tone="danger" />
+                      ) : (
+                        <StatusBadge label="Due today" tone="warn" />
+                      )}
+                      {deal.lead?.canonical_phone ? (
+                        <a href={`tel:${deal.lead.canonical_phone}`} style={{ fontSize: 13, color: "var(--brand)", textDecoration: "none" }}>
+                          {deal.lead.canonical_phone}
+                        </a>
+                      ) : null}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                      Follow-up set for {formatDate(deal.nextFollowupDate)}
+                    </div>
+                  </div>
+                ))}
+                {activeDeals.filter((d) => !d.nextFollowupDate).length > 0 ? (
+                  <div className="crm-card-muted" style={{ padding: 14 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+                      {activeDeals.filter((d) => !d.nextFollowupDate).length} deals have no follow-up date set
+                    </div>
+                    <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
+                      Open the pipeline and set a follow-up date so these surface here automatically.
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </article>
+
+            {/* Stale Deals */}
+            <article className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Stale Deals</h2>
+                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
+              </div>
+              <div className="crm-stack-8">
+                {staleDeals.length === 0 ? (
+                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
+                    No stale deals. All active deals have had recent activity.
+                  </div>
+                ) : null}
+                {staleDeals.slice(0, 5).map((deal) => (
+                  <div key={deal.id} className="crm-card-muted" style={{ padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                      <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
+                      <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
+                      No movement in {formatTimeAgo(deal.updatedAt)} — needs a follow-up or stage update.
+                    </div>
                     {deal.lead?.canonical_phone ? (
-                      <a
-                        href={`tel:${deal.lead.canonical_phone}`}
-                        style={{ fontSize: 13, color: "var(--brand)", textDecoration: "none" }}
-                      >
+                      <a href={`tel:${deal.lead.canonical_phone}`} style={{ fontSize: 12, color: "var(--brand)", textDecoration: "none", marginTop: 4, display: "block" }}>
                         {deal.lead.canonical_phone}
                       </a>
                     ) : null}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                    Follow-up set for {formatDate(deal.nextFollowupDate)}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </article>
+          </div>
 
-              {/* Active deals without a follow-up set — always show if any exist */}
-              {activeDeals.filter((d) => !d.nextFollowupDate).length > 0 ? (
-                <div className="crm-card-muted" style={{ padding: 14 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
-                    {activeDeals.filter((d) => !d.nextFollowupDate).length} deals have no follow-up date set
-                  </div>
-                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-                    Open the pipeline and set a follow-up date so these surface here automatically.
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </article>
-
-          {/* RIGHT — stacked cards */}
+          {/* RIGHT — Appointments, PA Drafts, Tasks */}
           <div className="crm-stack-12">
 
-            {/* Today's appointments */}
+            {/* Today's Appointments */}
             <article className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
-                <div>
-                  <h2 className="crm-section-title">Today&apos;s Appointments</h2>
-                </div>
+                <h2 className="crm-section-title">Today&apos;s Appointments</h2>
                 <Link href="/app/calendar" className="crm-btn crm-btn-secondary">Open calendar</Link>
               </div>
               <div className="crm-stack-8">
@@ -398,34 +435,70 @@ export default async function AppHome() {
               </div>
             </article>
 
-            {/* Pipeline activity */}
+            {/* PA Drafts Pending */}
             <article className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
-                <div>
-                  <h2 className="crm-section-title">Pipeline Activity</h2>
-                </div>
-                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
+                <h2 className="crm-section-title">PA Drafts Pending</h2>
+                <Link href="/app/secretary" className="crm-btn crm-btn-secondary">Open Secretary</Link>
               </div>
               <div className="crm-stack-8">
-                {deals.length === 0 ? (
+                {paDrafts.length === 0 ? (
                   <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No pipeline activity yet. Add deals or share your seller form to get started.
+                    No PA drafts waiting. When a lead replies and the PA drafts a response, it will appear here.
                   </div>
                 ) : null}
-                {deals.slice(0, 5).map((deal) => (
-                  <div key={deal.id} className="crm-card-muted crm-stack-4" style={{ padding: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>
-                        {deal.propertyAddress || leadDisplayName(deal.lead) || "—"}
+                {paDrafts.map((draft) => {
+                  const meta = draft.metadata ?? {};
+                  const intent = meta.intent as string | null;
+                  const leadMsg = meta.lead_message as string | null;
+                  return (
+                    <div key={draft.id} className="crm-card-muted crm-stack-4" style={{ padding: 14, borderLeft: "3px solid #7c3aed" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>PA DRAFT</span>
+                        {intent ? <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{intent.replace(/_/g, " ")}</span> : null}
                       </div>
-                      <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{draft.title}</div>
+                      {leadMsg ? (
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", fontStyle: "italic" }}>
+                          &ldquo;{leadMsg.slice(0, 100)}{leadMsg.length > 100 ? "…" : ""}&rdquo;
+                        </div>
+                      ) : null}
+                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{formatTimeAgo(draft.created_at)}</div>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                      Updated {formatTimeAgo(deal.updatedAt)}
-                      {leadDisplayName(deal.lead) && deal.propertyAddress
-                        ? ` · ${leadDisplayName(deal.lead)}`
-                        : ""}
+                  );
+                })}
+                {paDrafts.length > 0 ? (
+                  <Link href="/app/secretary" className="crm-btn crm-btn-primary" style={{ fontSize: 13, textAlign: "center" }}>
+                    Review &amp; approve in Secretary →
+                  </Link>
+                ) : null}
+              </div>
+            </article>
+
+            {/* Tasks Due Today */}
+            <article className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Tasks Due Today</h2>
+                <Link href="/app/priorities" className="crm-btn crm-btn-secondary">All tasks</Link>
+              </div>
+              <div className="crm-stack-8">
+                {tasksDueToday.length === 0 ? (
+                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
+                    No tasks due today. You&apos;re clear.
+                  </div>
+                ) : null}
+                {tasksDueToday.map((task) => (
+                  <div key={task.id} className="crm-card-muted crm-stack-4" style={{ padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{task.title}</div>
+                      <StatusBadge
+                        label={task.priority === "urgent" ? "Urgent" : task.priority === "high" ? "High" : "Due today"}
+                        tone={task.priority === "urgent" ? "danger" : task.priority === "high" ? "warn" : "default"}
+                      />
                     </div>
+                    {task.description ? (
+                      <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{task.description}</div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -437,6 +510,57 @@ export default async function AppHome() {
     );
   }
 
+  // ── SOCIAL AGENT BRANCH ────────────────────────────────────────────────────
+  const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
+  const recentDocuments = workspaceSettings.documents.slice(0, 4);
+
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: formAlertData }] =
+    await Promise.all([
+      supabase
+        .from("leads")
+        .select(
+          "id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,stage,source,intent,timeline,location_area,budget_range,notes,time_last_updated"
+        )
+        .eq("agent_id", user.id)
+        .order("time_last_updated", { ascending: false })
+        .limit(200),
+      supabase
+        .from("deals")
+        .select(
+          "id,lead_id,property_address,price,stage,deal_type,updated_at,expected_close_date,next_followup_date,stage_entered_at,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,source,intent,timeline,location_area)"
+        )
+        .eq("agent_id", user.id)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("lead_recommendations")
+        .select("id,lead_id,title,description,priority,due_at,created_at,metadata")
+        .or(recommendationOwnerFilter)
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(12),
+      supabase
+        .from("receptionist_alerts")
+        .select("id,alert_type,severity,title,message,created_at,metadata")
+        .eq("agent_id", user.id)
+        .eq("alert_type", "form_submission")
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+
+  const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
+  const deals = ((dealData || []) as DealRow[])
+    .map(mapDealRow)
+    .filter((deal): deal is TodayDeal => Boolean(deal));
+  const recommendations = (recommendationData || []) as RecommendationRow[];
+  const formAlerts = (formAlertData || []) as Array<{ id: string; title: string; message: string; severity: string; created_at: string }>;
+
+  const activeDeals = deals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost" && deal.stage !== "dead");
+  const hotLeads = leads.filter((lead) => String(lead.lead_temp || "").toLowerCase() === "hot");
+  const staleDeals = activeDeals.filter((deal) => isStale(deal.updatedAt, 7));
+  const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
+  const trueEmptyWorkspace = leads.length === 0 && deals.length === 0 && recommendations.length === 0;
+
   const socialReminders = recommendations.filter((item) => {
     const source = typeof item.metadata?.source_channel === "string" ? item.metadata.source_channel : "";
     const normalized = source.toLowerCase();
@@ -444,15 +568,9 @@ export default async function AppHome() {
   });
 
   const attentionRows = recommendations.slice(0, 5).map((item) => {
+    const leadMap = new Map(leads.map((lead) => [lead.id, lead]));
     const lead = item.lead_id ? leadMap.get(item.lead_id) || null : null;
-    return {
-      id: item.id,
-      title: item.title,
-      description: item.description,
-      dueAt: item.due_at,
-      priority: item.priority,
-      lead,
-    };
+    return { id: item.id, title: item.title, description: item.description, dueAt: item.due_at, priority: item.priority, lead };
   });
 
   const hotNow = hotLeads
@@ -493,18 +611,12 @@ export default async function AppHome() {
           <EmptyState
             eyebrow="First workspace view"
             title="Your workspace is ready."
-            body={emptyStateBody}
+            body="No deals, contacts, or follow-up items yet. Start by opening intake or sharing a buyer or seller form."
             action={
               <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
-                <Link href="/app/intake" className="crm-btn crm-btn-primary">
-                  Open intake
-                </Link>
-                <Link href="/buyer" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
-                  Buyer form
-                </Link>
-                <Link href="/seller" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">
-                  Seller form
-                </Link>
+                <Link href="/app/intake" className="crm-btn crm-btn-primary">Open intake</Link>
+                <Link href="/buyer" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Buyer form</Link>
+                <Link href="/seller" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Seller form</Link>
               </div>
             }
           />
@@ -517,11 +629,8 @@ export default async function AppHome() {
             <div>
               <h2 className="crm-section-title">Needs Attention Now</h2>
             </div>
-            <Link href="/app/priorities" className="crm-btn crm-btn-secondary">
-              Open priorities
-            </Link>
+            <Link href="/app/priorities" className="crm-btn crm-btn-secondary">Open priorities</Link>
           </div>
-
           <div className="crm-stack-8">
             {attentionRows.length === 0 && hotNow.length === 0 ? (
               <div className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
@@ -531,15 +640,12 @@ export default async function AppHome() {
                 </div>
               </div>
             ) : null}
-
             {attentionRows.map((item) => (
               <div key={item.id} className="crm-card-muted crm-ai-panel crm-stack-8" style={{ padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                   <div className="crm-stack-4">
                     <div style={{ fontWeight: 700 }}>{item.title}</div>
-                    {item.description ? (
-                      <div style={{ color: "var(--ink-muted)" }}>{item.description}</div>
-                    ) : null}
+                    {item.description ? <div style={{ color: "var(--ink-muted)" }}>{item.description}</div> : null}
                   </div>
                   <StatusBadge
                     label={item.priority === "urgent" ? "Contact now" : "Today"}
@@ -555,12 +661,9 @@ export default async function AppHome() {
                     </span>
                   </div>
                 ) : null}
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                  Due {formatDate(item.dueAt)}
-                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Due {formatDate(item.dueAt)}</div>
               </div>
             ))}
-
             {hotNow.map((lead) => (
               <div key={lead.id} className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -585,18 +688,14 @@ export default async function AppHome() {
         <div className="crm-stack-12">
           <article className="crm-card crm-section-card crm-stack-10">
             <div className="crm-section-head">
-              <div>
-                <h2 className="crm-section-title">Active Deals Snapshot</h2>
-              </div>
+              <h2 className="crm-section-title">Active Deals Snapshot</h2>
             </div>
             <div className="crm-stack-8">
               {activeDeals.slice(0, 5).map((deal) => (
                 <div key={deal.id} className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                     <div>
-                      <div style={{ fontWeight: 700 }}>
-                        {deal.propertyAddress || leadDisplayName(deal.lead)}
-                      </div>
+                      <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead)}</div>
                       <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
                         {leadDisplayName(deal.lead)}{deal.lead?.timeline ? ` • ${deal.lead.timeline}` : ""}
                       </div>
@@ -605,12 +704,8 @@ export default async function AppHome() {
                   </div>
                   <div className="crm-inline-actions" style={{ gap: 8 }}>
                     <StatusBadge label={dealTypeLabel(deal.dealType)} tone="default" />
-                    {deal.lead?.source ? (
-                      <StatusBadge label={sourceChannelLabel(deal.lead.source)} tone={sourceChannelTone(deal.lead.source)} />
-                    ) : null}
-                    {deal.lead?.lead_temp ? (
-                      <StatusBadge label={deal.lead.lead_temp} tone={leadTempTone(deal.lead.lead_temp)} />
-                    ) : null}
+                    {deal.lead?.source ? <StatusBadge label={sourceChannelLabel(deal.lead.source)} tone={sourceChannelTone(deal.lead.source)} /> : null}
+                    {deal.lead?.lead_temp ? <StatusBadge label={deal.lead.lead_temp} tone={leadTempTone(deal.lead.lead_temp)} /> : null}
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, color: "var(--ink-faint)" }}>
                     <span>Last touch {formatTimeAgo(deal.updatedAt)}</span>
@@ -623,9 +718,7 @@ export default async function AppHome() {
 
           <article className="crm-card crm-section-card crm-stack-10">
             <div className="crm-section-head">
-              <div>
-                <h2 className="crm-section-title">Hot / Stale / Due</h2>
-              </div>
+              <h2 className="crm-section-title">Hot / Stale / Due</h2>
             </div>
             <div className="crm-stack-8">
               <div className="crm-inline-actions" style={{ gap: 8 }}>
@@ -646,18 +739,13 @@ export default async function AppHome() {
 
           <article className="crm-card crm-section-card crm-stack-10">
             <div className="crm-section-head">
-              <div>
-                <h2 className="crm-section-title">Documents and social</h2>
-              </div>
+              <h2 className="crm-section-title">Documents and social</h2>
             </div>
-
             <div className="crm-stack-8">
               <div className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
                 <div style={{ fontWeight: 700 }}>Recent document activity</div>
                 {recentDocuments.length === 0 ? (
-                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-                    No documents uploaded yet.
-                  </div>
+                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>No documents uploaded yet.</div>
                 ) : (
                   recentDocuments.map((document) => (
                     <div key={document.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
@@ -667,13 +755,10 @@ export default async function AppHome() {
                   ))
                 )}
               </div>
-
               <div className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
                 <div style={{ fontWeight: 700 }}>Social reminders</div>
                 {socialReminders.length === 0 ? (
-                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-                    No social follow-up items right now.
-                  </div>
+                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>No social follow-up items right now.</div>
                 ) : (
                   socialReminders.slice(0, 3).map((item) => (
                     <div key={item.id} className="crm-stack-4">
