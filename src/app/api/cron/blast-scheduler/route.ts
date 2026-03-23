@@ -63,12 +63,20 @@ export async function POST() {
       return allTags.some((t) => t.toLowerCase() === (b.tag as string).toLowerCase());
     });
 
+    // Deduplicate by normalized phone — one SMS per number
+    const seenPhones = new Set<string>();
+    const uniquePhones: string[] = [];
+    for (const contact of recipients) {
+      const toPhone = normalizePhoneToE164((contact as Record<string, unknown>).canonical_phone as string);
+      if (!toPhone || seenPhones.has(toPhone)) continue;
+      seenPhones.add(toPhone);
+      uniquePhones.push(toPhone);
+    }
+
     let sentCount = 0;
     let failedCount = 0;
 
-    for (const contact of recipients) {
-      const toPhone = normalizePhoneToE164((contact as Record<string, unknown>).canonical_phone as string);
-      if (!toPhone) { failedCount++; continue; }
+    for (const toPhone of uniquePhones) {
       const result = await sendReceptionistSms({ agentId, fromPhone, toPhone, text: b.message as string });
       if (result.ok) sentCount++;
       else failedCount++;
@@ -79,7 +87,7 @@ export async function POST() {
       sent_at: now,
       sent_count: sentCount,
       failed_count: failedCount,
-      recipient_count: recipients.length,
+      recipient_count: uniquePhones.length,
       updated_at: now,
     }).eq("id", b.id as string);
 

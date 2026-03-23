@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { command?: string; blastId?: string; confirm?: boolean; message?: string };
+  let body: { command?: string; blastId?: string; confirm?: boolean; cancel?: boolean; message?: string };
   try {
     body = await request.json() as typeof body;
   } catch {
@@ -47,6 +47,16 @@ export async function POST(request: Request) {
   }
 
   const admin = supabaseAdmin();
+
+  // ── Cancel a pending blast ────────────────────────────────────────────────
+  if (body.cancel && body.blastId) {
+    await admin.from("blasts")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("id", body.blastId)
+      .eq("agent_id", user.id)
+      .eq("status", "pending");
+    return NextResponse.json({ ok: true, status: "cancelled" });
+  }
 
   // ── Confirm + execute a pending blast ────────────────────────────────────
   if (body.confirm && body.blastId) {
@@ -189,7 +199,7 @@ async function sendBlast(blast: BlastRow, agentId: string, admin: ReturnType<typ
     .eq("agent_id", agentId)
     .not("canonical_phone", "is", null);
 
-  const recipients = (contacts ?? []).filter((c) => {
+  const matched = (contacts ?? []).filter((c) => {
     const allTags = [
       ...tagsFromSourceDetail((c as Record<string, unknown>).source_detail),
       ...((c as Record<string, unknown>).tags as string[] ?? []),
@@ -197,13 +207,20 @@ async function sendBlast(blast: BlastRow, agentId: string, admin: ReturnType<typ
     return allTags.some((t) => t.toLowerCase() === blast.tag.toLowerCase());
   });
 
+  // Deduplicate by normalized phone — one SMS per number, no matter how many lead records share it
+  const seenPhones = new Set<string>();
+  const uniquePhones: string[] = [];
+  for (const contact of matched) {
+    const toPhone = normalizePhoneToE164((contact as Record<string, unknown>).canonical_phone as string);
+    if (!toPhone || seenPhones.has(toPhone)) continue;
+    seenPhones.add(toPhone);
+    uniquePhones.push(toPhone);
+  }
+
   let sentCount = 0;
   let failedCount = 0;
 
-  for (const contact of recipients) {
-    const toPhone = normalizePhoneToE164((contact as Record<string, unknown>).canonical_phone as string);
-    if (!toPhone) { failedCount++; continue; }
-
+  for (const toPhone of uniquePhones) {
     const result = await sendReceptionistSms({ agentId, fromPhone, toPhone, text: blast.message });
     if (result.ok) sentCount++;
     else failedCount++;
@@ -215,7 +232,7 @@ async function sendBlast(blast: BlastRow, agentId: string, admin: ReturnType<typ
     sent_at: now,
     sent_count: sentCount,
     failed_count: failedCount,
-    recipient_count: recipients.length,
+    recipient_count: uniquePhones.length,
     updated_at: now,
   }).eq("id", blast.id);
 

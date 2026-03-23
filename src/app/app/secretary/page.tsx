@@ -1259,6 +1259,17 @@ function BroadcastTab() {
     }
   }
 
+  async function handleCancel(blastId: string) {
+    try {
+      await fetch("/api/secretary/blast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blastId, cancel: true }),
+      });
+      await loadBlasts();
+    } catch { /* ignore */ }
+  }
+
   function blastStatusColor(status: string) {
     if (status === "sent") return "#15803d";
     if (status === "sending") return "#1d4ed8";
@@ -1385,6 +1396,15 @@ function BroadcastTab() {
                     <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>Scheduled {new Date(blast.scheduled_at).toLocaleString()}</span>
                   )}
                   <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{new Date(blast.created_at).toLocaleDateString()}</span>
+                  {blast.status === "pending" && (
+                    <button
+                      type="button"
+                      onClick={() => void handleCancel(blast.id)}
+                      style={{ fontSize: 11, color: "#dc2626", background: "none", border: "1px solid #dc2626", borderRadius: 4, padding: "2px 8px", cursor: "pointer", marginTop: 2 }}
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
