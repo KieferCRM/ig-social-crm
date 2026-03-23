@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       stage: (d as Record<string, unknown>).stage as string ?? "",
     })),
     nowIso: new Date().toISOString(),
-    timezone: settings.timezone ?? "America/New_York",
+    timezone: settings.office_hours_timezone ?? "America/New_York",
   });
 
   if (!interpretation) {
