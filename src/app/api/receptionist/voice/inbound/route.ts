@@ -163,26 +163,31 @@ async function handleInbound(request: Request): Promise<Response> {
   let existingTimeline: string | undefined;
 
   if (fromPhone) {
-    const { lead } = await upsertReceptionistLead({
-      admin,
-      agentId,
-      source: "call_inbound",
-      values: {
-        phone: fromPhone,
-        source_detail: {
-          channel: "phone",
-          event: "inbound_call",
-          from_phone: fromPhone,
-          to_phone: toPhone || null,
-          provider: "twilio",
+    try {
+      const { lead } = await upsertReceptionistLead({
+        admin,
+        agentId,
+        source: "call_inbound",
+        values: {
+          phone: fromPhone,
+          source_detail: {
+            channel: "phone",
+            event: "inbound_call",
+            from_phone: fromPhone,
+            to_phone: toPhone || null,
+            provider: "twilio",
+          },
         },
-      },
-    });
-    if (lead) {
-      existingLeadId = lead.id;
-      existingName = (lead.full_name || lead.first_name || "").trim() || undefined;
-      existingIntent = (lead.intent || "").trim() || undefined;
-      existingTimeline = (lead.timeline || "").trim() || undefined;
+      });
+      if (lead) {
+        existingLeadId = lead.id;
+        existingName = (lead.full_name || lead.first_name || "").trim() || undefined;
+        existingIntent = (lead.intent || "").trim() || undefined;
+        existingTimeline = (lead.timeline || "").trim() || undefined;
+      }
+    } catch (err) {
+      console.error("[voice/inbound] Lead upsert failed:", err);
+      // Continue without lead context — call still proceeds
     }
   }
 
