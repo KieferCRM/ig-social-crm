@@ -747,7 +747,7 @@ function PaReplyDraftCard({ alert, onDone }: { alert: Alert; onDone: (id: string
   return (
     <div className="crm-card" style={{ padding: "14px 16px", border: "2px solid #7c3aed", borderRadius: 10, background: "#faf5ff" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>PA DRAFT</span>
+        <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>SECRETARY DRAFT</span>
         {intent && <span style={{ fontSize: 11, color: "var(--ink-muted)", background: "#f3f4f6", borderRadius: 4, padding: "1px 6px" }}>{intent.replace(/_/g, " ")}</span>}
         {confidence && <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{confidence} confidence</span>}
         {alert.leads && (

@@ -1346,16 +1346,16 @@ export default function ReceptionistSettingsPage() {
           </>
         )}
 
-        {/* PA Autonomy Mode */}
+        {/* Secretary Autonomy Mode */}
         <section className="crm-card crm-section-card crm-stack-10">
           <div className="crm-section-head">
-            <h2 className="crm-section-title">PA Autonomy Mode</h2>
+            <h2 className="crm-section-title">Secretary Autonomy Mode</h2>
             <span className={settings.pa_mode === "autopilot" ? "crm-chip crm-chip-ok" : "crm-chip"}>
               {settings.pa_mode === "autopilot" ? "Autopilot" : "Co-pilot"}
             </span>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-            When a lead replies to your PA's SMS, the PA interprets their intent and decides what to do next.
+            When a lead replies to your Secretary's SMS, the Secretary interprets their intent and decides what to do next.
             Choose how much autonomy you give it.
           </p>
           <div style={{ display: "grid", gap: 8 }}>

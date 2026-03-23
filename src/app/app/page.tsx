@@ -285,7 +285,7 @@ export default async function AppHome() {
             compact
           />
           <KpiCard
-            label="PA Drafts"
+            label="Secretary Drafts"
             value={paDrafts.length}
             tone={paDrafts.length > 0 ? "danger" : "default"}
             href="/app/secretary"
@@ -334,30 +334,36 @@ export default async function AppHome() {
                   </div>
                 ) : null}
                 {followupsDue.map((deal) => (
-                  <div key={deal.id} className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
-                        <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{leadDisplayName(deal.lead)}</div>
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted crm-stack-6" style={{ padding: 14, cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
+                          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{leadDisplayName(deal.lead)}</div>
+                        </div>
+                        <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
                       </div>
-                      <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                      <div className="crm-inline-actions" style={{ gap: 8 }}>
+                        {deal.nextFollowupDate && deal.nextFollowupDate < todayStr ? (
+                          <StatusBadge label="Overdue" tone="danger" />
+                        ) : (
+                          <StatusBadge label="Due today" tone="warn" />
+                        )}
+                        {deal.lead?.canonical_phone ? (
+                          <a
+                            href={`tel:${deal.lead.canonical_phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ fontSize: 13, color: "var(--brand)", textDecoration: "none" }}
+                          >
+                            {deal.lead.canonical_phone}
+                          </a>
+                        ) : null}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                        Follow-up set for {formatDate(deal.nextFollowupDate)}
+                      </div>
                     </div>
-                    <div className="crm-inline-actions" style={{ gap: 8 }}>
-                      {deal.nextFollowupDate && deal.nextFollowupDate < todayStr ? (
-                        <StatusBadge label="Overdue" tone="danger" />
-                      ) : (
-                        <StatusBadge label="Due today" tone="warn" />
-                      )}
-                      {deal.lead?.canonical_phone ? (
-                        <a href={`tel:${deal.lead.canonical_phone}`} style={{ fontSize: 13, color: "var(--brand)", textDecoration: "none" }}>
-                          {deal.lead.canonical_phone}
-                        </a>
-                      ) : null}
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                      Follow-up set for {formatDate(deal.nextFollowupDate)}
-                    </div>
-                  </div>
+                  </Link>
                 ))}
                 {activeDeals.filter((d) => !d.nextFollowupDate).length > 0 ? (
                   <div className="crm-card-muted" style={{ padding: 14 }}>
@@ -385,20 +391,26 @@ export default async function AppHome() {
                   </div>
                 ) : null}
                 {staleDeals.slice(0, 5).map((deal) => (
-                  <div key={deal.id} className="crm-card-muted" style={{ padding: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                      <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
-                      <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 14, cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                        <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
+                        <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
+                        No movement in {formatTimeAgo(deal.updatedAt)} — needs a follow-up or stage update.
+                      </div>
+                      {deal.lead?.canonical_phone ? (
+                        <a
+                          href={`tel:${deal.lead.canonical_phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ fontSize: 12, color: "var(--brand)", textDecoration: "none", marginTop: 4, display: "block" }}
+                        >
+                          {deal.lead.canonical_phone}
+                        </a>
+                      ) : null}
                     </div>
-                    <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
-                      No movement in {formatTimeAgo(deal.updatedAt)} — needs a follow-up or stage update.
-                    </div>
-                    {deal.lead?.canonical_phone ? (
-                      <a href={`tel:${deal.lead.canonical_phone}`} style={{ fontSize: 12, color: "var(--brand)", textDecoration: "none", marginTop: 4, display: "block" }}>
-                        {deal.lead.canonical_phone}
-                      </a>
-                    ) : null}
-                  </div>
+                  </Link>
                 ))}
               </div>
             </article>
@@ -423,28 +435,30 @@ export default async function AppHome() {
                   const context = appt.deal?.property_address ?? appt.lead?.full_name ?? null;
                   const time = new Date(appt.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
                   return (
-                    <div key={appt.id} className="crm-card-muted crm-stack-4" style={{ padding: 14, borderLeft: "3px solid #2563eb" }}>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{appt.title}</div>
-                      {context ? <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{context}</div> : null}
-                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                        {time}{appt.duration_minutes ? ` · ${appt.duration_minutes}min` : ""}{appt.location ? ` · ${appt.location}` : ""}
+                    <Link key={appt.id} href="/app/calendar" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                      <div className="crm-card-muted crm-stack-4" style={{ padding: 14, borderLeft: "3px solid #2563eb", cursor: "pointer" }}>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{appt.title}</div>
+                        {context ? <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{context}</div> : null}
+                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                          {time}{appt.duration_minutes ? ` · ${appt.duration_minutes}min` : ""}{appt.location ? ` · ${appt.location}` : ""}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
             </article>
 
-            {/* PA Drafts Pending */}
+            {/* Secretary Drafts */}
             <article className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
-                <h2 className="crm-section-title">PA Drafts Pending</h2>
+                <h2 className="crm-section-title">Secretary Drafts</h2>
                 <Link href="/app/secretary" className="crm-btn crm-btn-secondary">Open Secretary</Link>
               </div>
               <div className="crm-stack-8">
                 {paDrafts.length === 0 ? (
                   <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No PA drafts waiting. When a lead replies and the PA drafts a response, it will appear here.
+                    No drafts waiting. When a lead replies, your Secretary will draft a response for you to review.
                   </div>
                 ) : null}
                 {paDrafts.map((draft) => {
@@ -452,24 +466,26 @@ export default async function AppHome() {
                   const intent = meta.intent as string | null;
                   const leadMsg = meta.lead_message as string | null;
                   return (
-                    <div key={draft.id} className="crm-card-muted crm-stack-4" style={{ padding: 14, borderLeft: "3px solid #7c3aed" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>PA DRAFT</span>
-                        {intent ? <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{intent.replace(/_/g, " ")}</span> : null}
-                      </div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{draft.title}</div>
-                      {leadMsg ? (
-                        <div style={{ fontSize: 12, color: "var(--ink-muted)", fontStyle: "italic" }}>
-                          &ldquo;{leadMsg.slice(0, 100)}{leadMsg.length > 100 ? "…" : ""}&rdquo;
+                    <Link key={draft.id} href="/app/secretary" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                      <div className="crm-card-muted crm-stack-4" style={{ padding: 14, borderLeft: "3px solid #7c3aed", cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>SECRETARY</span>
+                          {intent ? <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{intent.replace(/_/g, " ")}</span> : null}
                         </div>
-                      ) : null}
-                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{formatTimeAgo(draft.created_at)}</div>
-                    </div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{draft.title.replace(/^PA draft reply ready/, "Draft reply ready")}</div>
+                        {leadMsg ? (
+                          <div style={{ fontSize: 12, color: "var(--ink-muted)", fontStyle: "italic" }}>
+                            &ldquo;{leadMsg.slice(0, 100)}{leadMsg.length > 100 ? "…" : ""}&rdquo;
+                          </div>
+                        ) : null}
+                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{formatTimeAgo(draft.created_at)}</div>
+                      </div>
+                    </Link>
                   );
                 })}
                 {paDrafts.length > 0 ? (
                   <Link href="/app/secretary" className="crm-btn crm-btn-primary" style={{ fontSize: 13, textAlign: "center" }}>
-                    Review &amp; approve in Secretary →
+                    Review &amp; send in Secretary →
                   </Link>
                 ) : null}
               </div>
@@ -488,18 +504,20 @@ export default async function AppHome() {
                   </div>
                 ) : null}
                 {tasksDueToday.map((task) => (
-                  <div key={task.id} className="crm-card-muted crm-stack-4" style={{ padding: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{task.title}</div>
-                      <StatusBadge
-                        label={task.priority === "urgent" ? "Urgent" : task.priority === "high" ? "High" : "Due today"}
-                        tone={task.priority === "urgent" ? "danger" : task.priority === "high" ? "warn" : "default"}
-                      />
+                  <Link key={task.id} href="/app/priorities" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted crm-stack-4" style={{ padding: 14, cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{task.title}</div>
+                        <StatusBadge
+                          label={task.priority === "urgent" ? "Urgent" : task.priority === "high" ? "High" : "Due today"}
+                          tone={task.priority === "urgent" ? "danger" : task.priority === "high" ? "warn" : "default"}
+                        />
+                      </div>
+                      {task.description ? (
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{task.description}</div>
+                      ) : null}
                     </div>
-                    {task.description ? (
-                      <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{task.description}</div>
-                    ) : null}
-                  </div>
+                  </Link>
                 ))}
               </div>
             </article>
