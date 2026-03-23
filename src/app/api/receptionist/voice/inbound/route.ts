@@ -150,7 +150,7 @@ export async function POST(request: Request): Promise<Response> {
       const escapedUrl = streamUrl.replace(/&/g, "&amp;");
       return twimlResponse(
         `<Connect>` +
-        `<Stream url="${escapedUrl}" track="both_tracks" />` +
+        `<Stream url="${escapedUrl}" track="inbound_track" />` +
         `</Connect>` +
         // Fallback if stream fails
         sayFallback(`Thank you for calling. ${voiceName} will connect with you shortly.`)
