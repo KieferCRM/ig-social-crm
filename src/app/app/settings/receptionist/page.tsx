@@ -1346,6 +1346,69 @@ export default function ReceptionistSettingsPage() {
           </>
         )}
 
+        {/* PA Autonomy Mode */}
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">PA Autonomy Mode</h2>
+            <span className={settings.pa_mode === "autopilot" ? "crm-chip crm-chip-ok" : "crm-chip"}>
+              {settings.pa_mode === "autopilot" ? "Autopilot" : "Co-pilot"}
+            </span>
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+            When a lead replies to your PA's SMS, the PA interprets their intent and decides what to do next.
+            Choose how much autonomy you give it.
+          </p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(
+              [
+                {
+                  value: "copilot" as const,
+                  label: "Co-pilot (Recommended)",
+                  description: "The PA drafts a reply and suggested CRM action for your review. You approve or edit before anything is sent.",
+                },
+                {
+                  value: "autopilot" as const,
+                  label: "Autopilot",
+                  description: "The PA acts immediately — sends the reply and updates the CRM without waiting for your approval. You see what happened in the Activity feed.",
+                },
+              ]
+            ).map((option) => {
+              const isSelected = settings.pa_mode === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className="crm-card-muted"
+                  style={{
+                    padding: 12,
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr",
+                    gap: "8px 12px",
+                    cursor: "pointer",
+                    border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                    borderRadius: 6,
+                    alignItems: "start",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="pa_mode"
+                    value={option.value}
+                    checked={isSelected}
+                    onChange={() => setSettings((prev) => ({ ...prev, pa_mode: option.value }))}
+                    style={{ marginTop: 2 }}
+                  />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</div>
+                    <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
+                      {option.description}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+
         <section className="crm-card crm-section-card crm-stack-10">
           <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
             {!activationReady ? (

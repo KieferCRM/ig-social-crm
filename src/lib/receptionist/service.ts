@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
+import { interpretLeadReply } from "@/lib/receptionist/pa-interpreter";
 import {
   buildMissedCallStarterText,
   readReceptionistSettingsFromAgentSettings,
@@ -593,12 +594,199 @@ export async function processInboundSms(input: {
     }
   }
 
+  // ── PA reply interpretation ───────────────────────────────────────────────
+  // Check if this inbound message is a reply to a PA-sent message.
+  // If so, run it through the AI interpreter and act based on pa_mode.
+  void processPaReply({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: lead.id,
+    messageBody: body,
+    context,
+    fromPhone: input.fromPhone,
+  }).catch((err) =>
+    console.warn("[pa-interpreter] reply processing failed", err instanceof Error ? err.message : err)
+  );
+
   return {
     leadId: lead.id,
     createdLead: upsertResult.created,
     urgent: urgency.isHigh,
     askedQuestion,
   };
+}
+
+async function processPaReply(input: {
+  admin: AdminClient;
+  agentId: string;
+  leadId: string;
+  messageBody: string;
+  context: AgentReceptionistContext;
+  fromPhone: string;
+}): Promise<void> {
+  // Only run if comms enabled and not a stop message
+  if (!input.context.settings.communications_enabled) return;
+  if (stopsAutomation(input.messageBody)) return;
+
+  // Check if lead has a recent outbound PA message (last 7 days)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: paMessages } = await input.admin
+    .from("lead_interactions")
+    .select("id")
+    .eq("agent_id", input.agentId)
+    .eq("lead_id", input.leadId)
+    .eq("direction", "out")
+    .like("interaction_type", "pa_%")
+    .gte("created_at", sevenDaysAgo)
+    .limit(1)
+    .maybeSingle();
+
+  if (!paMessages) return; // Not a PA conversation — skip
+
+  // Load deal context
+  const { data: dealRow } = await input.admin
+    .from("deals")
+    .select("id,property_address,stage")
+    .eq("agent_id", input.agentId)
+    .eq("lead_id", input.leadId)
+    .neq("stage", "closed")
+    .neq("stage", "dead")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: leadRow } = await input.admin
+    .from("leads")
+    .select("full_name")
+    .eq("id", input.leadId)
+    .maybeSingle();
+
+  const todayStr = new Date().toLocaleDateString("en-CA");
+
+  const interpretation = await interpretLeadReply({
+    messageBody: input.messageBody,
+    agentName: input.context.agentName,
+    lead: {
+      leadName: (leadRow as { full_name: string | null } | null)?.full_name ?? null,
+      propertyAddress: (dealRow as { property_address: string | null } | null)?.property_address ?? null,
+      dealStage: (dealRow as { stage: string } | null)?.stage ?? null,
+    },
+    todayStr,
+  });
+
+  if (!interpretation) return;
+
+  const paMode = input.context.settings.pa_mode;
+  const fromPhone = normalizePhoneToE164(input.context.settings.business_phone_number);
+  const dealId = (dealRow as { id: string } | null)?.id ?? null;
+
+  if (paMode === "autopilot") {
+    // Execute action immediately
+    await executePaAction({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: input.leadId,
+      dealId,
+      interpretation,
+      fromPhone,
+      toPhone: input.fromPhone,
+      context: input.context,
+    });
+  } else {
+    // Copilot: create draft alert for agent to review
+    await createReceptionistAlert({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: input.leadId,
+      alertType: "pa_reply_draft",
+      severity: "info",
+      title: `PA draft reply ready — ${(leadRow as { full_name: string | null } | null)?.full_name ?? "Lead"}`,
+      message: interpretation.draftReply,
+      metadata: {
+        intent: interpretation.intent,
+        confidence: interpretation.confidence,
+        reasoning: interpretation.reasoning,
+        draft_reply: interpretation.draftReply,
+        suggested_action: interpretation.suggestedAction,
+        from_phone: fromPhone,
+        to_phone: input.fromPhone,
+        deal_id: dealId,
+        lead_message: input.messageBody,
+      },
+    });
+  }
+}
+
+async function executePaAction(input: {
+  admin: AdminClient;
+  agentId: string;
+  leadId: string;
+  dealId: string | null;
+  interpretation: Awaited<ReturnType<typeof interpretLeadReply>>;
+  fromPhone: string | null;
+  toPhone: string;
+  context: AgentReceptionistContext;
+}): Promise<void> {
+  if (!input.interpretation) return;
+  const { suggestedAction, draftReply, intent } = input.interpretation;
+
+  // Don't reply on stop
+  if (intent === "stop") return;
+
+  // Execute CRM action
+  if (input.dealId) {
+    if (suggestedAction.type === "move_stage_dead") {
+      await input.admin.from("deals").update({ stage: "dead", updated_at: new Date().toISOString() }).eq("id", input.dealId);
+    } else if (suggestedAction.type === "move_stage_negotiating") {
+      await input.admin.from("deals").update({ stage: "negotiating", updated_at: new Date().toISOString() }).eq("id", input.dealId);
+    } else if (suggestedAction.type === "move_stage_offer_sent") {
+      await input.admin.from("deals").update({ stage: "offer_sent", updated_at: new Date().toISOString() }).eq("id", input.dealId);
+    } else if (suggestedAction.type === "set_followup_date" && suggestedAction.followup_date) {
+      await input.admin.from("deals").update({
+        next_followup_date: suggestedAction.followup_date,
+        updated_at: new Date().toISOString(),
+      }).eq("id", input.dealId);
+    }
+
+    if (suggestedAction.notes) {
+      const { data: deal } = await input.admin.from("deals").select("notes").eq("id", input.dealId).maybeSingle();
+      const existingNotes = (deal as { notes: string | null } | null)?.notes ?? "";
+      const newNote = `[PA ${new Date().toLocaleDateString()}] ${suggestedAction.notes}`;
+      await input.admin.from("deals").update({
+        notes: existingNotes ? `${existingNotes}\n${newNote}` : newNote,
+      }).eq("id", input.dealId);
+    }
+  }
+
+  // Send the draft reply
+  if (input.fromPhone && draftReply) {
+    const sms = await sendReceptionistSms({
+      agentId: input.agentId,
+      fromPhone: input.fromPhone,
+      toPhone: input.toPhone,
+      text: draftReply,
+    });
+
+    await insertLeadInteraction({
+      admin: input.admin,
+      agentId: input.agentId,
+      leadId: input.leadId,
+      channel: "sms",
+      direction: "out",
+      interactionType: "pa_auto_reply",
+      status: sms.ok ? "sent" : "failed",
+      messageBody: draftReply,
+      providerMessageId: sms.providerMessageId,
+      summary: draftReply.slice(0, 160),
+      structuredPayload: {
+        source: "pa_interpreter",
+        intent: input.interpretation.intent,
+        action: suggestedAction.type,
+        confidence: input.interpretation.confidence,
+      },
+      createdAt: new Date().toISOString(),
+    });
+  }
 }
 
 export async function processMissedCall(input: {

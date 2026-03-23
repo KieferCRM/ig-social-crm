@@ -686,6 +686,118 @@ function TranscriptsTab({ calls, loading }: { calls: Transcript[]; loading: bool
 // Tab: Alerts
 // ---------------------------------------------------------------------------
 
+// ── Co-pilot draft card ──────────────────────────────────────────────────────
+
+function PaReplyDraftCard({ alert, onDone }: { alert: Alert; onDone: (id: string) => void }) {
+  const meta = alert.metadata ?? {};
+  const draftReply = (meta.draft_reply as string | null) ?? alert.message;
+  const reasoning = meta.reasoning as string | null;
+  const intent = meta.intent as string | null;
+  const confidence = meta.confidence as string | null;
+  const suggestedAction = meta.suggested_action as { type: string; followup_date?: string } | null;
+  const leadMessage = meta.lead_message as string | null;
+
+  const [editedReply, setEditedReply] = useState(draftReply ?? "");
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const actionLabel = (type: string | null | undefined) => {
+    if (!type) return null;
+    if (type === "move_stage_dead") return "Move deal → Dead";
+    if (type === "move_stage_negotiating") return "Move deal → Negotiating";
+    if (type === "move_stage_offer_sent") return "Move deal → Offer Sent";
+    if (type === "set_followup_date") return `Set follow-up → ${suggestedAction?.followup_date ?? "date"}`;
+    if (type === "no_crm_action") return null;
+    return null;
+  };
+
+  const action = actionLabel(suggestedAction?.type);
+
+  async function handleApprove(skipReply = false) {
+    setSending(true);
+    try {
+      await fetch("/api/secretary/pa-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alertId: alert.id, messageBody: editedReply, skipReply }),
+      });
+      setDone(true);
+      onDone(alert.id);
+    } catch { /* ignore */ } finally { setSending(false); }
+  }
+
+  if (done) return null;
+
+  return (
+    <div className="crm-card" style={{ padding: "14px 16px", border: "2px solid #7c3aed", borderRadius: 10, background: "#faf5ff" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>PA DRAFT</span>
+        {intent && <span style={{ fontSize: 11, color: "var(--ink-muted)", background: "#f3f4f6", borderRadius: 4, padding: "1px 6px" }}>{intent.replace(/_/g, " ")}</span>}
+        {confidence && <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{confidence} confidence</span>}
+        {alert.leads && (
+          <Link href={`/app/leads/${alert.leads.id}`} style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600, textDecoration: "none", marginLeft: "auto" }}>
+            {leadLabel(alert.leads)} →
+          </Link>
+        )}
+      </div>
+
+      {leadMessage && (
+        <div style={{ marginBottom: 10, padding: "8px 12px", background: "#f1f5f9", borderRadius: 6, borderLeft: "3px solid #94a3b8" }}>
+          <div style={{ fontSize: 10, color: "var(--ink-faint)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>Lead said</div>
+          <div style={{ fontSize: 13, color: "var(--ink-body)" }}>{leadMessage}</div>
+        </div>
+      )}
+
+      {reasoning && (
+        <div style={{ fontSize: 12, color: "var(--ink-muted)", marginBottom: 10, fontStyle: "italic" }}>{reasoning}</div>
+      )}
+
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: "var(--ink-muted)", marginBottom: 4, fontWeight: 600 }}>Draft reply (edit before sending)</div>
+        <textarea
+          rows={3}
+          value={editedReply}
+          onChange={(e) => setEditedReply(e.target.value)}
+          style={{ width: "100%", fontSize: 13, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+        />
+        <div style={{ fontSize: 11, color: editedReply.length > 160 ? "#dc2626" : "var(--ink-faint)", textAlign: "right", marginTop: 2 }}>
+          {editedReply.length}/160
+        </div>
+      </div>
+
+      {action && (
+        <div style={{ marginBottom: 10, fontSize: 12, color: "#7c3aed", display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontWeight: 600 }}>CRM action:</span> {action}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button className="crm-btn crm-btn-primary" style={{ fontSize: 12, background: "#7c3aed", border: "none" }}
+          disabled={sending || !editedReply.trim()} onClick={() => void handleApprove(false)}>
+          {sending ? "Sending…" : "Approve & Send"}
+        </button>
+        {action && (
+          <button className="crm-btn crm-btn-secondary" style={{ fontSize: 12 }}
+            disabled={sending} onClick={() => void handleApprove(true)}>
+            Just do the action (no reply)
+          </button>
+        )}
+        <button className="crm-btn crm-btn-secondary" style={{ fontSize: 12, color: "var(--ink-muted)" }}
+          disabled={sending} onClick={async () => {
+            setSending(true);
+            try {
+              await fetch(`/api/secretary/alerts/${alert.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "resolved" }) });
+              setDone(true);
+              onDone(alert.id);
+            } finally { setSending(false); }
+          }}>
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AlertsTab({
   alerts,
   loading,
@@ -724,6 +836,11 @@ function AlertsTab({
   }
 
   const renderAlert = (alert: Alert) => {
+    // PA co-pilot drafts get their own rich card
+    if (alert.alert_type === "pa_reply_draft" && alert.status === "open") {
+      return <PaReplyDraftCard key={alert.id} alert={alert} onDone={onResolve} />;
+    }
+
     const isUrgent = alert.severity === "urgent";
     const isUnclassified = alert.alert_type === "unclassified_lead";
     const isOpen = alert.status === "open";

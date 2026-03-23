@@ -25,6 +25,8 @@ export type AfterHoursVoiceMode =
   | "voicemail";         // Play voicemail greeting and notify agent
 // ElevenLabs voice clone lifecycle
 export type VoiceCloneStatus = "none" | "pending" | "processing" | "ready" | "failed";
+// PA autonomy mode: autopilot = acts immediately, copilot = drafts for agent approval
+export type PaMode = "autopilot" | "copilot";
 
 export type ReceptionistSettings = {
   receptionist_enabled: boolean;
@@ -53,6 +55,7 @@ export type ReceptionistSettings = {
   after_hours_voice_mode: AfterHoursVoiceMode;
   voice_clone_status: VoiceCloneStatus;
   voice_clone_voice_id: string;   // ElevenLabs voice ID for the cloned voice
+  pa_mode: PaMode;                // How the PA handles lead replies
 };
 
 const DEFAULT_ESCALATION_KEYWORDS = [
@@ -95,6 +98,7 @@ export const DEFAULT_RECEPTIONIST_SETTINGS: ReceptionistSettings = {
   after_hours_voice_mode: "ai_take_message",
   voice_clone_status: "none",
   voice_clone_voice_id: "",
+  pa_mode: "copilot",
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -286,6 +290,7 @@ export function normalizeReceptionistSettings(input: unknown): ReceptionistSetti
     after_hours_voice_mode: normalizeAfterHoursVoiceMode(raw.after_hours_voice_mode),
     voice_clone_status: normalizeVoiceCloneStatus(raw.voice_clone_status),
     voice_clone_voice_id: readString(raw.voice_clone_voice_id),
+    pa_mode: raw.pa_mode === "autopilot" ? "autopilot" : "copilot",
   };
 }
 
