@@ -178,6 +178,7 @@ export default function HomePage() {
           <nav className="lockbox-footer__links" aria-label="Legal">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
+            <a href="mailto:lockboxhq1@gmail.com">lockboxhq1@gmail.com</a>
           </nav>
         </footer>
       </div>

@@ -270,6 +270,22 @@ export default function ProfileSettingsPage() {
         </div>
       </section>
 
+      {/* Contact / Support */}
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div>
+          <h2 className="crm-section-title">Contact & Support</h2>
+          <p className="crm-section-subtitle">
+            Questions, feedback, or issues? Reach out directly.
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
+          <span style={{ color: "var(--ink-muted)" }}>Email:</span>
+          <a href="mailto:lockboxhq1@gmail.com" style={{ color: "var(--ink-primary)", fontWeight: 600, textDecoration: "none" }}>
+            lockboxhq1@gmail.com
+          </a>
+        </div>
+      </section>
+
       {/* Change slug */}
       <section className="crm-card crm-section-card crm-stack-10">
         <div>
