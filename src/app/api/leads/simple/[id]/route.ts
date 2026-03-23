@@ -283,3 +283,26 @@ export async function PATCH(request: Request, { params }: Params) {
 
   return NextResponse.json({ lead: data });
 }
+
+export async function DELETE(_: Request, { params }: Params) {
+  const { id } = await params;
+  const supabase = await supabaseServer();
+  const auth = await loadAccessContext(supabase);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const ownerClause = [
+    ownerFilter(auth.context, "agent_id"),
+    ownerFilter(auth.context, "owner_user_id"),
+    ownerFilter(auth.context, "assignee_user_id"),
+  ].join(",");
+
+  const { error } = await supabase
+    .from("leads")
+    .delete()
+    .eq("id", id)
+    .or(ownerClause);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}

@@ -79,11 +79,13 @@ type EditForm = {
   notes: string;
 };
 
-function EditModal({ contact, onClose, onSaved }: {
+function EditModal({ contact, onClose, onSaved, onDeleted }: {
   contact: ContactRow;
   onClose: () => void;
   onSaved: (updated: Partial<ContactRow>) => void;
+  onDeleted: () => void;
 }) {
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<EditForm>({
     full_name: contactName(contact) === "Unnamed" ? "" : contactName(contact),
     canonical_phone: contact.canonical_phone ?? "",
@@ -219,11 +221,28 @@ function EditModal({ contact, onClose, onSaved }: {
 
           {error && <div className="crm-chip crm-chip-danger" style={{ width: "fit-content" }}>{error}</div>}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button type="button" className="crm-btn crm-btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="button" className="crm-btn crm-btn-primary" onClick={() => void handleSave()} disabled={saving}>
-              {saving ? "Saving..." : "Save contact"}
+          <div style={{ display: "flex", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="crm-btn"
+              disabled={deleting}
+              onClick={() => {
+                if (!window.confirm(`Delete ${contactName(contact)}? This cannot be undone.`)) return;
+                setDeleting(true);
+                void fetch(`/api/leads/simple/${contact.id}`, { method: "DELETE" })
+                  .then(() => { onDeleted(); onClose(); })
+                  .catch(() => setDeleting(false));
+              }}
+              style={{ background: "#dc2626", color: "#fff", border: "none" }}
+            >
+              {deleting ? "Deleting..." : "Delete contact"}
             </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="crm-btn crm-btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="button" className="crm-btn crm-btn-primary" onClick={() => void handleSave()} disabled={saving}>
+                {saving ? "Saving..." : "Save contact"}
+              </button>
+            </div>
           </div>
 
           {/* Email thread */}
@@ -278,6 +297,7 @@ export default function ContactsList({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkTag, setBulkTag] = useState("");
   const [bulkTagging, setBulkTagging] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const dealsByLead = useMemo(() => {
     const map = new Map<string, DealSummary[]>();
@@ -345,6 +365,16 @@ export default function ContactsList({
     setBulkTagging(false);
   }
 
+  async function handleBulkDelete() {
+    if (!window.confirm(`Delete ${selected.size} contact${selected.size > 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    await Promise.all(ids.map(id => fetch(`/api/leads/simple/${id}`, { method: "DELETE" })));
+    setContacts(prev => prev.filter(c => !selected.has(c.id)));
+    setSelected(new Set());
+    setBulkDeleting(false);
+  }
+
   return (
     <div className="crm-stack-10">
       {/* Filters + toolbar */}
@@ -393,6 +423,15 @@ export default function ContactsList({
           </button>
           <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12 }} onClick={() => setSelected(new Set())}>
             Clear selection
+          </button>
+          <button
+            type="button"
+            className="crm-btn"
+            style={{ fontSize: 12, background: "#dc2626", color: "#fff", border: "none", marginLeft: "auto" }}
+            disabled={bulkDeleting}
+            onClick={() => void handleBulkDelete()}
+          >
+            {bulkDeleting ? "Deleting..." : `Delete ${selected.size}`}
           </button>
         </div>
       )}
@@ -498,6 +537,7 @@ export default function ContactsList({
           contact={editingContact}
           onClose={() => setEditingContact(null)}
           onSaved={(updated) => { handleSaved(editingContact.id, updated); setEditingContact(null); }}
+          onDeleted={() => { setContacts(prev => prev.filter(c => c.id !== editingContact.id)); setEditingContact(null); }}
         />
       )}
     </div>
