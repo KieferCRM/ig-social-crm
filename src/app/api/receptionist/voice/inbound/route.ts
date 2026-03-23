@@ -11,7 +11,7 @@
  * Status callback URL should be: /api/receptionist/voice/status?agent_id=UUID
  */
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { buildTtsPlayUrl } from "@/lib/elevenlabs";
+import { buildTtsPlayUrl, getConversationalAgentStreamUrl } from "@/lib/elevenlabs";
 import { readReceptionistSettingsFromAgentSettings, isVoiceEnabled, activeVoiceId } from "@/lib/receptionist/settings";
 import { upsertReceptionistLead } from "@/lib/receptionist/lead-upsert";
 
@@ -152,7 +152,18 @@ async function handleInbound(request: Request): Promise<Response> {
   const voiceName = settings.voice_name || "Sarah";
 
   // ---
-  // Mode B: Sequential TTS + Twilio Gather qualification flow
+  // Mode A: ElevenLabs Conversational AI streaming
+  // ---
+  if (settings.voice_agent_id) {
+    const streamUrl = await getConversationalAgentStreamUrl(settings.voice_agent_id);
+    if (streamUrl) {
+      const escapedUrl = streamUrl.replace(/&/g, "&amp;");
+      return twimlResponse(`<Connect><Stream url="${escapedUrl}" /></Connect>`);
+    }
+  }
+
+  // ---
+  // Mode B: Sequential TTS + Twilio Gather qualification flow (fallback)
   // ---
 
   // Look up existing lead to skip known questions
