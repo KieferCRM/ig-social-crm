@@ -165,7 +165,7 @@ export default async function AppHome() {
 
   const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: formAlertData }] =
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: agentRow }, { data: formAlertData }, { data: appointmentData }] =
     await Promise.all([
       supabase
         .from("leads")
@@ -198,6 +198,14 @@ export default async function AppHome() {
         .eq("status", "open")
         .order("created_at", { ascending: false })
         .limit(10),
+      supabase
+        .from("appointments")
+        .select("id,title,scheduled_at,duration_minutes,appointment_type,status,location,lead:leads(full_name),deal:deals(property_address)")
+        .eq("agent_id", user.id)
+        .neq("status", "cancelled")
+        .gte("scheduled_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+        .lte("scheduled_at", new Date(new Date().setHours(23, 59, 59, 999)).toISOString())
+        .order("scheduled_at", { ascending: true }),
     ]);
 
   const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
@@ -230,6 +238,17 @@ export default async function AppHome() {
     created_at: string;
   }>;
 
+  type TodayAppointment = {
+    id: string;
+    title: string;
+    scheduled_at: string;
+    duration_minutes: number | null;
+    location: string | null;
+    lead: { full_name: string | null } | null;
+    deal: { property_address: string | null } | null;
+  };
+  const todayAppointments = (appointmentData ?? []) as unknown as TodayAppointment[];
+
   const emptyStateBody = isOffMarketAccount
     ? "We did not find any deals, contacts, or follow-up items yet. Start with deals, documents, or a contact so the off-market workspace has something real to organize."
     : "We did not find any deals, contacts, or follow-up items yet. Start by opening intake or sharing a buyer or seller form so the workspace has something real to work with.";
@@ -259,10 +278,10 @@ export default async function AppHome() {
             compact
           />
           <KpiCard
-            label="Recent Activity"
-            value={deals.filter((d) => isStale(d.updatedAt, 2) === false).length}
-            tone="default"
-            href="/app/pipeline"
+            label="Today's Appointments"
+            value={todayAppointments.length}
+            tone={todayAppointments.length > 0 ? "ok" : "default"}
+            href="/app/calendar"
             compact
           />
         </section>
@@ -349,31 +368,33 @@ export default async function AppHome() {
           {/* RIGHT — stacked cards */}
           <div className="crm-stack-12">
 
-            {/* Stale deals */}
+            {/* Today's appointments */}
             <article className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
                 <div>
-                  <h2 className="crm-section-title">Stale Deals</h2>
+                  <h2 className="crm-section-title">Today&apos;s Appointments</h2>
                 </div>
-                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
+                <Link href="/app/calendar" className="crm-btn crm-btn-secondary">Open calendar</Link>
               </div>
               <div className="crm-stack-8">
-                {staleDeals.length === 0 ? (
+                {todayAppointments.length === 0 ? (
                   <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    All active deals have recent activity.
+                    No appointments today. Add one from the calendar.
                   </div>
                 ) : null}
-                {staleDeals.slice(0, 4).map((deal) => (
-                  <div key={deal.id} className="crm-card-muted crm-stack-4" style={{ padding: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                      <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
-                      <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                {todayAppointments.map((appt) => {
+                  const context = appt.deal?.property_address ?? appt.lead?.full_name ?? null;
+                  const time = new Date(appt.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+                  return (
+                    <div key={appt.id} className="crm-card-muted crm-stack-4" style={{ padding: 14, borderLeft: "3px solid #2563eb" }}>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>{appt.title}</div>
+                      {context ? <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{context}</div> : null}
+                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                        {time}{appt.duration_minutes ? ` · ${appt.duration_minutes}min` : ""}{appt.location ? ` · ${appt.location}` : ""}
+                      </div>
                     </div>
-                    <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-                      No movement since {formatTimeAgo(deal.updatedAt)} — needs a touch or stage update.
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </article>
 
