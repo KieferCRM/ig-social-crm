@@ -13,6 +13,7 @@ import {
   pipelineStageTone,
   type OffMarketStage,
 } from "@/lib/pipeline";
+import { DEFAULT_PIPELINE_STAGES, type PipelineStageConfig } from "@/lib/pipeline-settings";
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
@@ -189,6 +190,7 @@ function draftFromDeal(deal: PipelineDeal): DetailDraft {
 export default function PipelineClient() {
   const supabase = useMemo(() => supabaseBrowser(), []);
 
+  const [stageConfig, setStageConfig] = useState<PipelineStageConfig[]>(DEFAULT_PIPELINE_STAGES);
   const [deals, setDeals] = useState<PipelineDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
@@ -227,6 +229,16 @@ export default function PipelineClient() {
   const [dealAppts, setDealAppts] = useState<Array<{ id: string; title: string; scheduled_at: string; appointment_type: string; status: string }>>([]);
 
   // ── Load deals ──────────────────────────────────────────────────────────────
+
+  // Load custom stage config
+  useEffect(() => {
+    void fetch("/api/settings/pipeline-stages")
+      .then((r) => r.json())
+      .then((d: { stages?: PipelineStageConfig[] }) => {
+        if (d.stages?.length) setStageConfig(d.stages);
+      })
+      .catch(() => {/* keep defaults */});
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -599,7 +611,7 @@ export default function PipelineClient() {
                 <span className="crm-chip" style={{ fontSize: 11 }}>{deals.length}</span>
               </button>
 
-              {OFF_MARKET_STAGES.map((stage) => (
+              {stageConfig.map(({ value: stage, label }) => (
                 <button
                   key={stage}
                   type="button"
@@ -620,7 +632,7 @@ export default function PipelineClient() {
                     width: "100%",
                   }}
                 >
-                  <span>{offMarketStageLabel(stage)}</span>
+                  <span>{label}</span>
                   <span className="crm-chip" style={{ fontSize: 11 }}>{stageCountMap[stage] || 0}</span>
                 </button>
               ))}
@@ -906,7 +918,7 @@ export default function PipelineClient() {
                 paddingBottom: 8,
               }}
             >
-              {OFF_MARKET_STAGES.map((stage) => {
+              {stageConfig.map(({ value: stage, label }) => {
                 const stageDeals = filteredDeals.filter((d) => d.stage === stage);
                 return (
                   <div
@@ -931,7 +943,7 @@ export default function PipelineClient() {
                       }}
                     >
                       <span style={{ fontWeight: 600, fontSize: 13 }}>
-                        {offMarketStageLabel(stage)}
+                        {label}
                       </span>
                       <span className="crm-chip" style={{ fontSize: 11 }}>
                         {stageDeals.length}
@@ -1089,9 +1101,9 @@ export default function PipelineClient() {
                     }))
                   }
                 >
-                  {OFF_MARKET_STAGES.map((stage) => (
+                  {stageConfig.map(({ value: stage, label }) => (
                     <option key={stage} value={stage}>
-                      {offMarketStageLabel(stage)}
+                      {label}
                     </option>
                   ))}
                 </select>
@@ -1294,9 +1306,9 @@ export default function PipelineClient() {
                     setDetailDirty(true);
                   }}
                 >
-                  {OFF_MARKET_STAGES.map((stage) => (
+                  {stageConfig.map(({ value: stage, label }) => (
                     <option key={stage} value={stage}>
-                      {offMarketStageLabel(stage)}
+                      {label}
                     </option>
                   ))}
                 </select>

@@ -16,6 +16,17 @@ export default async function SettingsPage() {
 
       <div className="crm-grid-cards-3">
         <section className="crm-card crm-section-card crm-stack-10">
+          <div style={{ fontWeight: 700 }}>Pipeline Stages</div>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
+            Rename or reorder your pipeline stages to match your workflow.
+          </p>
+          <div>
+            <Link href="/app/settings/pipeline" className="crm-btn crm-btn-primary">
+              Manage stages
+            </Link>
+          </div>
+        </section>
+        <section className="crm-card crm-section-card crm-stack-10">
           <div style={{ fontWeight: 700 }}>Billing</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
             View your current plan, upgrade or downgrade, and manage your payment details.
