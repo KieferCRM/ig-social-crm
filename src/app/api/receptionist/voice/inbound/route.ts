@@ -12,7 +12,7 @@
  */
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { readReceptionistSettingsFromAgentSettings, isVoiceEnabled, activeVoiceId } from "@/lib/receptionist/settings";
-import { buildTtsPlayUrl, getConversationalAgentStreamUrl } from "@/lib/elevenlabs";
+import { buildTtsPlayUrl } from "@/lib/elevenlabs";
 import { upsertReceptionistLead } from "@/lib/receptionist/lead-upsert";
 
 export const dynamic = "force-dynamic";
@@ -140,23 +140,6 @@ export async function POST(request: Request): Promise<Response> {
 
   const voiceId = activeVoiceId(settings);
   const voiceName = settings.voice_name || "Sarah";
-
-  // ---
-  // Mode A: ElevenLabs Conversational AI streaming (if agent has a configured agent_id)
-  // ---
-  if (settings.voice_agent_id) {
-    const streamUrl = await getConversationalAgentStreamUrl(settings.voice_agent_id);
-    if (streamUrl) {
-      const escapedUrl = streamUrl.replace(/&/g, "&amp;");
-      return twimlResponse(
-        `<Connect>` +
-        `<Stream url="${escapedUrl}" track="inbound_track" />` +
-        `</Connect>` +
-        // Fallback if stream fails
-        sayFallback(`Thank you for calling. ${voiceName} will connect with you shortly.`)
-      );
-    }
-  }
 
   // ---
   // Mode B: Sequential TTS + Twilio Gather qualification flow
