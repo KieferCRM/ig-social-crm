@@ -154,6 +154,13 @@ function parseIncomingPayload(contentType: string, rawBody: string): ParsedWebho
 }
 
 function canonicalWebhookUrl(request: Request): string {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/$/, "");
+  const appBaseUrl = siteUrl ? (siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`) : "";
+  if (appBaseUrl) {
+    const requestUrl = new URL(request.url);
+    return `${appBaseUrl}${requestUrl.pathname}${requestUrl.search}`;
+  }
+
   const url = new URL(request.url);
   const forwardedProto = optionalString(request.headers.get("x-forwarded-proto"));
   const forwardedHost =

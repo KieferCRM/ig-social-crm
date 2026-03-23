@@ -10,7 +10,6 @@
  *
  * Status callback URL should be: /api/receptionist/voice/status?agent_id=UUID
  */
-import { createHmac, timingSafeEqual } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { readReceptionistSettingsFromAgentSettings, isVoiceEnabled, activeVoiceId } from "@/lib/receptionist/settings";
 import { buildTtsPlayUrl, getConversationalAgentStreamUrl } from "@/lib/elevenlabs";
@@ -18,41 +17,6 @@ import { upsertReceptionistLead } from "@/lib/receptionist/lead-upsert";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-// ---------------------------------------------------------------------------
-// Twilio signature verification
-// ---------------------------------------------------------------------------
-
-function twilioAuthHeader(accountSid: string, authToken: string): string {
-  return `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`;
-}
-
-function computeTwilioSignature(url: string, params: URLSearchParams, authToken: string): string {
-  const sorted = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
-  let payload = url;
-  for (const [k, v] of sorted) payload += `${k}${v}`;
-  return createHmac("sha1", authToken).update(payload, "utf8").digest("base64");
-}
-
-function verifyTwilioSignature(request: Request, params: URLSearchParams): boolean {
-  const authToken = (process.env.TWILIO_AUTH_TOKEN || "").trim();
-  if (!authToken) return true; // allow in dev/mock mode
-
-  const sig = (request.headers.get("x-twilio-signature") || "").trim();
-  if (!sig) return false;
-
-  const url = new URL(request.url);
-  const forwardedProto = request.headers.get("x-forwarded-proto");
-  const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
-  if (forwardedProto) url.protocol = `${forwardedProto.split(",")[0].trim()}:`;
-  if (forwardedHost) url.host = forwardedHost.split(",")[0].trim();
-
-  const expected = computeTwilioSignature(url.toString(), params, authToken);
-  const a = Buffer.from(sig, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
 
 // ---------------------------------------------------------------------------
 // TwiML helpers
@@ -144,11 +108,6 @@ export async function POST(request: Request): Promise<Response> {
   const callSid = params.get("CallSid") || "";
   const fromPhone = params.get("From") || "";
   const toPhone = params.get("To") || "";
-
-  // Verify Twilio signature (pass if no auth token configured — dev mode)
-  if (!verifyTwilioSignature(request, params)) {
-    return new Response("Forbidden", { status: 403 });
-  }
 
   const admin = supabaseAdmin();
   const baseUrl = resolveBaseUrl(request);
