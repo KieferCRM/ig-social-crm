@@ -47,35 +47,54 @@ export async function POST(request: Request): Promise<NextResponse> {
   const dealId = meta.deal_id as string | null;
   const leadId = alert.lead_id as string | null;
   const suggestedAction = meta.suggested_action as PaSuggestedAction | null;
+  const replyChannel = meta.reply_channel as string | null; // "ig" or null (SMS)
+  const conversationId = meta.conversation_id as string | null;
 
   // Load agent settings for fromPhone
   const { data: agentRow } = await admin.from("agents").select("settings").eq("id", user.id).maybeSingle();
   const settings = readReceptionistSettingsFromAgentSettings(agentRow?.settings ?? null);
   const fromPhone = normalizePhoneToE164(settings.business_phone_number);
 
-  if (!body.skipReply && fromPhone && toPhone) {
-    const sms = await sendReceptionistSms({
-      agentId: user.id,
-      fromPhone,
-      toPhone,
-      text: body.messageBody,
-    });
-
-    if (leadId) {
-      await insertLeadInteraction({
-        admin,
-        agentId: user.id,
-        leadId,
-        channel: "sms",
+  if (!body.skipReply) {
+    if (replyChannel === "ig" && conversationId) {
+      // Reply via IG conversation (insert into messages table)
+      const ts = new Date().toISOString();
+      const syntheticId = `pa_${conversationId}_${Date.now().toString(36)}`;
+      await admin.from("messages").insert({
+        agent_id: user.id,
+        conversation_id: conversationId,
+        meta_message_id: syntheticId,
         direction: "out",
-        interactionType: "pa_copilot_reply",
-        status: sms.ok ? "sent" : "failed",
-        messageBody: body.messageBody,
-        providerMessageId: sms.providerMessageId,
-        summary: body.messageBody.slice(0, 160),
-        structuredPayload: { source: "pa_copilot", alert_id: body.alertId },
-        createdAt: new Date().toISOString(),
+        text: body.messageBody,
+        ts,
+        raw_json: { source: "pa_copilot", alert_id: body.alertId },
       });
+      await admin.from("conversations").update({ last_message_at: ts, updated_at: ts }).eq("id", conversationId);
+    } else if (fromPhone && toPhone) {
+      // Reply via SMS
+      const sms = await sendReceptionistSms({
+        agentId: user.id,
+        fromPhone,
+        toPhone,
+        text: body.messageBody,
+      });
+
+      if (leadId) {
+        await insertLeadInteraction({
+          admin,
+          agentId: user.id,
+          leadId,
+          channel: "sms",
+          direction: "out",
+          interactionType: "pa_copilot_reply",
+          status: sms.ok ? "sent" : "failed",
+          messageBody: body.messageBody,
+          providerMessageId: sms.providerMessageId,
+          summary: body.messageBody.slice(0, 160),
+          structuredPayload: { source: "pa_copilot", alert_id: body.alertId },
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
   }
 

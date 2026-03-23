@@ -224,6 +224,7 @@ export default function PipelineClient() {
   const [detailDraft, setDetailDraft] = useState<DetailDraft | null>(null);
   const [detailDirty, setDetailDirty] = useState(false);
   const [detailSaving, setDetailSaving] = useState(false);
+  const [dealAppts, setDealAppts] = useState<Array<{ id: string; title: string; scheduled_at: string; appointment_type: string; status: string }>>([]);
 
   // ── Load deals ──────────────────────────────────────────────────────────────
 
@@ -286,17 +287,29 @@ export default function PipelineClient() {
     };
   }, [supabase, refreshKey]);
 
-  // ── Sync detail draft when selected deal changes ────────────────────────────
+  // ── Sync detail draft + appointments when selected deal changes ─────────────
 
   useEffect(() => {
     if (!selectedDeal) {
       setDetailDraft(null);
       setDetailDirty(false);
+      setDealAppts([]);
       return;
     }
     setDetailDraft(draftFromDeal(selectedDeal));
     setDetailDirty(false);
-  }, [selectedDeal]);
+
+    // Load appointments linked to this deal
+    void supabase
+      .from("appointments")
+      .select("id,title,scheduled_at,appointment_type,status")
+      .eq("deal_id", selectedDeal.id)
+      .neq("status", "cancelled")
+      .gte("scheduled_at", new Date().toISOString())
+      .order("scheduled_at", { ascending: true })
+      .limit(5)
+      .then(({ data }) => setDealAppts(data ?? []));
+  }, [selectedDeal, supabase]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
@@ -1362,6 +1375,26 @@ export default function PipelineClient() {
                 }}
               />
             </label>
+
+            {/* Upcoming appointments for this deal */}
+            {dealAppts.length > 0 && (
+              <div style={{ marginTop: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Upcoming Appointments</div>
+                <div style={{ display: "grid", gap: 4 }}>
+                  {dealAppts.map((appt) => (
+                    <div key={appt.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--ink-body)", background: "#eff6ff", borderRadius: 6, padding: "6px 10px" }}>
+                      <span style={{ color: "#2563eb", fontWeight: 600 }}>
+                        {new Date(appt.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {" "}
+                        {new Date(appt.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </span>
+                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{appt.title}</span>
+                      <span style={{ fontSize: 11, color: "var(--ink-faint)", textTransform: "capitalize" }}>{appt.appointment_type}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div
               style={{

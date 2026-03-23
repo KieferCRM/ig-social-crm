@@ -697,7 +697,9 @@ function PaReplyDraftCard({ alert, onDone }: { alert: Alert; onDone: (id: string
   const suggestedAction = meta.suggested_action as { type: string; followup_date?: string } | null;
   const leadMessage = meta.lead_message as string | null;
 
+  const isAppointmentRequest = suggestedAction?.type === "create_appointment_request";
   const [editedReply, setEditedReply] = useState(draftReply ?? "");
+  const [apptDateTime, setApptDateTime] = useState("");
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -716,6 +718,20 @@ function PaReplyDraftCard({ alert, onDone }: { alert: Alert; onDone: (id: string
   async function handleApprove(skipReply = false) {
     setSending(true);
     try {
+      // If PA suggested scheduling an appointment, create it first
+      if (isAppointmentRequest && apptDateTime) {
+        await fetch("/api/appointments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `Call with ${alert.leads ? leadLabel(alert.leads) : "Lead"}`,
+            scheduled_at: new Date(apptDateTime).toISOString(),
+            lead_id: alert.lead_id,
+            deal_id: meta.deal_id as string | null ?? null,
+            appointment_type: "call",
+          }),
+        });
+      }
       await fetch("/api/secretary/pa-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -750,6 +766,18 @@ function PaReplyDraftCard({ alert, onDone }: { alert: Alert; onDone: (id: string
 
       {reasoning && (
         <div style={{ fontSize: 12, color: "var(--ink-muted)", marginBottom: 10, fontStyle: "italic" }}>{reasoning}</div>
+      )}
+
+      {isAppointmentRequest && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-muted)", marginBottom: 4, fontWeight: 600 }}>Schedule appointment</div>
+          <input
+            type="datetime-local"
+            value={apptDateTime}
+            onChange={(e) => setApptDateTime(e.target.value)}
+            style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 6, width: "100%", boxSizing: "border-box" as const }}
+          />
+        </div>
       )}
 
       <div style={{ marginBottom: 10 }}>

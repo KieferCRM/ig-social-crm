@@ -5,6 +5,8 @@ import { normalizeConsent } from "@/lib/consent";
 import { getClientIp, readTextBody } from "@/lib/http";
 import { takeRateLimit } from "@/lib/rate-limit";
 import { withReminderOwnerColumn } from "@/lib/reminders";
+import { interpretLeadReply } from "@/lib/receptionist/pa-interpreter";
+import { readReceptionistSettingsFromAgentSettings } from "@/lib/receptionist/settings";
 
 type NormalizedEvent = {
   agent_id: string;
@@ -394,6 +396,90 @@ async function runQualificationAutomation(
 
     await createFollowUpReminder(admin, event, lead.id, conversationId);
   }
+}
+
+async function triggerPaForIgMessage(input: {
+  admin: ReturnType<typeof createAdminClient>;
+  agentId: string;
+  leadId: string;
+  conversationId: string;
+  messageBody: string;
+}): Promise<void> {
+  const { admin, agentId, leadId, conversationId, messageBody } = input;
+
+  // Load agent settings to check PA mode and comms enabled
+  const { data: agentRow } = await admin.from("agents").select("settings,full_name").eq("id", agentId).maybeSingle();
+  const settings = readReceptionistSettingsFromAgentSettings(agentRow?.settings ?? null);
+  if (!settings.communications_enabled) return;
+
+  // Only run if lead has a recent outbound PA message (shows it's a PA conversation)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentPa } = await admin
+    .from("lead_interactions")
+    .select("id")
+    .eq("agent_id", agentId)
+    .eq("lead_id", leadId)
+    .eq("direction", "out")
+    .like("interaction_type", "pa_%")
+    .gte("created_at", sevenDaysAgo)
+    .limit(1)
+    .maybeSingle();
+
+  if (!recentPa) return; // Not a PA-initiated conversation
+
+  // Load lead + deal context
+  const { data: leadRow } = await admin.from("leads").select("full_name").eq("id", leadId).maybeSingle();
+  const { data: dealRow } = await admin
+    .from("deals")
+    .select("id,property_address,stage")
+    .eq("agent_id", agentId)
+    .eq("lead_id", leadId)
+    .neq("stage", "closed")
+    .neq("stage", "dead")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const agentName = (agentRow as { full_name?: string | null } | null)?.full_name ?? "Your agent";
+  const todayStr = new Date().toLocaleDateString("en-CA");
+
+  const interpretation = await interpretLeadReply({
+    messageBody,
+    agentName,
+    lead: {
+      leadName: (leadRow as { full_name: string | null } | null)?.full_name ?? null,
+      propertyAddress: (dealRow as { property_address: string | null } | null)?.property_address ?? null,
+      dealStage: (dealRow as { stage: string } | null)?.stage ?? null,
+    },
+    todayStr,
+  });
+
+  if (!interpretation || interpretation.intent === "stop") return;
+
+  const dealId = (dealRow as { id: string } | null)?.id ?? null;
+  const leadName = (leadRow as { full_name: string | null } | null)?.full_name ?? "Lead";
+
+  // Always use copilot for IG (reply via IG, not SMS)
+  await admin.from("receptionist_alerts").insert({
+    agent_id: agentId,
+    lead_id: leadId,
+    alert_type: "pa_reply_draft",
+    severity: "info",
+    title: `PA draft reply ready — ${leadName}`,
+    message: interpretation.draftReply,
+    status: "open",
+    metadata: {
+      intent: interpretation.intent,
+      confidence: interpretation.confidence,
+      reasoning: interpretation.reasoning,
+      draft_reply: interpretation.draftReply,
+      suggested_action: interpretation.suggestedAction,
+      reply_channel: "ig",
+      conversation_id: conversationId,
+      deal_id: dealId,
+      lead_message: messageBody,
+    },
+  });
 }
 
 async function ingestEvent(admin: ReturnType<typeof createAdminClient>, event: NormalizedEvent) {
@@ -869,6 +955,17 @@ export async function POST(request: Request) {
             meta_thread_id: threadId,
             meta_participant_id: participantId,
           });
+
+          // Fire PA interpretation for inbound messages (fire-and-forget)
+          if (direction === "in" && !result.deduped && result.lead_id && normalizedEvent.text) {
+            void triggerPaForIgMessage({
+              admin,
+              agentId,
+              leadId: result.lead_id,
+              conversationId: result.conversation_id,
+              messageBody: normalizedEvent.text,
+            }).catch(() => { /* ignore */ });
+          }
         } catch (error) {
           failed += 1;
           const message = error instanceof Error ? error.message : "Event ingest failed.";
