@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import LockboxMark from "@/components/branding/lockbox-mark";
 import { PRODUCT_NAME } from "@/lib/features";
@@ -183,14 +184,10 @@ export default function AppShellClient({
     <div className="crm-shell crm-shell-v2">
       <aside className="crm-sidebar">
         <div className="crm-sidebar-brand">
-          <LockboxMark decorative />
+          <Image src="/logo.png" alt="LockboxHQ" width={36} height={36} style={{ borderRadius: 6, flexShrink: 0 }} />
           <div>
             <div className="crm-sidebar-brand-name">{PRODUCT_NAME.toUpperCase()}</div>
-            <div className="crm-sidebar-brand-tag">
-              {isOffMarketAccount
-                ? "Deal command center for off-market agents"
-                : "Smart CRM for inbound real estate agents"}
-            </div>
+            <div className="crm-sidebar-brand-tag">Work less. Close more.</div>
           </div>
         </div>
 
