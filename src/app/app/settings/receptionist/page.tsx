@@ -215,7 +215,6 @@ export default function ReceptionistSettingsPage() {
   const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [cloningVoice, setCloningVoice] = useState(false);
-  const [configuringAgent, setConfiguringAgent] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [cloneFile, setCloneFile] = useState<File | null>(null);
   const [voiceMessage, setVoiceMessage] = useState("");
@@ -496,27 +495,6 @@ export default function ReceptionistSettingsPage() {
     }
   }
 
-  async function configureVoiceAgent() {
-    setConfiguringAgent(true);
-    setVoiceMessage("");
-    try {
-      const response = await fetch("/api/receptionist/voice/configure", { method: "POST" });
-      const data = (await response.json()) as { ok?: boolean; agent_id?: string; error?: string };
-      if (!response.ok || !data.ok) {
-        setVoiceMessageType("error");
-        setVoiceMessage(data.error || "Could not configure voice agent.");
-        return;
-      }
-      setSettings((previous) => ({ ...previous, voice_agent_id: data.agent_id || "" }));
-      setVoiceMessageType("success");
-      setVoiceMessage("Voice AI agent configured. Inbound calls will now use ElevenLabs streaming.");
-    } catch {
-      setVoiceMessageType("error");
-      setVoiceMessage("Voice agent configuration failed.");
-    } finally {
-      setConfiguringAgent(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -1299,33 +1277,20 @@ export default function ReceptionistSettingsPage() {
                 Without this, calls use the sequential TTS question flow.
               </p>
               <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
-                {settings.voice_agent_id ? (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <span className="crm-chip crm-chip-ok">Agent ID: {settings.voice_agent_id.slice(0, 16)}...</span>
-                    <button
-                      type="button"
-                      className="crm-btn crm-btn-secondary"
-                      style={{ fontSize: 12, padding: "4px 10px" }}
-                      onClick={() => void configureVoiceAgent()}
-                      disabled={configuringAgent}
-                    >
-                      {configuringAgent ? "Updating..." : "Update Agent Config"}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="crm-btn crm-btn-primary"
-                    onClick={() => void configureVoiceAgent()}
-                    disabled={configuringAgent}
-                    style={{ width: "fit-content" }}
-                  >
-                    {configuringAgent ? "Configuring..." : "Configure AI Agent (ElevenLabs Streaming)"}
-                  </button>
-                )}
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                    Paste your ElevenLabs Agent ID
+                  </span>
+                  <input
+                    type="text"
+                    className="crm-input"
+                    placeholder="agent_xxxxxxxxxxxxxxxxxxxxxxxx"
+                    value={settings.voice_agent_id}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, voice_agent_id: e.target.value.trim() }))}
+                  />
+                </label>
                 <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.4 }}>
-                  Requires ELEVENLABS_API_KEY configured on the server.
-                  Save your voice settings first, then configure the agent.
+                  Copy the Agent ID from your ElevenLabs dashboard and paste it here, then hit Save Settings.
                 </p>
               </div>
             </section>
