@@ -187,7 +187,7 @@ export default function AppShellClient({
           <Image src="/logo.png" alt="LockboxHQ" width={36} height={36} style={{ borderRadius: 6, flexShrink: 0 }} />
           <div>
             <div className="crm-sidebar-brand-name">{PRODUCT_NAME.toUpperCase()}</div>
-            <div className="crm-sidebar-brand-tag">Work less. Close more.</div>
+            <div className="crm-sidebar-brand-tag">Stay in the field. We&apos;ll run the office.</div>
           </div>
         </div>
 
