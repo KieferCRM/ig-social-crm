@@ -1052,7 +1052,7 @@ export default function PipelineClient() {
               </label>
 
               <label className="crm-filter-field">
-                <span>Asking Price</span>
+                <span>Est. Asking Price Range</span>
                 <input
                   value={addDraft.asking_price}
                   placeholder="350000"
@@ -1249,7 +1249,7 @@ export default function PipelineClient() {
               </label>
 
               <label className="crm-filter-field">
-                <span>Asking Price</span>
+                <span>Est. Asking Price Range</span>
                 <input
                   value={detailDraft.asking_price}
                   inputMode="decimal"

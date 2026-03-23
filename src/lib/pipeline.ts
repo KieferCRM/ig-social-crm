@@ -12,8 +12,8 @@ type StatusBadgeTone =
 
 export const OFF_MARKET_STAGES = [
   "prospecting",
-  "offer_sent",
   "negotiating",
+  "offer_sent",
   "under_contract",
   "closed",
   "dead",

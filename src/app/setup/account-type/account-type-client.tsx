@@ -24,7 +24,7 @@ type Option = {
 const OPTIONS: Option[] = [
   {
     value: "solo_agent",
-    title: "Solo Agent",
+    title: "Traditional",
     body: "Broad inbound CRM for agents who want a clean daily workspace for intake, deals, and follow-up.",
     bullets: [
       "Buyer and seller inbound",
@@ -35,8 +35,8 @@ const OPTIONS: Option[] = [
   },
   {
     value: "off_market_agent",
-    title: "Off-Market Agent",
-    body: "Acquisition and disposition focused workspace with off-market sample flow and seller-heavy first-run context.",
+    title: "Nontraditional",
+    body: "Acquisition and disposition focused workspace built for off-market and investment-focused agents.",
     bullets: [
       "Seller acquisition focus",
       "Disposition workflow context",
