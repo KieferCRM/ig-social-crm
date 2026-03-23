@@ -92,6 +92,17 @@ function resolveBaseUrl(request: Request): string {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  try {
+    return await handleInbound(request);
+  } catch (err) {
+    console.error("[voice/inbound] Unhandled error:", err);
+    return twimlResponse(sayFallback(
+      "Sorry, we encountered a technical issue. Please try again or leave a message."
+    ));
+  }
+}
+
+async function handleInbound(request: Request): Promise<Response> {
   // Parse form-encoded Twilio body
   const rawBody = await request.text();
   const params = new URLSearchParams(rawBody);
