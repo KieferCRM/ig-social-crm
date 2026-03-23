@@ -56,8 +56,9 @@ function resolveBaseUrl(request: Request): string {
 
 function extractIntent(speech: string): string | null {
   const lower = speech.toLowerCase();
-  const sellWords = ["sell", "selling", "list", "listing", "get rid", "offload", "move out"];
-  const buyWords = ["buy", "buying", "purchase", "looking for", "want to buy", "find a home", "new home"];
+  // Include common speech-to-text misrecognitions (e.g. "cell" for "sell")
+  const sellWords = ["sell", "selling", "cell", "sale", "sales", "list", "listing", "get rid", "offload", "move out", "seller"];
+  const buyWords = ["buy", "buying", "purchase", "looking for", "want to buy", "find a home", "new home", "buyer", "looking to buy"];
   const hasSell = sellWords.some((w) => lower.includes(w));
   const hasBuy = buyWords.some((w) => lower.includes(w));
   if (hasSell && hasBuy) return "Buy and Sell";

@@ -242,7 +242,9 @@ export function buildNextQuestion(state: VoiceCallState): string {
   if (!state.address) {
     return isSeller
       ? "What's the address of the property you're looking to sell?"
-      : "Great! What area or neighborhood are you looking to buy in?";
+      : state.intent?.toLowerCase().includes("buy")
+        ? "Great! What area or neighborhood are you looking to buy in?"
+        : "What property or area are you working with?";
   }
 
   if (!state.timeline) {
