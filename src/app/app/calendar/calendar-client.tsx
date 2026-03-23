@@ -11,7 +11,7 @@ import {
   APPOINTMENT_TYPE_LABELS,
   APPOINTMENT_STATUS_LABELS,
 } from "@/lib/appointments";
-import type { DealFollowup, CalendarTask } from "./page";
+import type { DealFollowup, CalendarTask } from "@/lib/appointments";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

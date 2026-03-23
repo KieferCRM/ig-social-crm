@@ -1,4 +1,18 @@
 export type AppointmentType = "call" | "showing" | "consultation" | "walkthrough" | "other";
+
+export type DealFollowup = {
+  id: string;
+  property_address: string | null;
+  next_followup_date: string;
+  stage: string;
+  lead: { full_name: string | null } | null;
+};
+
+export type CalendarTask = {
+  id: string;
+  title: string;
+  due_at: string;
+};
 export type AppointmentStatus = "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show";
 
 export type Appointment = {

@@ -2,23 +2,9 @@ import { redirect } from "next/navigation";
 import CalendarClient from "./calendar-client";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Appointment } from "@/lib/appointments";
+import type { Appointment, DealFollowup, CalendarTask } from "@/lib/appointments";
 
 export const dynamic = "force-dynamic";
-
-export type DealFollowup = {
-  id: string;
-  property_address: string | null;
-  next_followup_date: string;
-  stage: string;
-  lead: { full_name: string | null } | null;
-};
-
-export type CalendarTask = {
-  id: string;
-  title: string;
-  due_at: string;
-};
 
 export default async function CalendarPage() {
   const supabase = await supabaseServer();
