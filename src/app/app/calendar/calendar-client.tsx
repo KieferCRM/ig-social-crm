@@ -15,10 +15,13 @@ import type { DealFollowup, CalendarTask } from "@/lib/appointments";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type ScheduledBlast = { id: string; tag: string; message: string; scheduled_at: string };
+
 type CalendarEvent =
   | { type: "appointment"; id: string; title: string; time: string; raw: Appointment }
   | { type: "followup"; id: string; title: string; raw: DealFollowup }
-  | { type: "task"; id: string; title: string; raw: CalendarTask };
+  | { type: "task"; id: string; title: string; raw: CalendarTask }
+  | { type: "blast"; id: string; title: string; time: string; raw: ScheduledBlast };
 
 type AppointmentResponse = { appointment?: Appointment; error?: string };
 type AppointmentsResponse = { appointments?: Appointment[]; error?: string };
@@ -47,12 +50,14 @@ const EVENT_COLOR: Record<CalendarEvent["type"], string> = {
   appointment: "#2563eb",
   followup: "#ea580c",
   task: "#7c3aed",
+  blast: "#15803d",
 };
 
 const EVENT_BG: Record<CalendarEvent["type"], string> = {
   appointment: "#dbeafe",
   followup: "#ffedd5",
   task: "#ede9fe",
+  blast: "#dcfce7",
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -77,7 +82,8 @@ function todayStr(): string {
 function buildEventMap(
   appointments: Appointment[],
   followups: DealFollowup[],
-  tasks: CalendarTask[]
+  tasks: CalendarTask[],
+  blasts: ScheduledBlast[]
 ): Map<string, CalendarEvent[]> {
   const map = new Map<string, CalendarEvent[]>();
 
@@ -119,6 +125,17 @@ function buildEventMap(
     });
   }
 
+  for (const blast of blasts) {
+    const dateStr = blast.scheduled_at.split("T")[0];
+    add(dateStr, {
+      type: "blast",
+      id: blast.id,
+      title: `Blast: ${blast.tag}`,
+      time: formatAppointmentTime(blast.scheduled_at),
+      raw: blast,
+    });
+  }
+
   return map;
 }
 
@@ -139,10 +156,12 @@ export default function CalendarClient({
   initialAppointments,
   initialFollowups,
   initialTasks,
+  initialBlasts,
 }: {
   initialAppointments: Appointment[];
   initialFollowups: DealFollowup[];
   initialTasks: CalendarTask[];
+  initialBlasts: ScheduledBlast[];
 }) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -166,7 +185,7 @@ export default function CalendarClient({
 
   const selectedAppt = appointments.find((a) => a.id === selectedApptId) ?? null;
 
-  const eventMap = buildEventMap(appointments, initialFollowups, initialTasks);
+  const eventMap = buildEventMap(appointments, initialFollowups, initialTasks, initialBlasts);
   const today = todayStr();
 
   // ─── Month grid ─────────────────────────────────────────────────────────────
@@ -548,6 +567,21 @@ function DayEventRow({ event, onOpenAppt }: { event: CalendarEvent; onOpenAppt: 
         <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>
           Follow-up due · {deal.stage.replace("_", " ")}
           {deal.lead?.full_name ? ` · ${deal.lead.full_name}` : ""}
+        </div>
+      </div>
+    );
+  }
+
+  if (event.type === "blast") {
+    const blast = event.raw;
+    return (
+      <div className="crm-card-muted" style={{ padding: 12, borderLeft: `4px solid ${color}`, background: bg }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>Broadcast · {blast.tag}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>{event.time} · {blast.message.slice(0, 80)}{blast.message.length > 80 ? "…" : ""}</div>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, background: "#dcfce7", color: "#15803d", borderRadius: 4, padding: "2px 7px", alignSelf: "flex-start" }}>SCHEDULED</span>
         </div>
       </div>
     );

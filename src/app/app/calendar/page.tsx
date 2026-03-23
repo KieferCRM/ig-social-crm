@@ -14,7 +14,7 @@ export default async function CalendarPage() {
   const admin = supabaseAdmin();
   const agentId = user.id;
 
-  const [{ data: apptData }, { data: dealData }, { data: taskData }] = await Promise.all([
+  const [{ data: apptData }, { data: dealData }, { data: taskData }, { data: blastData }] = await Promise.all([
     supabase
       .from("appointments")
       .select("*,lead:leads(full_name,canonical_phone),deal:deals(property_address)")
@@ -33,7 +33,15 @@ export default async function CalendarPage() {
       .or(`owner_user_id.eq.${agentId},agent_id.eq.${agentId}`)
       .eq("status", "open")
       .not("due_at", "is", null),
+    admin
+      .from("blasts")
+      .select("id,tag,message,scheduled_at")
+      .eq("agent_id", agentId)
+      .eq("status", "pending")
+      .not("scheduled_at", "is", null),
   ]);
+
+  type ScheduledBlast = { id: string; tag: string; message: string; scheduled_at: string };
 
   return (
     <main className="crm-page crm-stack-12">
@@ -41,6 +49,7 @@ export default async function CalendarPage() {
         initialAppointments={(apptData ?? []) as Appointment[]}
         initialFollowups={(dealData ?? []) as unknown as DealFollowup[]}
         initialTasks={(taskData ?? []) as CalendarTask[]}
+        initialBlasts={(blastData ?? []) as ScheduledBlast[]}
       />
     </main>
   );

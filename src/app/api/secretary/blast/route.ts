@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { command?: string; blastId?: string; confirm?: boolean };
+  let body: { command?: string; blastId?: string; confirm?: boolean; message?: string };
   try {
     body = await request.json() as typeof body;
   } catch {
@@ -59,6 +59,12 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!blast) return NextResponse.json({ error: "Blast not found" }, { status: 404 });
+
+    // Apply edited message if provided
+    if (body.message && body.message.trim()) {
+      await admin.from("blasts").update({ message: body.message.trim(), updated_at: new Date().toISOString() }).eq("id", body.blastId);
+      (blast as BlastRow).message = body.message.trim();
+    }
 
     // If scheduled for the future, just leave it pending — cron will fire it
     if (blast.scheduled_at && new Date(blast.scheduled_at as string) > new Date()) {

@@ -1184,6 +1184,7 @@ function BroadcastTab() {
   const [interpreting, setInterpreting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [preview, setPreview] = useState<BlastPreview | null>(null);
+  const [editedMessage, setEditedMessage] = useState("");
   const [blasts, setBlasts] = useState<BlastRecord[]>([]);
   const [blastsLoading, setBlastsLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -1220,6 +1221,7 @@ function BroadcastTab() {
         return;
       }
       setPreview(data);
+      setEditedMessage(data.interpretation.message);
     } catch {
       setMessage("Something went wrong. Try again.");
     } finally {
@@ -1235,7 +1237,7 @@ function BroadcastTab() {
       const res = await fetch("/api/secretary/blast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blastId: preview.blast.id, confirm: true }),
+        body: JSON.stringify({ blastId: preview.blast.id, confirm: true, message: editedMessage }),
       });
       const data = await res.json() as { ok?: boolean; status?: string; error?: string };
       if (!res.ok || data.error) {
@@ -1309,11 +1311,15 @@ function BroadcastTab() {
               <div style={{ fontSize: 14 }}>{preview.interpretation.recipient_summary} — <strong>{preview.recipient_count} contacts</strong></div>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 4 }}>Message</div>
-              <div style={{ fontSize: 14, padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #bbf7d0", lineHeight: 1.5 }}>
-                {preview.interpretation.message}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--ink-muted)", marginTop: 4 }}>{preview.interpretation.message.length}/160 characters</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 4 }}>Message — edit before sending</div>
+              <textarea
+                value={editedMessage}
+                onChange={(e) => setEditedMessage(e.target.value)}
+                rows={3}
+                maxLength={320}
+                style={{ width: "100%", fontSize: 14, padding: "10px 14px", background: "#fff", borderRadius: 8, border: "1px solid #bbf7d0", lineHeight: 1.5, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" as const }}
+              />
+              <div style={{ fontSize: 11, color: editedMessage.length > 160 ? "#dc2626" : "var(--ink-muted)", marginTop: 4 }}>{editedMessage.length}/160 characters</div>
             </div>
             {preview.interpretation.scheduled_at && (
               <div>
