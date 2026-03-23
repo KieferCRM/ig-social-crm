@@ -184,7 +184,7 @@ export default function AppShellClient({
     <div className="crm-shell crm-shell-v2">
       <aside className="crm-sidebar">
         <div className="crm-sidebar-brand">
-          <Image src="/logo.png" alt="LockboxHQ" width={36} height={36} style={{ borderRadius: 6, flexShrink: 0 }} />
+          <Image src="/logo.png" alt="LockboxHQ" width={56} height={56} style={{ borderRadius: 8, flexShrink: 0 }} />
           <div>
             <div className="crm-sidebar-brand-name">{PRODUCT_NAME.toUpperCase()}</div>
             <div className="crm-sidebar-brand-tag">Stay in the field. We&apos;ll run the office.</div>
