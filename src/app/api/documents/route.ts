@@ -148,6 +148,51 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true, document });
 }
 
+export async function PATCH(request: Request) {
+  const supabase = await supabaseServer();
+  const auth = await loadAccessContext(supabase);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  let body: { id?: string; status?: string; file_type?: string; tags?: string[] } = {};
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const documentId = String(body.id || "").trim();
+  if (!documentId) return NextResponse.json({ error: "Document id is required." }, { status: 400 });
+
+  const admin = supabaseAdmin();
+  const { data: currentRow, error: loadError } = await admin
+    .from("agents")
+    .select("settings")
+    .eq("id", auth.context.user.id)
+    .maybeSingle();
+
+  if (loadError) return NextResponse.json({ error: loadError.message }, { status: 500 });
+
+  const currentSettings = readWorkspaceSettingsFromAgentSettings(currentRow?.settings || null);
+  const existing = currentSettings.documents.find((d) => d.id === documentId);
+  if (!existing) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+
+  const updated = {
+    ...existing,
+    ...(body.status !== undefined && { status: body.status }),
+    ...(body.file_type !== undefined && { file_type: body.file_type }),
+    ...(body.tags !== undefined && { tags: body.tags }),
+  };
+
+  const nextSettings = withWorkspaceDocument(currentRow?.settings || null, updated);
+  const { error: saveError } = await admin
+    .from("agents")
+    .upsert({ id: auth.context.user.id, settings: nextSettings, updated_at: new Date().toISOString() }, { onConflict: "id" });
+
+  if (saveError) return NextResponse.json({ error: saveError.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true, document: updated });
+}
+
 export async function DELETE(request: Request) {
   const supabase = await supabaseServer();
   const auth = await loadAccessContext(supabase);
