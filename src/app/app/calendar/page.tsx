@@ -39,7 +39,7 @@ export default async function CalendarPage() {
     <main className="crm-page crm-stack-12">
       <CalendarClient
         initialAppointments={(apptData ?? []) as Appointment[]}
-        initialFollowups={(dealData ?? []) as DealFollowup[]}
+        initialFollowups={(dealData ?? []) as unknown as DealFollowup[]}
         initialTasks={(taskData ?? []) as CalendarTask[]}
       />
     </main>
