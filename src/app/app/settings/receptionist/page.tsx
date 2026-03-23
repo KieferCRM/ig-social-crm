@@ -216,6 +216,7 @@ export default function ReceptionistSettingsPage() {
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [cloningVoice, setCloningVoice] = useState(false);
   const [configuringAgent, setConfiguringAgent] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [cloneFile, setCloneFile] = useState<File | null>(null);
   const [voiceMessage, setVoiceMessage] = useState("");
   const [voiceMessageType, setVoiceMessageType] = useState<"success" | "error">("success");
@@ -544,47 +545,40 @@ export default function ReceptionistSettingsPage() {
           </div>
         </div>
 
-        <div className="crm-card-muted" style={{ padding: 14, display: "grid", gap: 10 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              flexWrap: "wrap",
-            }}
-          >
-            <h2 className="crm-section-title" style={{ margin: 0 }}>
-              How it works
-            </h2>
-            <span
-              className={
-                communicationsActive && activationReady ? "crm-chip crm-chip-ok" : "crm-chip crm-chip-warn"
-              }
-            >
-              {communicationsActive && activationReady ? "Live and ready" : "Setup in progress"}
-            </span>
+        {/* Business phone prominent display */}
+        {hasBusinessPhone && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px" }}>
+            <span style={{ fontSize: 13, color: "var(--ink-muted)" }}>Your Secretary number:</span>
+            <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: "0.04em", color: "#15803d" }}>{businessPhone}</span>
+            <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>— share this with leads</span>
           </div>
-          <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55 }}>
-            Once Secretary is active, your LockboxHQ business number can power missed-call text-back, direct SMS
-            conversations, captured lead details, and urgent alerts without bouncing you across separate tools.
-          </p>
-          <ol
-            style={{
-              margin: 0,
-              paddingLeft: 18,
-              fontSize: 13,
-              color: "var(--ink)",
-              display: "grid",
-              gap: 6,
-            }}
+        )}
+
+        {/* Collapsible How it works */}
+        <div className="crm-card-muted" style={{ padding: 14, display: "grid", gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => setHowItWorksOpen(v => !v)}
+            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", padding: 0, width: "100%" }}
           >
-            <li>Lead calls or texts your business number.</li>
-            <li>LockboxHQ records the interaction and links it to a lead record.</li>
-            <li>If the call is missed, LockboxHQ can send your starter SMS automatically.</li>
-            <li>Lead replies are captured and qualification data updates the CRM.</li>
-            <li>Urgent language can trigger high-priority alerts.</li>
-          </ol>
+            <h2 className="crm-section-title" style={{ margin: 0 }}>How it works</h2>
+            <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{howItWorksOpen ? "▲ Hide" : "▼ Show"}</span>
+          </button>
+          {howItWorksOpen && (
+            <>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55 }}>
+                Once Secretary is active, your LockboxHQ business number can power missed-call text-back, direct SMS
+                conversations, captured lead details, and urgent alerts without bouncing you across separate tools.
+              </p>
+              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--ink)", display: "grid", gap: 6 }}>
+                <li>Lead calls or texts your business number.</li>
+                <li>LockboxHQ records the interaction and links it to a lead record.</li>
+                <li>If the call is missed, LockboxHQ can send your starter SMS automatically.</li>
+                <li>Lead replies are captured and qualification data updates the CRM.</li>
+                <li>Urgent language can trigger high-priority alerts.</li>
+              </ol>
+            </>
+          )}
         </div>
       </section>
 
@@ -592,7 +586,7 @@ export default function ReceptionistSettingsPage() {
 
         <section className="crm-card crm-section-card crm-stack-10">
           <div className="crm-section-head">
-            <h2 className="crm-section-title">Upgrade Status</h2>
+            <h2 className="crm-section-title">Activation</h2>
             <span className={communicationsActive ? "crm-chip crm-chip-ok" : "crm-chip crm-chip-warn"}>
               {communicationsActive ? "Messaging Active" : "Messaging Paused"}
             </span>
@@ -943,6 +937,20 @@ export default function ReceptionistSettingsPage() {
                 setSettings((previous) => ({ ...previous, custom_greeting: event.target.value }))
               }
               placeholder="Hi, this is the assistant for [Agent Name]. Sorry we missed your call. Are you looking to buy, sell, or invest?"
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>SMS Conversation Tone</span>
+            <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+              Describe how Secretary should come across in text conversations. This shapes the AI&apos;s personality when responding to leads.
+            </span>
+            <input
+              value={settings.sms_tone}
+              onChange={(event) =>
+                setSettings((previous) => ({ ...previous, sms_tone: event.target.value }))
+              }
+              placeholder="e.g. Professional and concise, friendly but not casual, direct and confident"
             />
           </label>
         </section>

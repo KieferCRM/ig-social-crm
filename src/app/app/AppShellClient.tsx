@@ -8,6 +8,7 @@ import LockboxMark from "@/components/branding/lockbox-mark";
 import { PRODUCT_NAME } from "@/lib/features";
 import { type AccountType } from "@/lib/onboarding";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import FounderSwitcher from "@/components/founder/FounderSwitcher";
 
 export default function AppShellClient({
   children,
@@ -345,6 +346,7 @@ export default function AppShellClient({
         </nav>
 
         <div className="crm-sidebar-footer">
+          <FounderSwitcher />
           <span className="crm-chip crm-sidebar-mode-chip">
             {process.env.NEXT_PUBLIC_VERCEL_ENV === "preview" ? "PREVIEW" : process.env.NODE_ENV === "development" ? "DEV" : "LIVE WORKSPACE"}
           </span>

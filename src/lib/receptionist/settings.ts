@@ -56,6 +56,7 @@ export type ReceptionistSettings = {
   voice_clone_status: VoiceCloneStatus;
   voice_clone_voice_id: string;   // ElevenLabs voice ID for the cloned voice
   pa_mode: PaMode;                // How the PA handles lead replies
+  sms_tone: string;               // Secretary SMS personality/tone description
 };
 
 const DEFAULT_ESCALATION_KEYWORDS = [
@@ -99,6 +100,7 @@ export const DEFAULT_RECEPTIONIST_SETTINGS: ReceptionistSettings = {
   voice_clone_status: "none",
   voice_clone_voice_id: "",
   pa_mode: "copilot",
+  sms_tone: "",
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -291,6 +293,7 @@ export function normalizeReceptionistSettings(input: unknown): ReceptionistSetti
     voice_clone_status: normalizeVoiceCloneStatus(raw.voice_clone_status),
     voice_clone_voice_id: readString(raw.voice_clone_voice_id),
     pa_mode: raw.pa_mode === "autopilot" ? "autopilot" : "copilot",
+    sms_tone: readString(raw.sms_tone),
   };
 }
 
