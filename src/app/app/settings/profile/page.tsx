@@ -67,6 +67,9 @@ export default function ProfileSettingsPage() {
   const [timezone, setTimezone] = useState("America/New_York");
   const [savingTz, setSavingTz] = useState(false);
   const [tzMsg, setTzMsg] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [nameMsg, setNameMsg] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -74,11 +77,12 @@ export default function ProfileSettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setAgentId(user.id);
-      const { data } = await supabase.from("agents").select("vanity_slug, timezone").eq("id", user.id).maybeSingle();
+      const { data } = await supabase.from("agents").select("vanity_slug, timezone, full_name").eq("id", user.id).maybeSingle();
       const s = (data?.vanity_slug as string | null) ?? null;
       setCurrentSlug(s);
       setSlug(s ?? "");
       if (data?.timezone) setTimezone(data.timezone as string);
+      if (data?.full_name) setFullName(data.full_name as string);
       setLoading(false);
     }
     void load();
@@ -145,6 +149,20 @@ export default function ProfileSettingsPage() {
     }
   }
 
+  async function handleSaveName() {
+    if (!agentId) return;
+    setSavingName(true);
+    setNameMsg("");
+    const { error } = await supabase.from("agents").update({ full_name: fullName.trim() }).eq("id", agentId);
+    setSavingName(false);
+    if (error) {
+      setNameMsg("Could not save name.");
+    } else {
+      setNameMsg("Name saved.");
+      window.setTimeout(() => setNameMsg(""), 3000);
+    }
+  }
+
   async function handleSaveTimezone() {
     if (!agentId) return;
     setSavingTz(true);
@@ -193,6 +211,33 @@ export default function ProfileSettingsPage() {
               Manage your branded form slug and share your seller and contact form links.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Your name */}
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div>
+          <h2 className="crm-section-title">Your Name</h2>
+          <p className="crm-section-subtitle">
+            Used by your AI receptionist on calls — callers will hear this name.
+          </p>
+        </div>
+        <input
+          className="crm-input"
+          type="text"
+          value={fullName}
+          placeholder="e.g. Alex Johnson"
+          onChange={(e) => setFullName(e.target.value)}
+        />
+        {nameMsg ? (
+          <div style={{ fontSize: 13, fontWeight: 600, color: nameMsg === "Name saved." ? "var(--ok, #16a34a)" : "var(--danger, #dc2626)" }}>
+            {nameMsg}
+          </div>
+        ) : null}
+        <div>
+          <button type="button" className="crm-btn crm-btn-primary" disabled={savingName} onClick={() => void handleSaveName()}>
+            {savingName ? "Saving..." : "Save name"}
+          </button>
         </div>
       </section>
 
