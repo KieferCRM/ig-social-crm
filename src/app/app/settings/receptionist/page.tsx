@@ -11,7 +11,6 @@ import {
   type AfterHoursVoiceMode,
   type VoiceCloneStatus,
 } from "@/lib/receptionist/settings";
-import { PRESET_VOICES } from "@/lib/elevenlabs/voices";
 
 type SettingsResponse = {
   settings?: ReceptionistSettings;
@@ -213,7 +212,6 @@ export default function ReceptionistSettingsPage() {
   const [assigningNumber, setAssigningNumber] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
-  const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [cloningVoice, setCloningVoice] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [cloneFile, setCloneFile] = useState<File | null>(null);
@@ -441,29 +439,6 @@ export default function ReceptionistSettingsPage() {
     }
   }
 
-  async function previewVoice(voiceId: string) {
-    setPreviewingVoice(voiceId);
-    try {
-      const response = await fetch(`/api/receptionist/voice/preview?voice_id=${encodeURIComponent(voiceId)}`);
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        setVoiceMessageType("error");
-        setVoiceMessage(data.error || "Could not load voice preview.");
-        return;
-      }
-      const audioBuffer = await response.arrayBuffer();
-      const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.onended = () => URL.revokeObjectURL(url);
-      void audio.play();
-    } catch {
-      setVoiceMessageType("error");
-      setVoiceMessage("Could not play voice preview.");
-    } finally {
-      setPreviewingVoice(null);
-    }
-  }
 
   async function submitVoiceClone() {
     if (!cloneFile) return;
@@ -993,68 +968,6 @@ export default function ReceptionistSettingsPage() {
                 />
               </Field>
 
-              <div>
-                <span style={{ fontSize: 13, fontWeight: 700, display: "block", marginBottom: 4 }}>Preset Voice Library</span>
-                <span style={{ fontSize: 12, color: "var(--ink-muted)", display: "block", marginBottom: 10 }}>
-                  Select a voice and preview it before saving. {settings.voice_clone_status === "ready" ? "Your cloned voice is currently active." : ""}
-                </span>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
-                  {PRESET_VOICES.map((voice) => {
-                    const isSelected = settings.voice_id === voice.id;
-                    const isPreviewing = previewingVoice === voice.id;
-                    return (
-                      <div
-                        key={voice.id}
-                        className={isSelected ? "crm-card-muted" : "crm-card-muted"}
-                        style={{
-                          padding: 10,
-                          display: "grid",
-                          gap: 6,
-                          cursor: "pointer",
-                          border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
-                          borderRadius: 6,
-                        }}
-                        onClick={() => setSettings((previous) => ({ ...previous, voice_id: voice.id }))}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <strong style={{ fontSize: 13 }}>{voice.name}</strong>
-                          {isSelected && <span className="crm-chip crm-chip-ok" style={{ fontSize: 11 }}>Selected</span>}
-                        </div>
-                        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{voice.tone}</span>
-                        <span style={{ fontSize: 11, color: "var(--ink-faint)", lineHeight: 1.4 }}>{voice.description}</span>
-                        <button
-                          type="button"
-                          className="crm-btn crm-btn-secondary"
-                          style={{ fontSize: 12, padding: "4px 8px" }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void previewVoice(voice.id);
-                          }}
-                          disabled={isPreviewing || previewingVoice !== null}
-                        >
-                          {isPreviewing ? "Playing..." : "▶ Preview"}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {voiceMessage ? (
-                <div
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: voiceMessageType === "success" ? "var(--color-ok-bg, #d1fae5)" : "var(--color-error-bg, #fee2e2)",
-                    color: voiceMessageType === "success" ? "var(--color-ok-text, #065f46)" : "var(--color-error-text, #991b1b)",
-                    border: `1px solid ${voiceMessageType === "success" ? "var(--color-ok-border, #6ee7b7)" : "var(--color-error-border, #fca5a5)"}`,
-                  }}
-                >
-                  {voiceMessage}
-                </div>
-              ) : null}
             </section>
 
             {/* Voice Cloning — Premium */}
