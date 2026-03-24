@@ -80,25 +80,34 @@ export async function POST(request: Request) {
 
   // If voice_preset changed to female or male, swap the ElevenLabs agent on the phone number
   const newPreset = savedSettings.voice_preset;
-  if (
-    newPreset !== currentSettings.voice_preset &&
-    (newPreset === "female" || newPreset === "male")
-  ) {
+  console.log("[receptionist/settings] voice_preset:", currentSettings.voice_preset, "->", newPreset, "| phone:", savedSettings.business_phone_number || "(none)", "| el_id:", savedSettings.elevenlabs_phone_number_id || "(none)");
+  if (newPreset === "female" || newPreset === "male") {
     const newAgentId = newPreset === "male"
       ? (process.env.ELEVENLABS_AGENT_MALE || "").trim()
       : (process.env.ELEVENLABS_AGENT_FEMALE || "").trim();
 
+    console.log("[receptionist/settings] target ElevenLabs agent:", newAgentId || "(missing env var)");
+
     if (newAgentId && savedSettings.business_phone_number) {
-      // Use stored ElevenLabs phone number ID, or look it up if not stored yet
       let elevenLabsPhoneNumberId = savedSettings.elevenlabs_phone_number_id;
       if (!elevenLabsPhoneNumberId) {
+        const { listElevenLabsPhoneNumbers } = await import("@/lib/elevenlabs");
+        const allNumbers = await listElevenLabsPhoneNumbers();
+        console.log("[receptionist/settings] ElevenLabs numbers:", JSON.stringify(allNumbers.map(n => ({ id: n.phone_number_id, num: n.phone_number }))));
         elevenLabsPhoneNumberId = await findElevenLabsPhoneNumberId(savedSettings.business_phone_number) || "";
+        console.log("[receptionist/settings] looked up ElevenLabs phone number ID:", elevenLabsPhoneNumberId || "(not found)");
       }
       if (elevenLabsPhoneNumberId) {
-        await updateElevenLabsPhoneNumberAgent(elevenLabsPhoneNumberId, newAgentId).catch((err) => {
-          console.warn("[receptionist/settings] ElevenLabs agent swap failed:", err);
+        const result = await updateElevenLabsPhoneNumberAgent(elevenLabsPhoneNumberId, newAgentId).catch((err) => {
+          console.warn("[receptionist/settings] ElevenLabs agent swap threw:", err);
+          return { ok: false, error: String(err) };
         });
+        console.log("[receptionist/settings] ElevenLabs agent swap result:", JSON.stringify(result));
+      } else {
+        console.warn("[receptionist/settings] No ElevenLabs phone number ID found — cannot swap agent");
       }
+    } else {
+      console.warn("[receptionist/settings] Skipping ElevenLabs swap — agentId:", newAgentId || "(empty)", "phone:", savedSettings.business_phone_number || "(empty)");
     }
   }
 
