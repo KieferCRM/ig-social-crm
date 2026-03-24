@@ -187,22 +187,37 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  console.log("[elevenlabs-webhook] Received event type:", payload.type);
+
   // Only handle transcription events
   if (payload.type !== "post_call_transcription") {
+    console.log("[elevenlabs-webhook] Skipping non-transcription event:", payload.type);
     return NextResponse.json({ ok: true, skipped: true });
   }
 
   const { data } = payload;
   const transcript = data.transcript ?? [];
 
+  console.log("[elevenlabs-webhook] Processing call:", {
+    agent_id: data.agent_id,
+    conversation_id: data.conversation_id,
+    status: data.status,
+    transcript_turns: transcript.length,
+    metadata_keys: Object.keys(data.metadata ?? {}),
+    has_analysis: !!data.analysis,
+  });
+
   // Look up the CRM agent from the ElevenLabs agent_id
   const admin = supabaseAdmin();
   const agentId = await findAgentByElevenLabsId(admin, data.agent_id);
 
   if (!agentId) {
-    console.warn("[elevenlabs-webhook] No CRM agent found for ElevenLabs agent:", data.agent_id);
+    console.warn("[elevenlabs-webhook] No CRM agent found for ElevenLabs agent:", data.agent_id,
+      "— paste this agent ID into Secretary Settings and save.");
     return NextResponse.json({ ok: true, skipped: true });
   }
+
+  console.log("[elevenlabs-webhook] Matched CRM agent:", agentId);
 
   // Get phone number — ElevenLabs passes it in metadata for Twilio calls
   const phone =
@@ -234,6 +249,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     .join("\n");
 
   const summary = data.analysis?.transcript_summary || "";
+
+  console.log("[elevenlabs-webhook] Lead data:", { phone, name, intent, address, timeline, budget });
 
   try {
     await upsertReceptionistLead({
