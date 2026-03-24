@@ -37,7 +37,8 @@ async function findAgentByPhone(
 ): Promise<{ agentId: string; fullName: string; voiceName: string } | null> {
   if (!calledNumber) return null;
 
-  const normalized = calledNumber.replace(/\s/g, "");
+  const digits = (s: string) => s.replace(/\D/g, "");
+  const normalizedDigits = digits(calledNumber);
 
   const { data: rows } = await admin
     .from("agents")
@@ -48,8 +49,8 @@ async function findAgentByPhone(
 
   for (const row of rows) {
     const settings = readReceptionistSettingsFromAgentSettings(row.settings);
-    const bizPhone = settings.business_phone_number.replace(/\s/g, "");
-    if (bizPhone && bizPhone === normalized) {
+    const bizDigits = digits(settings.business_phone_number);
+    if (bizDigits && bizDigits.slice(-10) === normalizedDigits.slice(-10)) {
       return {
         agentId: row.id as string,
         fullName: (row.full_name as string | null) || "your agent",
