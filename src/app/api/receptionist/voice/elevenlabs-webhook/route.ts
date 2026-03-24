@@ -116,7 +116,7 @@ function extractFromTranscript(transcript: TranscriptTurn[]): {
     const next = transcript[i + 1];
     if (
       turn.role === "agent" &&
-      /timeline|when.*hoping|when.*buy|when.*sell|how soon/i.test(turn.message) &&
+      /timeline|timeframe|time.?frame|when.*hoping|when.*buy|when.*sell|how soon|when.*move|when.*looking/i.test(turn.message) &&
       next.role === "user" &&
       next.message.trim().length > 0
     ) {
@@ -167,10 +167,10 @@ async function findCrmAgent(
 
   if (!rows) return null;
 
-  // Pass 1: custom voice — agent_id matches exactly
+  // Pass 1: any agent with this exact ElevenLabs agent ID saved
   for (const row of rows) {
     const settings = readReceptionistSettingsFromAgentSettings(row.settings);
-    if (settings.voice_preset === "custom" && settings.voice_agent_id === elevenLabsAgentId) {
+    if (settings.voice_agent_id && settings.voice_agent_id === elevenLabsAgentId) {
       return row.id as string;
     }
   }
