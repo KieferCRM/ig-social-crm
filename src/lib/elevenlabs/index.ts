@@ -371,8 +371,17 @@ export async function listElevenLabsPhoneNumbers(): Promise<ElevenLabsPhoneNumbe
 
 export async function findElevenLabsPhoneNumberId(phoneNumber: string): Promise<string | null> {
   const numbers = await listElevenLabsPhoneNumbers();
-  const normalized = phoneNumber.replace(/\s/g, "");
-  return numbers.find((n) => n.phone_number.replace(/\s/g, "") === normalized)?.phone_number_id ?? null;
+  // Strip all non-digits for comparison (handles +1, spaces, dashes, parens)
+  const digits = (s: string) => s.replace(/\D/g, "");
+  const target = digits(phoneNumber);
+  if (!target) return null;
+  // Match on last 10 digits so +16293069905 matches 6293069905
+  const match = numbers.find((n) => {
+    const d = digits(n.phone_number);
+    return d === target || d.slice(-10) === target.slice(-10);
+  });
+  console.log("[elevenlabs] findPhoneNumberId target:", target, "candidates:", numbers.map(n => digits(n.phone_number)).join(", "), "match:", match?.phone_number_id || "(none)");
+  return match?.phone_number_id ?? null;
 }
 
 export async function registerTwilioNumberWithElevenLabs(input: {

@@ -91,9 +91,6 @@ export async function POST(request: Request) {
     if (newAgentId && savedSettings.business_phone_number) {
       let elevenLabsPhoneNumberId = savedSettings.elevenlabs_phone_number_id;
       if (!elevenLabsPhoneNumberId) {
-        const { listElevenLabsPhoneNumbers } = await import("@/lib/elevenlabs");
-        const allNumbers = await listElevenLabsPhoneNumbers();
-        console.log("[receptionist/settings] ElevenLabs numbers:", JSON.stringify(allNumbers.map(n => ({ id: n.phone_number_id, num: n.phone_number }))));
         elevenLabsPhoneNumberId = await findElevenLabsPhoneNumberId(savedSettings.business_phone_number) || "";
         console.log("[receptionist/settings] looked up ElevenLabs phone number ID:", elevenLabsPhoneNumberId || "(not found)");
       }
