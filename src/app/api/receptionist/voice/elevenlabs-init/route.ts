@@ -121,12 +121,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const firstName = match.fullName.split(" ")[0] || match.fullName;
 
-  // Do not override ai_name — ElevenLabs agent Variables control the AI's name
-  // (female agent has ai_name=Sarah, male agent has ai_name=Jake, etc.)
   return NextResponse.json({
     dynamic_variables: {
       agent_name: match.fullName,
       agent_first_name: firstName,
+      ai_name: match.voiceName,
     },
   });
 }
