@@ -12,6 +12,8 @@ export type ReceptionistPhoneSetupStatus =
 
 // Voice tier: "none" = core CRM only, "sms" = Secretary SMS, "voice" = Secretary Voice
 export type VoiceTier = "none" | "sms" | "voice";
+// Which shared ElevenLabs agent preset to use, or "custom" for a user-supplied agent ID
+export type VoicePreset = "female" | "male" | "custom";
 // How the AI handles inbound calls
 export type CallHandlingMode =
   | "qualify_transfer"   // AI qualifies, then transfers to agent if available
@@ -48,9 +50,10 @@ export type ReceptionistSettings = {
   existing_number_setup_notes: string;
   // Voice AI fields
   voice_tier: VoiceTier;
+  voice_preset: VoicePreset;      // Which voice to use: female, male, or custom
   voice_name: string;             // Name the AI introduces itself as, e.g. "Sarah"
   voice_id: string;               // ElevenLabs voice ID for TTS
-  voice_agent_id: string;         // ElevenLabs Conversational AI agent ID (optional streaming mode)
+  voice_agent_id: string;         // ElevenLabs Conversational AI agent ID (only used when voice_preset = "custom")
   call_handling_mode: CallHandlingMode;
   after_hours_voice_mode: AfterHoursVoiceMode;
   voice_clone_status: VoiceCloneStatus;
@@ -92,6 +95,7 @@ export const DEFAULT_RECEPTIONIST_SETTINGS: ReceptionistSettings = {
   existing_number_setup_notes: "",
   // Voice defaults
   voice_tier: "none",
+  voice_preset: "female",
   voice_name: "Sarah",
   voice_id: DEFAULT_VOICE_ID,
   voice_agent_id: "",
@@ -186,6 +190,13 @@ function normalizePhoneSetupStatus(
     return normalized;
   }
   return fallback;
+}
+
+function normalizeVoicePreset(value: unknown): VoicePreset {
+  if (typeof value !== "string") return DEFAULT_RECEPTIONIST_SETTINGS.voice_preset;
+  const v = value.trim().toLowerCase();
+  if (v === "female" || v === "male" || v === "custom") return v;
+  return DEFAULT_RECEPTIONIST_SETTINGS.voice_preset;
 }
 
 function normalizeVoiceTier(value: unknown): VoiceTier {
@@ -285,6 +296,7 @@ export function normalizeReceptionistSettings(input: unknown): ReceptionistSetti
     existing_number_setup_notes: readString(raw.existing_number_setup_notes),
     // Voice fields
     voice_tier: normalizeVoiceTier(raw.voice_tier),
+    voice_preset: normalizeVoicePreset(raw.voice_preset),
     voice_name: readString(raw.voice_name, DEFAULT_RECEPTIONIST_SETTINGS.voice_name),
     voice_id: readString(raw.voice_id, DEFAULT_RECEPTIONIST_SETTINGS.voice_id),
     voice_agent_id: readString(raw.voice_agent_id),
@@ -386,6 +398,19 @@ export function buildMissedCallStarterText(
 
 export function isVoiceEnabled(settings: ReceptionistSettings): boolean {
   return settings.voice_tier === "voice" && settings.receptionist_enabled;
+}
+
+/**
+ * Returns the ElevenLabs agent ID to use for this user's voice setting.
+ * - "female" → shared female agent from env
+ * - "male"   → shared male agent from env
+ * - "custom" → the agent ID the user pasted into their settings
+ */
+export function resolveVoiceAgentId(settings: ReceptionistSettings): string {
+  if (settings.voice_preset === "custom") return settings.voice_agent_id || "";
+  if (settings.voice_preset === "male") return (process.env.ELEVENLABS_AGENT_MALE || "").trim();
+  // default: female
+  return (process.env.ELEVENLABS_AGENT_FEMALE || "").trim();
 }
 
 export function activeVoiceId(settings: ReceptionistSettings): string {

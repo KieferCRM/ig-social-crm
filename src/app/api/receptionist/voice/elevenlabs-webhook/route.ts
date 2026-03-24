@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { upsertReceptionistLead } from "@/lib/receptionist/lead-upsert";
+import { readReceptionistSettingsFromAgentSettings } from "@/lib/receptionist/settings";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -147,14 +148,18 @@ function extractFromTranscript(transcript: TranscriptTurn[]): {
 }
 
 // ---------------------------------------------------------------------------
-// Map ElevenLabs agent_id → CRM agent UUID
+// Map ElevenLabs call → CRM agent UUID
+// Strategy:
+//   1. Custom voice users: their voice_agent_id matches the ElevenLabs agent_id exactly
+//   2. Shared voice users (male/female preset): match by business_phone_number
+//      since multiple users share the same ElevenLabs agent ID
 // ---------------------------------------------------------------------------
 
-async function findAgentByElevenLabsId(
+async function findCrmAgent(
   admin: ReturnType<typeof supabaseAdmin>,
-  elevenLabsAgentId: string
+  elevenLabsAgentId: string,
+  toPhone: string | null
 ): Promise<string | null> {
-  // The voice_agent_id is stored inside agents.settings.receptionist_settings.voice_agent_id
   const { data: rows } = await admin
     .from("agents")
     .select("id, settings")
@@ -162,12 +167,23 @@ async function findAgentByElevenLabsId(
 
   if (!rows) return null;
 
+  // Pass 1: custom voice — agent_id matches exactly
   for (const row of rows) {
-    const settings = row.settings as Record<string, unknown> | null;
-    if (!settings) continue;
-    const receptionist = settings.receptionist_settings as Record<string, unknown> | null;
-    if (receptionist?.voice_agent_id === elevenLabsAgentId) {
+    const settings = readReceptionistSettingsFromAgentSettings(row.settings);
+    if (settings.voice_preset === "custom" && settings.voice_agent_id === elevenLabsAgentId) {
       return row.id as string;
+    }
+  }
+
+  // Pass 2: shared voice — match by business phone number (the "to" number on the call)
+  if (toPhone) {
+    const normalized = toPhone.replace(/\s/g, "");
+    for (const row of rows) {
+      const settings = readReceptionistSettingsFromAgentSettings(row.settings);
+      const bizPhone = settings.business_phone_number.replace(/\s/g, "");
+      if (bizPhone && bizPhone === normalized) {
+        return row.id as string;
+      }
     }
   }
 
@@ -198,22 +214,31 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { data } = payload;
   const transcript = data.transcript ?? [];
 
+  // Extract to-phone from metadata — ElevenLabs uses different field names depending on source
+  const toPhone =
+    (data.metadata?.to as string | undefined) ||
+    (data.metadata?.phone_number as string | undefined) ||
+    null;
+
   console.log("[elevenlabs-webhook] Processing call:", {
     agent_id: data.agent_id,
     conversation_id: data.conversation_id,
     status: data.status,
     transcript_turns: transcript.length,
-    metadata_keys: Object.keys(data.metadata ?? {}),
+    metadata: data.metadata ?? {},
     has_analysis: !!data.analysis,
   });
 
-  // Look up the CRM agent from the ElevenLabs agent_id
+  // Look up the CRM agent
   const admin = supabaseAdmin();
-  const agentId = await findAgentByElevenLabsId(admin, data.agent_id);
+  const agentId = await findCrmAgent(admin, data.agent_id, toPhone);
 
   if (!agentId) {
-    console.warn("[elevenlabs-webhook] No CRM agent found for ElevenLabs agent:", data.agent_id,
-      "— paste this agent ID into Secretary Settings and save.");
+    console.warn("[elevenlabs-webhook] No CRM agent found.", {
+      elevenlabs_agent_id: data.agent_id,
+      to_phone: toPhone,
+      hint: "Either save a custom agent ID in Secretary Settings, or ensure business_phone_number matches the called number.",
+    });
     return NextResponse.json({ ok: true, skipped: true });
   }
 

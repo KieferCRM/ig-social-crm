@@ -1263,36 +1263,75 @@ export default function ReceptionistSettingsPage() {
               </div>
             </section>
 
-            {/* ElevenLabs Conversational AI Agent */}
+            {/* Voice selection */}
             <section className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
-                <h2 className="crm-section-title">AI Agent (Streaming Mode)</h2>
-                <span className={settings.voice_agent_id ? "crm-chip crm-chip-ok" : "crm-chip"}>
-                  {settings.voice_agent_id ? "Configured" : "Not configured"}
-                </span>
+                <h2 className="crm-section-title">AI Voice</h2>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-                Configure an ElevenLabs Conversational AI agent for real-time streaming calls.
-                When configured, calls stream directly to ElevenLabs for a more natural conversation.
-                Without this, calls use the sequential TTS question flow.
+                Choose the voice your AI receptionist uses on calls.
               </p>
-              <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
-                <label style={{ display: "grid", gap: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
-                    Paste your ElevenLabs Agent ID
-                  </span>
-                  <input
-                    type="text"
-                    className="crm-input"
-                    placeholder="agent_xxxxxxxxxxxxxxxxxxxxxxxx"
-                    value={settings.voice_agent_id}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, voice_agent_id: e.target.value.trim() }))}
-                  />
-                </label>
-                <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.4 }}>
-                  Copy the Agent ID from your ElevenLabs dashboard and paste it here, then hit Save Settings.
-                </p>
+              <div style={{ display: "grid", gap: 8 }}>
+                {(
+                  [
+                    { value: "female", label: "Female", description: "Professional female voice (default)" },
+                    { value: "male", label: "Male", description: "Professional male voice" },
+                    { value: "custom", label: "Custom", description: "Use your own ElevenLabs agent" },
+                  ] as Array<{ value: "female" | "male" | "custom"; label: string; description: string }>
+                ).map((option) => {
+                  const isSelected = (settings.voice_preset ?? "female") === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className="crm-card-muted"
+                      style={{
+                        padding: 12,
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr",
+                        gap: "8px 12px",
+                        cursor: "pointer",
+                        border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                        borderRadius: 6,
+                        alignItems: "start",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="voice_preset"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() => setSettings((prev) => ({ ...prev, voice_preset: option.value }))}
+                        style={{ marginTop: 2 }}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
+                          {option.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
+              {(settings.voice_preset ?? "female") === "custom" && (
+                <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+                  <label style={{ display: "grid", gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
+                      Your ElevenLabs Agent ID
+                    </span>
+                    <input
+                      type="text"
+                      className="crm-input"
+                      placeholder="agent_xxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={settings.voice_agent_id}
+                      onChange={(e) => setSettings((prev) => ({ ...prev, voice_agent_id: e.target.value.trim() }))}
+                    />
+                  </label>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.4 }}>
+                    Copy the Agent ID from your ElevenLabs dashboard and paste it here, then hit Save Settings.
+                  </p>
+                </div>
+              )}
             </section>
 
             {/* Test Call */}

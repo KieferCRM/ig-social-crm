@@ -12,7 +12,7 @@
  */
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { buildTtsPlayUrl, getConversationalAgentStreamUrl } from "@/lib/elevenlabs";
-import { readReceptionistSettingsFromAgentSettings, isVoiceEnabled, activeVoiceId } from "@/lib/receptionist/settings";
+import { readReceptionistSettingsFromAgentSettings, isVoiceEnabled, activeVoiceId, resolveVoiceAgentId } from "@/lib/receptionist/settings";
 import { upsertReceptionistLead } from "@/lib/receptionist/lead-upsert";
 
 export const dynamic = "force-dynamic";
@@ -154,8 +154,9 @@ async function handleInbound(request: Request): Promise<Response> {
   // ---
   // Mode A: ElevenLabs Conversational AI streaming
   // ---
-  if (settings.voice_agent_id) {
-    const streamUrl = await getConversationalAgentStreamUrl(settings.voice_agent_id);
+  const resolvedAgentId = resolveVoiceAgentId(settings);
+  if (resolvedAgentId) {
+    const streamUrl = await getConversationalAgentStreamUrl(resolvedAgentId);
     if (streamUrl) {
       const escapedUrl = streamUrl.replace(/&/g, "&amp;");
       return twimlResponse(`<Connect><Stream url="${escapedUrl}" /></Connect>`);
