@@ -58,6 +58,7 @@ export type ReceptionistSettings = {
   after_hours_voice_mode: AfterHoursVoiceMode;
   voice_clone_status: VoiceCloneStatus;
   voice_clone_voice_id: string;   // ElevenLabs voice ID for the cloned voice
+  elevenlabs_phone_number_id: string; // ElevenLabs phone number ID — used to swap agent when voice preset changes
   pa_mode: PaMode;                // How the PA handles lead replies
   sms_tone: string;               // Secretary SMS personality/tone description
 };
@@ -103,6 +104,7 @@ export const DEFAULT_RECEPTIONIST_SETTINGS: ReceptionistSettings = {
   after_hours_voice_mode: "ai_take_message",
   voice_clone_status: "none",
   voice_clone_voice_id: "",
+  elevenlabs_phone_number_id: "",
   pa_mode: "copilot",
   sms_tone: "",
 };
@@ -304,6 +306,7 @@ export function normalizeReceptionistSettings(input: unknown): ReceptionistSetti
     after_hours_voice_mode: normalizeAfterHoursVoiceMode(raw.after_hours_voice_mode),
     voice_clone_status: normalizeVoiceCloneStatus(raw.voice_clone_status),
     voice_clone_voice_id: readString(raw.voice_clone_voice_id),
+    elevenlabs_phone_number_id: readString(raw.elevenlabs_phone_number_id),
     pa_mode: raw.pa_mode === "autopilot" ? "autopilot" : "copilot",
     sms_tone: readString(raw.sms_tone),
   };

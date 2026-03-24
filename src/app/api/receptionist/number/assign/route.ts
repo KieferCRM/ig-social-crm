@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     business_phone_number: assignment.businessPhoneNumber,
     business_number_provider: assignment.provider,
     existing_number_setup_notes: "",
+    ...(assignment.elevenLabsPhoneNumberId ? { elevenlabs_phone_number_id: assignment.elevenLabsPhoneNumberId } : {}),
   };
 
   const mergedSettings = mergeReceptionistIntoAgentSettings(

@@ -1,3 +1,5 @@
+import { registerTwilioNumberWithElevenLabs } from "@/lib/elevenlabs";
+
 export type SmsSendInput = {
   agentId: string;
   fromPhone: string;
@@ -16,6 +18,7 @@ export type BusinessNumberAssignmentResult = {
   status: "assigned" | "manual_review_required" | "failed";
   businessPhoneNumber: string | null;
   providerNumberId: string | null;
+  elevenLabsPhoneNumberId: string | null;
   error: string | null;
   mode: "real" | "mock";
 };
@@ -95,6 +98,7 @@ async function assignMockBusinessNumber(
     status: "assigned",
     businessPhoneNumber: number,
     providerNumberId: mockId("pn"),
+    elevenLabsPhoneNumberId: null,
     error: null,
     mode: "mock",
   };
@@ -111,6 +115,7 @@ async function assignTwilioBusinessNumber(
       status: "failed",
       businessPhoneNumber: null,
       providerNumberId: null,
+      elevenLabsPhoneNumberId: null,
       error: "Twilio credentials are missing.",
       mode: "real",
     };
@@ -148,6 +153,7 @@ async function assignTwilioBusinessNumber(
         status: "failed",
         businessPhoneNumber: null,
         providerNumberId: null,
+        elevenLabsPhoneNumberId: null,
         error: availablePayload.message || "Could not search Twilio numbers.",
         mode: "real",
       };
@@ -161,6 +167,7 @@ async function assignTwilioBusinessNumber(
         status: "manual_review_required",
         businessPhoneNumber: null,
         providerNumberId: null,
+        elevenLabsPhoneNumberId: null,
         error: "No available Twilio number found for this request.",
         mode: "real",
       };
@@ -194,6 +201,7 @@ async function assignTwilioBusinessNumber(
         status: "failed",
         businessPhoneNumber: null,
         providerNumberId: purchasePayload.sid || null,
+        elevenLabsPhoneNumberId: null,
         error: purchasePayload.message || "Could not assign Twilio number.",
         mode: "real",
       };
@@ -231,12 +239,28 @@ async function assignTwilioBusinessNumber(
       });
     }
 
+    // Register the new number with ElevenLabs (default to female agent)
+    let elevenLabsPhoneNumberId: string | null = null;
+    const defaultElevenLabsAgent = (process.env.ELEVENLABS_AGENT_FEMALE || "").trim();
+    if (numberSid && defaultElevenLabsAgent) {
+      const elResult = await registerTwilioNumberWithElevenLabs({
+        phoneNumber: assignedPhone,
+        twilioPhoneNumberSid: numberSid,
+        twilioAccountSid: credentials.accountSid,
+        twilioAuthToken: credentials.authToken,
+        agentId: defaultElevenLabsAgent,
+        label: `LockboxHQ - ${(input.agentId || "").slice(0, 8)}`,
+      }).catch(() => ({ ok: false as const, phoneNumberId: null, error: "ElevenLabs registration failed." }));
+      elevenLabsPhoneNumberId = elResult.ok ? elResult.phoneNumberId : null;
+    }
+
     return {
       ok: true,
       provider: "twilio",
       status: "assigned",
       businessPhoneNumber: assignedPhone,
       providerNumberId: numberSid || null,
+      elevenLabsPhoneNumberId,
       error: null,
       mode: "real",
     };
@@ -247,6 +271,7 @@ async function assignTwilioBusinessNumber(
       status: "failed",
       businessPhoneNumber: null,
       providerNumberId: null,
+      elevenLabsPhoneNumberId: null,
       error: "Twilio number assignment failed.",
       mode: "real",
     };

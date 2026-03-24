@@ -6,6 +6,10 @@ import {
   readReceptionistSettingsFromAgentSettings,
 } from "@/lib/receptionist/settings";
 import { supabaseServer } from "@/lib/supabase/server";
+import {
+  updateElevenLabsPhoneNumberAgent,
+  findElevenLabsPhoneNumberId,
+} from "@/lib/elevenlabs";
 
 export async function GET() {
   const supabase = await supabaseServer();
@@ -49,6 +53,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: loadError.message }, { status: 500 });
   }
 
+  const currentSettings = readReceptionistSettingsFromAgentSettings(currentRow?.settings || null);
   const mergedSettings = mergeReceptionistIntoAgentSettings(
     currentRow?.settings || null,
     parsed.data
@@ -71,7 +76,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: saveError.message }, { status: 500 });
   }
 
-  return NextResponse.json({
-    settings: readReceptionistSettingsFromAgentSettings(savedRow?.settings || null),
-  });
+  const savedSettings = readReceptionistSettingsFromAgentSettings(savedRow?.settings || null);
+
+  // If voice_preset changed to female or male, swap the ElevenLabs agent on the phone number
+  const newPreset = savedSettings.voice_preset;
+  if (
+    newPreset !== currentSettings.voice_preset &&
+    (newPreset === "female" || newPreset === "male")
+  ) {
+    const newAgentId = newPreset === "male"
+      ? (process.env.ELEVENLABS_AGENT_MALE || "").trim()
+      : (process.env.ELEVENLABS_AGENT_FEMALE || "").trim();
+
+    if (newAgentId && savedSettings.business_phone_number) {
+      // Use stored ElevenLabs phone number ID, or look it up if not stored yet
+      let elevenLabsPhoneNumberId = savedSettings.elevenlabs_phone_number_id;
+      if (!elevenLabsPhoneNumberId) {
+        elevenLabsPhoneNumberId = await findElevenLabsPhoneNumberId(savedSettings.business_phone_number) || "";
+      }
+      if (elevenLabsPhoneNumberId) {
+        await updateElevenLabsPhoneNumberAgent(elevenLabsPhoneNumberId, newAgentId).catch((err) => {
+          console.warn("[receptionist/settings] ElevenLabs agent swap failed:", err);
+        });
+      }
+    }
+  }
+
+  return NextResponse.json({ settings: savedSettings });
 }

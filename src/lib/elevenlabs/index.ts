@@ -343,6 +343,97 @@ export async function cloneVoice(
 }
 
 // ---------------------------------------------------------------------------
+// ElevenLabs phone number management (Twilio integration)
+// ---------------------------------------------------------------------------
+
+export type ElevenLabsPhoneNumber = {
+  phone_number_id: string;
+  phone_number: string;
+  provider: string;
+  target_agent_id: string;
+  label?: string;
+};
+
+export async function listElevenLabsPhoneNumbers(): Promise<ElevenLabsPhoneNumber[]> {
+  const apiKey = elevenLabsApiKey();
+  if (!apiKey) return [];
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/convai/phone-numbers", {
+      headers: { "xi-api-key": apiKey },
+    });
+    if (!response.ok) return [];
+    const data = (await response.json()) as { phone_numbers?: ElevenLabsPhoneNumber[] };
+    return data.phone_numbers || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function findElevenLabsPhoneNumberId(phoneNumber: string): Promise<string | null> {
+  const numbers = await listElevenLabsPhoneNumbers();
+  const normalized = phoneNumber.replace(/\s/g, "");
+  return numbers.find((n) => n.phone_number.replace(/\s/g, "") === normalized)?.phone_number_id ?? null;
+}
+
+export async function registerTwilioNumberWithElevenLabs(input: {
+  phoneNumber: string;
+  twilioPhoneNumberSid: string;
+  twilioAccountSid: string;
+  twilioAuthToken: string;
+  agentId: string;
+  label?: string;
+}): Promise<{ ok: boolean; phoneNumberId: string | null; error: string | null }> {
+  const apiKey = elevenLabsApiKey();
+  if (!apiKey) return { ok: false, phoneNumberId: null, error: "ElevenLabs API key not configured." };
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/convai/phone-numbers/twilio", {
+      method: "POST",
+      headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone_number: input.phoneNumber,
+        phone_number_sid: input.twilioPhoneNumberSid,
+        sid: input.twilioAccountSid,
+        token: input.twilioAuthToken,
+        target_agent_id: input.agentId,
+        label: input.label || input.phoneNumber,
+      }),
+    });
+    const data = (await response.json()) as { phone_number_id?: string; message?: string };
+    if (!response.ok || !data.phone_number_id) {
+      return { ok: false, phoneNumberId: null, error: data.message || "Failed to register number with ElevenLabs." };
+    }
+    return { ok: true, phoneNumberId: data.phone_number_id, error: null };
+  } catch {
+    return { ok: false, phoneNumberId: null, error: "ElevenLabs phone number registration failed." };
+  }
+}
+
+export async function updateElevenLabsPhoneNumberAgent(
+  phoneNumberId: string,
+  agentId: string
+): Promise<{ ok: boolean; error: string | null }> {
+  const apiKey = elevenLabsApiKey();
+  if (!apiKey) return { ok: false, error: "ElevenLabs API key not configured." };
+  try {
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/convai/phone-numbers/${encodeURIComponent(phoneNumberId)}`,
+      {
+        method: "PATCH",
+        headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ target_agent_id: agentId }),
+      }
+    );
+    if (!response.ok) {
+      const data = (await response.json()) as { message?: string };
+      return { ok: false, error: data.message || "Failed to update ElevenLabs phone number agent." };
+    }
+    return { ok: true, error: null };
+  } catch {
+    return { ok: false, error: "ElevenLabs phone number update failed." };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Fetch conversation transcript (after a streamed call ends)
 // ---------------------------------------------------------------------------
 
