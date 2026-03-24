@@ -199,12 +199,44 @@ async function assignTwilioBusinessNumber(
       };
     }
 
+    const numberSid = purchasePayload.sid;
+    const assignedPhone = safePhone(purchasePayload.phone_number || candidate);
+
+    // Configure webhooks on the purchased number so calls and texts route to this agent
+    if (numberSid && input.agentId) {
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/$/, "");
+      const baseUrl = siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`;
+      const agentParam = encodeURIComponent(input.agentId);
+
+      const webhookParams = new URLSearchParams();
+      webhookParams.set("VoiceUrl", `${baseUrl}/api/receptionist/voice/inbound?agent_id=${agentParam}`);
+      webhookParams.set("VoiceMethod", "POST");
+      webhookParams.set("SmsUrl", `${baseUrl}/api/receptionist/webhook`);
+      webhookParams.set("SmsMethod", "POST");
+      webhookParams.set("StatusCallback", `${baseUrl}/api/receptionist/voice/status?agent_id=${agentParam}`);
+
+      await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${credentials.accountSid}/IncomingPhoneNumbers/${numberSid}.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: twilioAuthHeader(credentials.accountSid, credentials.authToken),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: webhookParams,
+        }
+      ).catch(() => {
+        // Non-fatal — number is assigned, webhooks can be set manually if this fails
+        console.warn("[provider] Could not auto-configure Twilio webhooks for", numberSid);
+      });
+    }
+
     return {
       ok: true,
       provider: "twilio",
       status: "assigned",
-      businessPhoneNumber: safePhone(purchasePayload.phone_number || candidate),
-      providerNumberId: purchasePayload.sid || null,
+      businessPhoneNumber: assignedPhone,
+      providerNumberId: numberSid || null,
       error: null,
       mode: "real",
     };

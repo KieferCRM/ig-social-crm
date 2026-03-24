@@ -80,19 +80,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
         return;
       }
 
-      const completeRes = await fetch("/api/onboarding/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const completeData = (await completeRes.json()) as { ok?: boolean; error?: string };
-      if (!completeRes.ok || !completeData.ok) {
-        setSaveError(completeData.error ?? "Could not finish setup.");
-        setSaving(false);
-        return;
-      }
-
-      router.replace("/app");
-      router.refresh();
+      router.replace("/setup/receptionist");
     } catch {
       setSaveError("Something went wrong. Please try again.");
       setSaving(false);
@@ -101,16 +89,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
 
   async function handleSkip() {
     setSkipping(true);
-    try {
-      await fetch("/api/onboarding/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      router.replace("/app");
-      router.refresh();
-    } catch {
-      router.replace("/app");
-    }
+    router.replace("/setup/receptionist");
   }
 
   const previewSlug = normalize(slug) || "your-slug";
@@ -136,7 +115,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Workspace setup</div>
+            <div className="crm-auth-kicker">Step 3 of 6 — Your form URL</div>
           </div>
 
           <div className="crm-auth-copy">

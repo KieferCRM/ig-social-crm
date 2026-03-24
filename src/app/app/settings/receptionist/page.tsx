@@ -213,7 +213,6 @@ export default function ReceptionistSettingsPage() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [cloningVoice, setCloningVoice] = useState(false);
-  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [cloneFile, setCloneFile] = useState<File | null>(null);
   const [voiceMessage, setVoiceMessage] = useState("");
   const [voiceMessageType, setVoiceMessageType] = useState<"success" | "error">("success");
@@ -507,32 +506,6 @@ export default function ReceptionistSettingsPage() {
           </div>
         )}
 
-        {/* Collapsible How it works */}
-        <div className="crm-card-muted" style={{ padding: 14, display: "grid", gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => setHowItWorksOpen(v => !v)}
-            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", padding: 0, width: "100%" }}
-          >
-            <h2 className="crm-section-title" style={{ margin: 0 }}>How it works</h2>
-            <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{howItWorksOpen ? "▲ Hide" : "▼ Show"}</span>
-          </button>
-          {howItWorksOpen && (
-            <>
-              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55 }}>
-                Once Secretary is active, your LockboxHQ business number can power missed-call text-back, direct SMS
-                conversations, captured lead details, and urgent alerts without bouncing you across separate tools.
-              </p>
-              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--ink)", display: "grid", gap: 6 }}>
-                <li>Lead calls or texts your business number.</li>
-                <li>LockboxHQ records the interaction and links it to a lead record.</li>
-                <li>If the call is missed, LockboxHQ can send your starter SMS automatically.</li>
-                <li>Lead replies are captured and qualification data updates the CRM.</li>
-                <li>Urgent language can trigger high-priority alerts.</li>
-              </ol>
-            </>
-          )}
-        </div>
       </section>
 
       <div className="crm-secretary-locked-shell">
@@ -908,132 +881,8 @@ export default function ReceptionistSettingsPage() {
           </label>
         </section>
 
-        {/* ================================================================
-            VOICE AI — Secretary Voice tier only
-            ================================================================ */}
-        {settings.voice_tier !== "voice" ? (
-          <section className="crm-card crm-section-card crm-stack-10">
-            <div className="crm-section-head">
-              <h2 className="crm-section-title">Secretary Voice</h2>
-              <span className="crm-chip">Upgrade Required</span>
-            </div>
-            <div
-              style={{
-                padding: 20,
-                borderRadius: 8,
-                background: "var(--surface-2, #f9fafb)",
-                border: "1px solid var(--border)",
-                display: "grid",
-                gap: 10,
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 24 }}>📞</div>
-              <strong style={{ fontSize: 15 }}>Voice AI for your business line</strong>
-              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55, maxWidth: 480, marginInline: "auto" }}>
-                Secretary Voice answers inbound calls, qualifies leads with real questions, transfers hot prospects,
-                and notifies you after every call — using a professional AI voice of your choosing.
-              </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
-                {["AI call answering", "Lead qualification", "Transfer & callback modes", "Voice cloning", "Call transcripts"].map((f) => (
-                  <span key={f} className="crm-chip">{f}</span>
-                ))}
-              </div>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)" }}>
-                Contact us to unlock Secretary Voice for your workspace.
-              </p>
-            </div>
-          </section>
-        ) : (
-          <>
-            {/* Voice Settings */}
-            <section className="crm-card crm-section-card crm-stack-10">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Voice Settings</h2>
-                <span className="crm-chip crm-chip-ok">Voice Active</span>
-              </div>
-
-              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-                Choose the AI name callers hear and select a voice. You can also clone your own voice for a premium personal touch.
-              </p>
-
-              <Field label="AI Voice Name" helper="The name the AI introduces itself as on calls. Keep it short and professional.">
-                <input
-                  value={settings.voice_name}
-                  onChange={(event) =>
-                    setSettings((previous) => ({ ...previous, voice_name: event.target.value }))
-                  }
-                  placeholder="Sarah, Alex, Jordan..."
-                  maxLength={40}
-                />
-              </Field>
-
-            </section>
-
-            {/* Voice Cloning — Premium */}
-            <section className="crm-card crm-section-card crm-stack-10">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Voice Cloning</h2>
-                <span className={settings.voice_clone_status === "ready" ? "crm-chip crm-chip-ok" : "crm-chip"}>
-                  {settings.voice_clone_status === "ready"
-                    ? "Clone Ready"
-                    : settings.voice_clone_status === "pending" || settings.voice_clone_status === "processing"
-                      ? "Processing..."
-                      : settings.voice_clone_status === "failed"
-                        ? "Failed"
-                        : "Not Configured"}
-                </span>
-              </div>
-
-              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-                Upload at least 60 seconds of your own voice (clear, no background noise) and LockboxHQ will clone it
-                for use on all calls. Once ready, your cloned voice will be used instead of the preset.
-              </p>
-
-              <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
-                <Field label="Upload Voice Recording" helper="MP3, WAV, or WebM. Minimum 60 seconds, maximum 20MB.">
-                  <input
-                    type="file"
-                    accept="audio/mpeg,audio/mp3,audio/wav,audio/webm,audio/*"
-                    onChange={(event) => setCloneFile(event.target.files?.[0] ?? null)}
-                  />
-                </Field>
-                {cloneFile ? (
-                  <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
-                    Selected: {cloneFile.name} ({(cloneFile.size / 1024 / 1024).toFixed(1)} MB)
-                  </span>
-                ) : null}
-                <button
-                  type="button"
-                  className="crm-btn crm-btn-primary"
-                  onClick={() => void submitVoiceClone()}
-                  disabled={!cloneFile || cloningVoice}
-                  style={{ width: "fit-content" }}
-                >
-                  {cloningVoice ? "Cloning voice..." : "Submit Voice for Cloning"}
-                </button>
-                {settings.voice_clone_status === "ready" && settings.voice_clone_voice_id ? (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <span className="crm-chip crm-chip-ok">Cloned voice active</span>
-                    <span className="crm-chip">ID: {settings.voice_clone_voice_id.slice(0, 12)}...</span>
-                    <button
-                      type="button"
-                      className="crm-btn crm-btn-secondary"
-                      style={{ fontSize: 12, padding: "4px 10px" }}
-                      onClick={() =>
-                        setSettings((previous) => ({
-                          ...previous,
-                          voice_clone_status: "none" as VoiceCloneStatus,
-                          voice_clone_voice_id: "",
-                        }))
-                      }
-                    >
-                      Remove clone → use preset
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </section>
+        {/* Voice AI sections */}
+        <>
 
             {/* Call Handling Mode */}
             <section className="crm-card crm-section-card crm-stack-10">
@@ -1192,9 +1041,18 @@ export default function ReceptionistSettingsPage() {
                   </span>
                 )}
               </div>
-              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-                Choose the voice your AI receptionist uses on calls.
-              </p>
+              <Field label="AI name" helper="The name callers hear when the AI introduces itself — keep it short and natural.">
+                <input
+                  value={settings.voice_name}
+                  onChange={(event) =>
+                    setSettings((previous) => ({ ...previous, voice_name: event.target.value }))
+                  }
+                  placeholder="e.g. Natalee, Jake, Alex..."
+                  maxLength={40}
+                />
+              </Field>
+
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>Voice</div>
               <div style={{ display: "grid", gap: 8 }}>
                 {(
                   [
@@ -1337,8 +1195,7 @@ export default function ReceptionistSettingsPage() {
                 )}
               </div>
             </section>
-          </>
-        )}
+        </>
 
         {/* Secretary Autonomy Mode */}
         <section className="crm-card crm-section-card crm-stack-10">

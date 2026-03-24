@@ -70,6 +70,16 @@ export default function ProfileSettingsPage() {
   const [fullName, setFullName] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [nameMsg, setNameMsg] = useState("");
+  const [brokerage, setBrokerage] = useState("");
+  const [savingBrokerage, setSavingBrokerage] = useState(false);
+  const [brokerageMsg, setBrokerageMsg] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [youtube, setYoutube] = useState("");
+  const [website, setWebsite] = useState("");
+  const [savingSocial, setSavingSocial] = useState(false);
+  const [socialMsg, setSocialMsg] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -77,12 +87,20 @@ export default function ProfileSettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setAgentId(user.id);
-      const { data } = await supabase.from("agents").select("vanity_slug, timezone, full_name").eq("id", user.id).maybeSingle();
+      const { data } = await supabase.from("agents").select("vanity_slug, timezone, full_name, settings").eq("id", user.id).maybeSingle();
       const s = (data?.vanity_slug as string | null) ?? null;
       setCurrentSlug(s);
       setSlug(s ?? "");
       if (data?.timezone) setTimezone(data.timezone as string);
       if (data?.full_name) setFullName(data.full_name as string);
+      const settings = (data?.settings ?? {}) as Record<string, unknown>;
+      setBrokerage((settings.brokerage as string | null) ?? "");
+      const handles = (settings.social_handles ?? {}) as Record<string, string>;
+      setInstagram(handles.instagram ?? "");
+      setFacebook(handles.facebook ?? "");
+      setLinkedin(handles.linkedin ?? "");
+      setYoutube(handles.youtube ?? "");
+      setWebsite(handles.website ?? "");
       setLoading(false);
     }
     void load();
@@ -163,6 +181,42 @@ export default function ProfileSettingsPage() {
     }
   }
 
+  async function handleSaveBrokerage() {
+    setSavingBrokerage(true);
+    setBrokerageMsg("");
+    const res = await fetch("/api/agent/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brokerage }),
+    });
+    const data = (await res.json()) as { ok?: boolean; error?: string };
+    setSavingBrokerage(false);
+    if (!res.ok || !data.ok) {
+      setBrokerageMsg(data.error ?? "Could not save.");
+    } else {
+      setBrokerageMsg("Saved.");
+      window.setTimeout(() => setBrokerageMsg(""), 3000);
+    }
+  }
+
+  async function handleSaveSocial() {
+    setSavingSocial(true);
+    setSocialMsg("");
+    const res = await fetch("/api/agent/social", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instagram, facebook, linkedin, youtube, website }),
+    });
+    const data = (await res.json()) as { ok?: boolean; error?: string };
+    setSavingSocial(false);
+    if (!res.ok || !data.ok) {
+      setSocialMsg(data.error ?? "Could not save.");
+    } else {
+      setSocialMsg("Saved.");
+      window.setTimeout(() => setSocialMsg(""), 3000);
+    }
+  }
+
   async function handleSaveTimezone() {
     if (!agentId) return;
     setSavingTz(true);
@@ -206,9 +260,9 @@ export default function ProfileSettingsPage() {
       <section className="crm-card crm-section-card">
         <div className="crm-page-header">
           <div className="crm-page-header-main">
-            <h1 className="crm-page-title">Profile & Form URL</h1>
+            <h1 className="crm-page-title">Profile</h1>
             <p className="crm-page-subtitle">
-              Manage your branded form slug and share your seller and contact form links.
+              Your name, brokerage, social handles, form URL, and timezone.
             </p>
           </div>
         </div>
@@ -237,6 +291,74 @@ export default function ProfileSettingsPage() {
         <div>
           <button type="button" className="crm-btn crm-btn-primary" disabled={savingName} onClick={() => void handleSaveName()}>
             {savingName ? "Saving..." : "Save name"}
+          </button>
+        </div>
+      </section>
+
+      {/* Brokerage */}
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div>
+          <h2 className="crm-section-title">Brokerage / Company</h2>
+          <p className="crm-section-subtitle">
+            Shown on your public profile and forms.
+          </p>
+        </div>
+        <input
+          className="crm-input"
+          type="text"
+          value={brokerage}
+          placeholder="e.g. Smith Realty Group"
+          onChange={(e) => setBrokerage(e.target.value)}
+        />
+        {brokerageMsg ? (
+          <div style={{ fontSize: 13, fontWeight: 600, color: brokerageMsg === "Saved." ? "var(--ok, #16a34a)" : "var(--danger, #dc2626)" }}>
+            {brokerageMsg}
+          </div>
+        ) : null}
+        <div>
+          <button type="button" className="crm-btn crm-btn-primary" disabled={savingBrokerage} onClick={() => void handleSaveBrokerage()}>
+            {savingBrokerage ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </section>
+
+      {/* Social handles */}
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div>
+          <h2 className="crm-section-title">Social Profiles</h2>
+          <p className="crm-section-subtitle">
+            Used on your public agent profile. All optional.
+          </p>
+        </div>
+        <div className="crm-stack-8">
+          {[
+            { label: "Instagram", placeholder: "@yourhandle", value: instagram, set: setInstagram },
+            { label: "Facebook", placeholder: "facebook.com/yourpage", value: facebook, set: setFacebook },
+            { label: "LinkedIn", placeholder: "linkedin.com/in/yourprofile", value: linkedin, set: setLinkedin },
+            { label: "YouTube", placeholder: "youtube.com/@yourchannel", value: youtube, set: setYoutube },
+            { label: "Website", placeholder: "yoursite.com", value: website, set: setWebsite },
+          ].map(({ label, placeholder, value, set }) => (
+            <label key={label} className="crm-filter-field">
+              <span>{label}</span>
+              <input
+                className="crm-input"
+                type="text"
+                value={value}
+                placeholder={placeholder}
+                onChange={(e) => set(e.target.value)}
+                autoComplete="off"
+              />
+            </label>
+          ))}
+        </div>
+        {socialMsg ? (
+          <div style={{ fontSize: 13, fontWeight: 600, color: socialMsg === "Saved." ? "var(--ok, #16a34a)" : "var(--danger, #dc2626)" }}>
+            {socialMsg}
+          </div>
+        ) : null}
+        <div>
+          <button type="button" className="crm-btn crm-btn-primary" disabled={savingSocial} onClick={() => void handleSaveSocial()}>
+            {savingSocial ? "Saving..." : "Save"}
           </button>
         </div>
       </section>

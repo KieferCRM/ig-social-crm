@@ -85,8 +85,8 @@ export default function AccountTypeClient({ recommendedType }: Props) {
         return;
       }
 
-      // Proceed to slug setup before completing onboarding
-      router.replace("/setup/slug");
+      // Proceed to profile setup
+      router.replace("/setup/profile");
     } catch {
       setMessage("Could not finish workspace setup.");
       setSaving(false);
@@ -99,7 +99,7 @@ export default function AccountTypeClient({ recommendedType }: Props) {
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">First-run setup</div>
+            <div className="crm-auth-kicker">Step 1 of 6 — Workspace type</div>
           </div>
 
           <div className="crm-auth-copy">

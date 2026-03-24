@@ -94,7 +94,7 @@ export const DEFAULT_RECEPTIONIST_SETTINGS: ReceptionistSettings = {
   existing_number_submitted_at: "",
   existing_number_setup_notes: "",
   // Voice defaults
-  voice_tier: "none",
+  voice_tier: "voice",
   voice_preset: "female",
   voice_name: "Sarah",
   voice_id: DEFAULT_VOICE_ID,

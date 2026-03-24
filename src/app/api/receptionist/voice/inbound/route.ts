@@ -11,7 +11,7 @@
  * Status callback URL should be: /api/receptionist/voice/status?agent_id=UUID
  */
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { buildTtsPlayUrl, getConversationalAgentStreamUrl } from "@/lib/elevenlabs";
+import { buildTtsPlayUrl } from "@/lib/elevenlabs";
 import { readReceptionistSettingsFromAgentSettings, isVoiceEnabled, activeVoiceId, resolveVoiceAgentId } from "@/lib/receptionist/settings";
 import { upsertReceptionistLead } from "@/lib/receptionist/lead-upsert";
 
@@ -152,15 +152,13 @@ async function handleInbound(request: Request): Promise<Response> {
   const voiceName = settings.voice_name || "Sarah";
 
   // ---
-  // Mode A: ElevenLabs Conversational AI streaming
+  // Mode A: Redirect to ElevenLabs' Twilio endpoint with the user's agent ID.
+  // This is the same path ElevenLabs uses natively — we just add per-user routing on top.
   // ---
   const resolvedAgentId = resolveVoiceAgentId(settings);
   if (resolvedAgentId) {
-    const streamUrl = await getConversationalAgentStreamUrl(resolvedAgentId);
-    if (streamUrl) {
-      const escapedUrl = streamUrl.replace(/&/g, "&amp;");
-      return twimlResponse(`<Connect><Stream url="${escapedUrl}" /></Connect>`);
-    }
+    const elevenLabsUrl = `https://api.us.elevenlabs.io/twilio/inbound_call?agent_id=${encodeURIComponent(resolvedAgentId)}`;
+    return twimlResponse(`<Redirect method="POST">${elevenLabsUrl}</Redirect>`);
   }
 
   // ---
