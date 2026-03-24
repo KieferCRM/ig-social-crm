@@ -350,7 +350,7 @@ export type ElevenLabsPhoneNumber = {
   phone_number_id: string;
   phone_number: string;
   provider: string;
-  target_agent_id: string;
+  agent_id: string;
   label?: string;
 };
 
@@ -406,7 +406,7 @@ export async function registerTwilioNumberWithElevenLabs(input: {
         phone_number_sid: input.twilioPhoneNumberSid,
         sid: input.twilioAccountSid,
         token: input.twilioAuthToken,
-        target_agent_id: input.agentId,
+        agent_id: input.agentId,
         label: input.label || input.phoneNumber,
       }),
     });
@@ -432,7 +432,7 @@ export async function updateElevenLabsPhoneNumberAgent(
       {
         method: "PATCH",
         headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ target_agent_id: agentId }),
+        body: JSON.stringify({ agent_id: agentId }),
       }
     );
     if (!response.ok) {
