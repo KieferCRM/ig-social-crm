@@ -228,7 +228,7 @@ export default async function AppHome() {
         .from("receptionist_alerts")
         .select("id,alert_type,severity,title,message,created_at,metadata")
         .eq("agent_id", user.id)
-        .eq("alert_type", "form_submission")
+        .in("alert_type", ["form_submission", "call_inbound"])
         .eq("status", "open")
         .order("created_at", { ascending: false })
         .limit(10),
@@ -273,7 +273,7 @@ export default async function AppHome() {
 
     return (
       <main className="crm-page crm-page-wide crm-stack-12">
-        <FormAlertsSection initialAlerts={formAlerts} />
+        <FormAlertsSection initialAlerts={formAlerts} title="New Activity" />
         <WelcomeChecklist />
 
         {/* KPIs */}
@@ -569,7 +569,7 @@ export default async function AppHome() {
         .from("receptionist_alerts")
         .select("id,alert_type,severity,title,message,created_at,metadata")
         .eq("agent_id", user.id)
-        .eq("alert_type", "form_submission")
+        .in("alert_type", ["form_submission", "call_inbound"])
         .eq("status", "open")
         .order("created_at", { ascending: false })
         .limit(10),

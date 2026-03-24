@@ -66,7 +66,7 @@ export default function SocialClient({
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 5 of 6 — Social profiles</div>
+            <div className="crm-auth-kicker">Step 4 of 5 — Social profiles</div>
           </div>
 
           <div className="crm-auth-copy">

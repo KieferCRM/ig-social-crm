@@ -80,7 +80,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
         return;
       }
 
-      router.replace("/setup/receptionist");
+      router.replace("/setup/social");
     } catch {
       setSaveError("Something went wrong. Please try again.");
       setSaving(false);
@@ -89,7 +89,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
 
   async function handleSkip() {
     setSkipping(true);
-    router.replace("/setup/receptionist");
+    router.replace("/setup/social");
   }
 
   const previewSlug = normalize(slug) || "your-slug";
@@ -115,7 +115,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 3 of 6 — Your form URL</div>
+            <div className="crm-auth-kicker">Step 3 of 5 — Your form URL</div>
           </div>
 
           <div className="crm-auth-copy">
@@ -147,7 +147,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
             <div>
               <label className="crm-public-intake-field crm-public-intake-field-full">
                 <span style={{ fontWeight: 600 }}>
-                  Your slug <span style={{ color: "var(--danger, #dc2626)" }}>*</span>
+                  Your custom URL <span style={{ color: "var(--danger, #dc2626)" }}>*</span>
                 </span>
                 <input
                   className="crm-input"

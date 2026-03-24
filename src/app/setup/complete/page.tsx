@@ -28,7 +28,7 @@ export default async function CompletePage() {
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 6 of 6 — You&apos;re all set</div>
+            <div className="crm-auth-kicker">Step 5 of 5 — You&apos;re all set</div>
           </div>
 
           <div className="crm-auth-copy">

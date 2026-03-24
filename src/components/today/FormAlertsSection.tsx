@@ -21,7 +21,7 @@ function formatTimeAgo(value: string | null): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function FormAlertsSection({ initialAlerts }: { initialAlerts: AlertRow[] }) {
+export default function FormAlertsSection({ initialAlerts, title = "New Form Submissions" }: { initialAlerts: AlertRow[]; title?: string }) {
   const [alerts, setAlerts] = useState<AlertRow[]>(initialAlerts);
 
   if (alerts.length === 0) return null;
@@ -43,7 +43,7 @@ export default function FormAlertsSection({ initialAlerts }: { initialAlerts: Al
     <section className="crm-card crm-section-card crm-stack-8">
       <div className="crm-section-head">
         <div>
-          <h2 className="crm-section-title">New Form Submissions</h2>
+          <h2 className="crm-section-title">{title}</h2>
         </div>
       </div>
       <div className="crm-stack-6">

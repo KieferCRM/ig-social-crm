@@ -177,11 +177,12 @@ async function findCrmAgent(
 
   // Pass 2: shared voice — match by business phone number (the "to" number on the call)
   if (toPhone) {
-    const normalized = toPhone.replace(/\s/g, "");
+    const digits = (s: string) => s.replace(/\D/g, "");
+    const normalizedDigits = digits(toPhone).slice(-10);
     for (const row of rows) {
       const settings = readReceptionistSettingsFromAgentSettings(row.settings);
-      const bizPhone = settings.business_phone_number.replace(/\s/g, "");
-      if (bizPhone && bizPhone === normalized) {
+      const bizDigits = digits(settings.business_phone_number).slice(-10);
+      if (bizDigits && bizDigits === normalizedDigits) {
         return row.id as string;
       }
     }
@@ -257,16 +258,18 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Also check data_collection_results if agent has data collection configured
   const collected = data.analysis?.data_collection_results ?? {};
   const collectedName = collected.caller_name?.value || collected.name?.value;
-  const collectedIntent = collected.intent?.value;
-  const collectedAddress = collected.property_address?.value || collected.address?.value;
+  const collectedPhone = collected.caller_phone_number?.value || collected.phone?.value;
+  const collectedIntent = collected.caller_intent?.value || collected.intent?.value;
+  const collectedAddress = collected.property_address_or_area?.value || collected.property_address?.value || collected.address?.value;
   const collectedTimeline = collected.timeline?.value;
-  const collectedBudget = collected.budget?.value || collected.price?.value;
+  const collectedBudget = collected.budget_range?.value || collected.budget?.value || collected.price?.value;
 
   const name = collectedName || extracted.name;
   const intent = collectedIntent || extracted.intent;
   const address = collectedAddress || extracted.address;
   const timeline = collectedTimeline || extracted.timeline;
   const budget = collectedBudget || extracted.budget;
+  const resolvedPhone = collectedPhone || phone;
 
   // Build transcript text for notes
   const transcriptText = transcript
@@ -277,13 +280,15 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   console.log("[elevenlabs-webhook] Lead data:", { phone, name, intent, address, timeline, budget });
 
+  let leadId: string | null = null;
+
   try {
-    await upsertReceptionistLead({
+    const result = await upsertReceptionistLead({
       admin,
       agentId,
       source: "call_inbound",
       values: {
-        phone: phone || undefined,
+        phone: resolvedPhone || undefined,
         full_name: name || null,
         intent: intent || null,
         location_area: address || null,
@@ -304,10 +309,68 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
     });
 
+    leadId = result.lead.id;
     console.log("[elevenlabs-webhook] Lead saved for conversation:", data.conversation_id);
   } catch (err) {
     console.error("[elevenlabs-webhook] Failed to save lead:", err);
     // Still return 200 so ElevenLabs doesn't retry
+  }
+
+  // Create a receptionist alert so the call surfaces on the Today page
+  try {
+    const callerLabel = name || phone || "Unknown caller";
+    const durationSecs = data.metadata?.call_duration_secs;
+    const durationLabel = durationSecs ? ` (${Math.round(Number(durationSecs) / 60)}m ${Number(durationSecs) % 60}s)` : "";
+    await admin.from("receptionist_alerts").insert({
+      agent_id: agentId,
+      lead_id: leadId,
+      alert_type: "call_inbound",
+      status: "open",
+      severity: "info",
+      title: `Inbound call — ${callerLabel}`,
+      message: summary || `Inbound call received${durationLabel}. ${intent ? `Intent: ${intent}.` : ""} ${address ? `Area: ${address}.` : ""}`.trim(),
+      metadata: {
+        conversation_id: data.conversation_id,
+        call_duration_secs: durationSecs ?? null,
+        caller_phone: phone || null,
+        call_successful: data.analysis?.call_successful ?? null,
+      },
+    });
+  } catch (err) {
+    console.warn("[elevenlabs-webhook] Could not create call alert:", err);
+  }
+
+  // Save to lead_interactions so the Secretary activity + transcripts tabs populate
+  if (leadId) {
+    try {
+      await admin.from("lead_interactions").insert({
+        agent_id: agentId,
+        lead_id: leadId,
+        channel: "call_inbound",
+        direction: "inbound",
+        interaction_type: "voice_call",
+        status: data.status || "completed",
+        raw_transcript: transcriptText || null,
+        raw_message_body: summary || null,
+        summary: summary || null,
+        structured_payload: {
+          conversation_id: data.conversation_id,
+          call_duration_secs: data.metadata?.call_duration_secs ?? null,
+          call_successful: data.analysis?.call_successful ?? null,
+          caller_phone: resolvedPhone || null,
+          collected: {
+            name,
+            intent,
+            address,
+            timeline,
+            budget,
+          },
+        },
+      });
+      console.log("[elevenlabs-webhook] lead_interactions row saved for:", leadId);
+    } catch (err) {
+      console.warn("[elevenlabs-webhook] Could not save lead_interaction:", err);
+    }
   }
 
   return NextResponse.json({ ok: true });
