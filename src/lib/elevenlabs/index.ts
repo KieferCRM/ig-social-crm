@@ -362,8 +362,11 @@ export async function listElevenLabsPhoneNumbers(): Promise<ElevenLabsPhoneNumbe
       headers: { "xi-api-key": apiKey },
     });
     if (!response.ok) return [];
-    const data = (await response.json()) as { phone_numbers?: ElevenLabsPhoneNumber[] };
-    return data.phone_numbers || [];
+    const raw = await response.json();
+    console.log("[elevenlabs] phone numbers raw response:", JSON.stringify(raw));
+    const data = raw as { phone_numbers?: ElevenLabsPhoneNumber[] } | ElevenLabsPhoneNumber[];
+    if (Array.isArray(data)) return data;
+    return (data as { phone_numbers?: ElevenLabsPhoneNumber[] }).phone_numbers || [];
   } catch {
     return [];
   }
