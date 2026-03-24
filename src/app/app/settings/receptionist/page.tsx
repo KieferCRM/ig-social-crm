@@ -1180,6 +1180,17 @@ export default function ReceptionistSettingsPage() {
             <section className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
                 <h2 className="crm-section-title">AI Voice</h2>
+                {(settings.voice_preset ?? "female") === "custom" && (
+                  <span className={settings.voice_clone_status === "ready" ? "crm-chip crm-chip-ok" : "crm-chip"}>
+                    {settings.voice_clone_status === "ready"
+                      ? "Voice Ready"
+                      : settings.voice_clone_status === "pending" || settings.voice_clone_status === "processing"
+                        ? "Processing..."
+                        : settings.voice_clone_status === "failed"
+                          ? "Failed"
+                          : "Not Set Up"}
+                  </span>
+                )}
               </div>
               <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
                 Choose the voice your AI receptionist uses on calls.
@@ -1187,9 +1198,9 @@ export default function ReceptionistSettingsPage() {
               <div style={{ display: "grid", gap: 8 }}>
                 {(
                   [
-                    { value: "female", label: "Female", description: "Professional female voice (default)" },
+                    { value: "female", label: "Female", description: "Professional female voice" },
                     { value: "male", label: "Male", description: "Professional male voice" },
-                    { value: "custom", label: "Custom", description: "Use your own ElevenLabs agent" },
+                    { value: "custom", label: "My Voice", description: "Clone your own voice — callers will hear you" },
                   ] as Array<{ value: "female" | "male" | "custom"; label: string; description: string }>
                 ).map((option) => {
                   const isSelected = (settings.voice_preset ?? "female") === option.value;
@@ -1226,23 +1237,81 @@ export default function ReceptionistSettingsPage() {
                   );
                 })}
               </div>
+
               {(settings.voice_preset ?? "female") === "custom" && (
-                <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
-                  <label style={{ display: "grid", gap: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>
-                      Your ElevenLabs Agent ID
-                    </span>
-                    <input
-                      type="text"
-                      className="crm-input"
-                      placeholder="agent_xxxxxxxxxxxxxxxxxxxxxxxx"
-                      value={settings.voice_agent_id}
-                      onChange={(e) => setSettings((prev) => ({ ...prev, voice_agent_id: e.target.value.trim() }))}
-                    />
-                  </label>
-                  <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.4 }}>
-                    Copy the Agent ID from your ElevenLabs dashboard and paste it here, then hit Save Settings.
-                  </p>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {/* Recording instructions */}
+                  <div className="crm-card-muted" style={{ padding: 14, display: "grid", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>How to record your voice</span>
+                    <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.7 }}>
+                      <li>Find a quiet room — no background noise, TV, or echo.</li>
+                      <li>Open the <strong>Voice Memos</strong> app on iPhone or <strong>Voice Recorder</strong> on Android.</li>
+                      <li>Talk naturally for at least <strong>1–2 minutes</strong>. Introduce yourself, describe a property, answer a buyer question. Variety helps.</li>
+                      <li>Export as <strong>MP3 or WAV</strong> and upload below.</li>
+                    </ol>
+                    <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.4 }}>
+                      Tip: Don&apos;t read a script word-for-word. Natural, conversational speech produces the most realistic clone.
+                    </p>
+                  </div>
+
+                  {/* Upload */}
+                  <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+                    <Field label="Upload your recording" helper="MP3 or WAV. At least 60 seconds, max 20MB.">
+                      <input
+                        type="file"
+                        accept="audio/mpeg,audio/mp3,audio/wav,audio/webm,audio/*"
+                        onChange={(event) => setCloneFile(event.target.files?.[0] ?? null)}
+                      />
+                    </Field>
+                    {cloneFile ? (
+                      <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                        Selected: {cloneFile.name} ({(cloneFile.size / 1024 / 1024).toFixed(1)} MB)
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="crm-btn crm-btn-primary"
+                      onClick={() => void submitVoiceClone()}
+                      disabled={!cloneFile || cloningVoice}
+                      style={{ width: "fit-content" }}
+                    >
+                      {cloningVoice ? "Cloning voice..." : "Submit Voice for Cloning"}
+                    </button>
+                    {voiceMessage ? (
+                      <div
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: 6,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          background: voiceMessageType === "success" ? "var(--color-ok-bg, #d1fae5)" : "var(--color-error-bg, #fee2e2)",
+                          color: voiceMessageType === "success" ? "var(--color-ok-text, #065f46)" : "var(--color-error-text, #991b1b)",
+                          border: `1px solid ${voiceMessageType === "success" ? "var(--color-ok-border, #6ee7b7)" : "var(--color-error-border, #fca5a5)"}`,
+                        }}
+                      >
+                        {voiceMessage}
+                      </div>
+                    ) : null}
+                    {settings.voice_clone_status === "ready" && settings.voice_clone_voice_id ? (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <span className="crm-chip crm-chip-ok">Your voice is active</span>
+                        <button
+                          type="button"
+                          className="crm-btn crm-btn-secondary"
+                          style={{ fontSize: 12, padding: "4px 10px" }}
+                          onClick={() =>
+                            setSettings((previous) => ({
+                              ...previous,
+                              voice_clone_status: "none" as VoiceCloneStatus,
+                              voice_clone_voice_id: "",
+                            }))
+                          }
+                        >
+                          Remove and switch to Female voice
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               )}
             </section>

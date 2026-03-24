@@ -407,7 +407,8 @@ export function isVoiceEnabled(settings: ReceptionistSettings): boolean {
  * - "custom" → the agent ID the user pasted into their settings
  */
 export function resolveVoiceAgentId(settings: ReceptionistSettings): string {
-  if (settings.voice_preset === "custom") return settings.voice_agent_id || "";
+  // "My Voice" (custom) uses voice cloning via TTS — skip the streaming agent so the clone is heard
+  if (settings.voice_preset === "custom") return "";
   if (settings.voice_preset === "male") return (process.env.ELEVENLABS_AGENT_MALE || "").trim();
   // default: female
   return (process.env.ELEVENLABS_AGENT_FEMALE || "").trim();
