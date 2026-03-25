@@ -6,6 +6,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 export type BriefingInput = {
+  question?: string | null; // optional — if set, answers this instead of the default brief
   todayStr: string;
   activeDeals: Array<{
     propertyAddress: string | null;
@@ -53,8 +54,21 @@ export async function generateMorningBriefing(
 
   const dataBlock = JSON.stringify(input, null, 2);
 
-  const prompt = `You are the personal operations assistant for a real estate acquisitions agent.
-Write a short, direct morning briefing based on today's pipeline data.
+  const prompt = input.question
+    ? `You are the personal operations assistant for a real estate acquisitions agent.
+Answer the following question using the pipeline data below. Be direct and specific.
+
+Rules:
+- 3–5 sentences max. No headers, no bullet points, no markdown. Plain prose only.
+- Name specific people/properties where available.
+- Tone: sharp, professional, like a trusted assistant who knows the business.
+
+Question: ${input.question}
+
+Pipeline data:
+${dataBlock}`
+    : `You are the personal operations assistant for a real estate acquisitions agent.
+Write a short, direct weekly briefing based on the pipeline data below.
 
 Rules:
 - 3–5 sentences max. No headers, no bullet points, no markdown. Plain prose only.
@@ -64,7 +78,7 @@ Rules:
 - Tone: sharp, professional, like a trusted assistant who knows the business.
 - Do not start with "Good morning" or any greeting.
 
-Today's data:
+Pipeline data:
 ${dataBlock}`;
 
   try {

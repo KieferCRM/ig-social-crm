@@ -36,7 +36,12 @@ function isStale(updatedAt: string | null, days: number): boolean {
   return ts < Date.now() - days * 24 * 3600_000;
 }
 
-export async function GET() {
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({})) as { question?: string | null };
+  return handleBriefing(body.question ?? null);
+}
+
+async function handleBriefing(question: string | null) {
   const supabase = await supabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -123,6 +128,7 @@ export async function GET() {
   }));
 
   const briefing = await generateMorningBriefing({
+    question,
     todayStr,
     activeDeals: activeDeals.map((d) => ({
       propertyAddress: d.propertyAddress,
