@@ -163,6 +163,16 @@ export default function DealsBoardClient() {
   const [typeFilter, setTypeFilter] = useState<"all" | "buyer" | "listing">("all");
   const [accountType, setAccountType] = useState<AccountType | null>(null);
 
+  // Add Deal modal
+  const [addDealOpen, setAddDealOpen] = useState(false);
+  const [addDealName, setAddDealName] = useState("");
+  const [addDealType, setAddDealType] = useState<"buyer" | "listing">("buyer");
+  const [addDealAddress, setAddDealAddress] = useState("");
+  const [addDealPrice, setAddDealPrice] = useState("");
+  const [addDealStage, setAddDealStage] = useState<DealStage>("New");
+  const [addDealSaving, setAddDealSaving] = useState(false);
+  const [addDealError, setAddDealError] = useState("");
+
   const draggedDealIdRef = useRef<string | null>(null);
 
   const selectedDeal = useMemo(
@@ -337,6 +347,92 @@ export default function DealsBoardClient() {
     setIsDetailOpen(true);
   }
 
+  async function handleAddDeal() {
+    if (!addDealName.trim()) { setAddDealError("Client name is required."); return; }
+    if (!agentId) return;
+    setAddDealSaving(true);
+    setAddDealError("");
+
+    try {
+      // Create lead first
+      const leadRes = await fetch("/api/leads/simple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: addDealName.trim(),
+          source: "manual",
+          intent: addDealType === "buyer" ? "Buy" : "Sell",
+        }),
+      });
+      const leadData = (await leadRes.json()) as { lead?: { id: string }; error?: string };
+      if (!leadRes.ok || !leadData.lead?.id) {
+        setAddDealError(leadData.error || "Could not create contact.");
+        return;
+      }
+
+      // Create deal
+      const price = parsePositiveDecimal(addDealPrice) ?? null;
+      const { data: dealRow, error: dealError } = await supabase
+        .from("deals")
+        .insert({
+          agent_id: agentId,
+          lead_id: leadData.lead.id,
+          deal_type: addDealType,
+          property_address: addDealAddress.trim() || null,
+          price,
+          stage: addDealStage,
+          updated_at: new Date().toISOString(),
+        })
+        .select("id,agent_id,lead_id,property_address,deal_type,price,stage,expected_close_date,notes,created_at,updated_at")
+        .single();
+
+      if (dealError || !dealRow) {
+        setAddDealError(dealError?.message || "Could not create deal.");
+        return;
+      }
+
+      const newDeal: DealWithLead = {
+        id: dealRow.id as string,
+        agent_id: dealRow.agent_id as string,
+        lead_id: dealRow.lead_id as string,
+        property_address: dealRow.property_address as string | null,
+        deal_type: normalizeDealType(dealRow.deal_type as string),
+        price: dealRow.price as number | string | null,
+        stage: normalizeDealStage(dealRow.stage as string),
+        expected_close_date: dealRow.expected_close_date as string | null,
+        notes: dealRow.notes as string | null,
+        created_at: dealRow.created_at as string | null,
+        updated_at: dealRow.updated_at as string | null,
+        lead: {
+          id: leadData.lead.id,
+          full_name: addDealName.trim(),
+          first_name: null,
+          last_name: null,
+          canonical_email: null,
+          canonical_phone: null,
+          ig_username: null,
+          lead_temp: "Warm",
+          source: "manual",
+          intent: addDealType === "buyer" ? "Buy" : "Sell",
+          timeline: null,
+          location_area: null,
+        },
+      };
+
+      setDeals((prev) => [newDeal, ...prev]);
+      setAddDealOpen(false);
+      setAddDealName("");
+      setAddDealAddress("");
+      setAddDealPrice("");
+      setAddDealStage("New");
+      setAddDealType("buyer");
+    } catch {
+      setAddDealError("Something went wrong. Please try again.");
+    } finally {
+      setAddDealSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="crm-page">
@@ -373,11 +469,15 @@ export default function DealsBoardClient() {
           </div>
           <div className="crm-page-actions">
             <Link href={isOffMarketAccount ? "/app/documents" : "/app/intake"} className="crm-btn crm-btn-secondary">
-              {isOffMarketAccount ? "Open documents" : "Review intake"}
+              {isOffMarketAccount ? "Open documents" : "Review inquiries"}
             </Link>
-            <Link href="/app/priorities" className="crm-btn crm-btn-primary">
-              {isOffMarketAccount ? "Open tasks" : "Open priorities"}
-            </Link>
+            <button
+              type="button"
+              className="crm-btn crm-btn-primary"
+              onClick={() => { setAddDealOpen(true); setAddDealError(""); }}
+            >
+              + Add {isOffMarketAccount ? "Deal" : "Client"}
+            </button>
           </div>
         </div>
 
@@ -647,6 +747,88 @@ export default function DealsBoardClient() {
           </section>
         </div>
       ) : null}
+
+      {/* Add Deal / Add Client modal */}
+      {addDealOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setAddDealOpen(false); }}
+        >
+          <div style={{ background: "var(--surface-1, #fff)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 440, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "grid", gap: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                {isOffMarketAccount ? "Add Deal" : "Add Client"}
+              </h2>
+              <button type="button" onClick={() => setAddDealOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--ink-muted)" }}>×</button>
+            </div>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Client name *
+              <input
+                className="crm-input"
+                value={addDealName}
+                onChange={(e) => setAddDealName(e.target.value)}
+                placeholder="Jane Smith"
+                autoFocus
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Deal type
+              <select className="crm-input" value={addDealType} onChange={(e) => setAddDealType(e.target.value as "buyer" | "listing")}>
+                <option value="buyer">Buyer</option>
+                <option value="listing">Listing (Seller)</option>
+              </select>
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+              Property address
+              <input
+                className="crm-input"
+                value={addDealAddress}
+                onChange={(e) => setAddDealAddress(e.target.value)}
+                placeholder="123 Main St, Austin TX (optional)"
+              />
+            </label>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+                Price
+                <input
+                  className="crm-input"
+                  value={addDealPrice}
+                  onChange={(e) => setAddDealPrice(e.target.value)}
+                  placeholder="450000"
+                  type="number"
+                  min="0"
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
+                Stage
+                <select className="crm-input" value={addDealStage} onChange={(e) => setAddDealStage(e.target.value as DealStage)}>
+                  {DEAL_BOARD_STAGES.map((s) => (
+                    <option key={s} value={s}>{dealStageLabel(s)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {addDealError && (
+              <div style={{ fontSize: 13, color: "var(--color-error-text, #991b1b)", background: "var(--color-error-bg, #fee2e2)", border: "1px solid var(--color-error-border, #fca5a5)", borderRadius: 6, padding: "8px 12px" }}>
+                {addDealError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" className="crm-btn crm-btn-secondary" onClick={() => setAddDealOpen(false)} disabled={addDealSaving}>
+                Cancel
+              </button>
+              <button type="button" className="crm-btn crm-btn-primary" onClick={() => void handleAddDeal()} disabled={addDealSaving}>
+                {addDealSaving ? "Adding..." : isOffMarketAccount ? "Add Deal" : "Add Client"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

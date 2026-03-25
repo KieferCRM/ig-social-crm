@@ -565,39 +565,7 @@ export default async function AnalyticsPage() {
     ? "secretary_voice"
     : (billingRow?.billing_tier ?? "core_crm");
 
-  const hasAnalyticsAccess =
-    billingTier === "secretary_sms" || billingTier === "secretary_voice";
-
-  if (!hasAnalyticsAccess) {
-    return (
-      <main className="crm-page crm-stack-12" style={{ maxWidth: 980 }}>
-        <section className="crm-card crm-section-card">
-          <div className="crm-page-header">
-            <div className="crm-page-header-main">
-              <h1 className="crm-page-title">Analytics</h1>
-              <p className="crm-page-subtitle">
-                Pipeline health, lead volume, follow-up metrics, and stage breakdown — all in one place.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="crm-card crm-section-card crm-stack-10" style={{ textAlign: "center", padding: 48 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-            Analytics is included in Secretary
-          </h2>
-          <p style={{ color: "var(--ink-muted)", maxWidth: 420, margin: "0 auto 24px", lineHeight: 1.6 }}>
-            Upgrade to the Secretary plan to unlock pipeline health metrics, lead source breakdown,
-            follow-up health, and stage conversion data.
-          </p>
-          <Link href="/app/settings/billing" className="crm-btn crm-btn-primary">
-            View plans
-          </Link>
-        </section>
-      </main>
-    );
-  }
+  void billingTier; // reserved for future tier-gated advanced analytics
 
   let dealsData: DealRow[] = [];
   let leadsData: LeadRow[] = [];
