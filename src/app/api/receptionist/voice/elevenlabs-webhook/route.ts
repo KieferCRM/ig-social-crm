@@ -215,10 +215,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { data } = payload;
   const transcript = data.transcript ?? [];
 
-  // Extract to-phone from metadata — ElevenLabs uses different field names depending on source
+  // Extract to-phone (business number) and caller phone from metadata
+  // ElevenLabs nests phone call data under metadata.phone_call
+  const phoneCall = data.metadata?.phone_call as Record<string, unknown> | undefined;
   const toPhone =
+    (phoneCall?.agent_number as string | undefined) ||
     (data.metadata?.to as string | undefined) ||
     (data.metadata?.phone_number as string | undefined) ||
+    null;
+  const callerPhoneFromMetadata =
+    (phoneCall?.external_number as string | undefined) ||
+    (data.metadata?.caller_id as string | undefined) ||
     null;
 
   console.log("[elevenlabs-webhook] Processing call:", {
@@ -245,10 +252,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   console.log("[elevenlabs-webhook] Matched CRM agent:", agentId);
 
-  // Get phone number — ElevenLabs passes it in metadata for Twilio calls
+  // Get caller phone number
   const phone =
-    (data.metadata?.phone_number as string | undefined) ||
-    (data.metadata?.caller_id as string | undefined) ||
+    callerPhoneFromMetadata ||
     (data.conversation_initiation_client_data?.dynamic_variables?.caller_phone) ||
     "";
 
