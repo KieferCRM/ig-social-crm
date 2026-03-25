@@ -2,12 +2,12 @@
 
 import { useRef, useState } from "react";
 
-type Mode = "idle" | "loading" | "result" | "asking";
+type Mode = "idle" | "loading" | "result";
 
 const CHIPS = [
-  "What's going stale?",
+  "Brief me",
+  "What's stale?",
   "How's my pipeline?",
-  "What did I miss?",
 ];
 
 async function fetchBrief(question: string | null): Promise<string | null> {
@@ -37,105 +37,79 @@ export default function BriefingCard() {
     setMode("result");
   }
 
-  function openAsking() {
-    setMode("asking");
+  function reset() {
+    setMode("idle");
+    setResult(null);
     setInput("");
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }
-
-  function handleChip(chip: string) {
-    void run(chip);
   }
 
   function handleSubmit() {
     const q = input.trim();
     if (!q) return;
+    setInput("");
     void run(q);
   }
 
   return (
-    <article className="crm-card crm-section-card crm-stack-8">
-      <h2 className="crm-section-title">AI Assistant</h2>
-
-      {mode === "idle" && (
-        <button
-          className="crm-btn crm-btn-primary"
-          style={{ alignSelf: "flex-start" }}
-          onClick={() => void run(null)}
-        >
-          Brief me
-        </button>
-      )}
-
-      {mode === "loading" && (
-        <div className="crm-stack-6">
-          <div style={{ height: 14, borderRadius: 4, background: "var(--surface-2)", width: "88%" }} />
-          <div style={{ height: 14, borderRadius: 4, background: "var(--surface-2)", width: "72%" }} />
-          <div style={{ height: 14, borderRadius: 4, background: "var(--surface-2)", width: "80%" }} />
-        </div>
-      )}
-
-      {mode === "result" && result && (
-        <div className="crm-stack-8">
-          <p style={{ fontSize: 15, lineHeight: 1.7, color: "var(--ink)", margin: 0 }}>
-            {result}
-          </p>
-          <button
-            onClick={openAsking}
-            style={{ background: "none", border: "none", padding: 0, fontSize: 13, color: "var(--brand)", cursor: "pointer", alignSelf: "flex-start", textDecoration: "underline" }}
-          >
-            Ask something else
-          </button>
-        </div>
-      )}
-
-      {mode === "result" && !result && (
-        <div className="crm-stack-8">
-          <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: 0 }}>
-            Couldn&apos;t generate a brief right now. Try again in a moment.
-          </p>
-          <button
-            onClick={() => setMode("idle")}
-            style={{ background: "none", border: "none", padding: 0, fontSize: 13, color: "var(--brand)", cursor: "pointer", alignSelf: "flex-start", textDecoration: "underline" }}
-          >
-            Try again
-          </button>
-        </div>
-      )}
-
-      {mode === "asking" && (
-        <div className="crm-stack-8">
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {CHIPS.map((chip) => (
-              <button
-                key={chip}
-                onClick={() => handleChip(chip)}
-                className="crm-btn crm-btn-secondary"
-                style={{ fontSize: 13 }}
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              ref={inputRef}
-              className="crm-input"
-              style={{ flex: 1, fontSize: 13 }}
-              placeholder="Ask anything about your pipeline…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
-            />
+    <article className="crm-card crm-section-card">
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {/* Prompt chips */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
+          {CHIPS.map((chip) => (
             <button
-              className="crm-btn crm-btn-primary"
-              style={{ fontSize: 13, flexShrink: 0 }}
-              onClick={handleSubmit}
-              disabled={!input.trim()}
+              key={chip}
+              onClick={() => void run(chip === "Brief me" ? null : chip)}
+              disabled={mode === "loading"}
+              className="crm-btn crm-btn-secondary"
+              style={{ fontSize: 12, padding: "4px 10px" }}
             >
-              Ask
+              {chip}
             </button>
-          </div>
+          ))}
+        </div>
+
+        {/* Free text input */}
+        <div style={{ display: "flex", gap: 6, minWidth: 200 }}>
+          <input
+            ref={inputRef}
+            className="crm-input"
+            style={{ fontSize: 12, padding: "4px 10px", flex: 1 }}
+            placeholder="Ask your pipeline…"
+            value={input}
+            disabled={mode === "loading"}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+          />
+          <button
+            className="crm-btn crm-btn-primary"
+            style={{ fontSize: 12, padding: "4px 10px", flexShrink: 0 }}
+            onClick={handleSubmit}
+            disabled={!input.trim() || mode === "loading"}
+          >
+            Ask
+          </button>
+        </div>
+      </div>
+
+      {/* Result */}
+      {mode === "loading" && (
+        <div className="crm-stack-4" style={{ marginTop: 10 }}>
+          <div style={{ height: 12, borderRadius: 4, background: "var(--surface-2)", width: "85%" }} />
+          <div style={{ height: 12, borderRadius: 4, background: "var(--surface-2)", width: "68%" }} />
+        </div>
+      )}
+
+      {mode === "result" && (
+        <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <p style={{ fontSize: 13, lineHeight: 1.65, color: "var(--ink)", margin: 0, flex: 1 }}>
+            {result ?? "Couldn't get a response. Try again."}
+          </p>
+          <button
+            onClick={reset}
+            style={{ fontSize: 11, color: "var(--ink-faint)", background: "none", border: "none", cursor: "pointer", flexShrink: 0, paddingTop: 2 }}
+          >
+            ✕
+          </button>
         </div>
       )}
     </article>
