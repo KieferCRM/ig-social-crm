@@ -18,6 +18,7 @@ import {
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
 import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
+import { generateMorningBriefing } from "@/lib/today/morning-briefing";
 import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 
 export const dynamic = "force-dynamic";
@@ -271,6 +272,39 @@ export default async function AppHome() {
     const tasksDueToday = (taskData ?? []) as TodayTask[];
     const formAlerts = (formAlertData || []) as Array<{ id: string; title: string; message: string; severity: string; created_at: string }>;
 
+    const briefing = await generateMorningBriefing({
+      todayStr,
+      activeDeals: activeDeals.map((d) => ({
+        propertyAddress: d.propertyAddress,
+        stage: d.stage,
+        updatedAt: d.updatedAt,
+        nextFollowupDate: d.nextFollowupDate,
+        leadName: leadDisplayName(d.lead),
+        leadPhone: d.lead?.canonical_phone ?? null,
+      })),
+      followupsDue: followupsDue.map((d) => ({
+        propertyAddress: d.propertyAddress,
+        leadName: leadDisplayName(d.lead),
+        nextFollowupDate: d.nextFollowupDate,
+        stage: d.stage,
+      })),
+      staleDeals: staleDeals.map((d) => ({
+        propertyAddress: d.propertyAddress,
+        leadName: leadDisplayName(d.lead),
+        updatedAt: d.updatedAt,
+        stage: d.stage,
+      })),
+      todayAppointments: todayAppointments.map((a) => ({
+        title: a.title,
+        scheduledAt: a.scheduled_at,
+        location: a.location,
+        leadName: a.lead?.full_name ?? null,
+      })),
+      secretaryDrafts: paDrafts.length,
+      tasksDueToday: tasksDueToday.map((t) => ({ title: t.title, priority: t.priority })),
+      newLeadsOvernight: formAlerts.length,
+    });
+
     return (
       <main className="crm-page crm-page-wide crm-stack-12">
         <FormAlertsSection initialAlerts={formAlerts} title="New Activity" />
@@ -326,213 +360,85 @@ export default async function AppHome() {
           </section>
         ) : null}
 
-        {/* Main grid */}
-        <section className="crm-today-grid">
-
-          {/* LEFT — Follow-ups due + Stale Deals */}
-          <div className="crm-stack-12">
-            <article className="crm-card crm-section-card crm-stack-10">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Follow-ups Due</h2>
-                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
-              </div>
-              <div className="crm-stack-8">
-                {followupsDue.length === 0 ? (
-                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No follow-ups due right now. Set a follow-up date on a deal to surface it here.
-                  </div>
-                ) : null}
-                {followupsDue.map((deal) => (
-                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                    <div className="crm-card-muted crm-stack-6" style={{ padding: 14, cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
-                          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{leadDisplayName(deal.lead)}</div>
-                        </div>
-                        <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
-                      </div>
-                      <div className="crm-inline-actions" style={{ gap: 8 }}>
-                        {deal.nextFollowupDate && deal.nextFollowupDate < todayStr ? (
-                          <StatusBadge label="Overdue" tone="danger" />
-                        ) : (
-                          <StatusBadge label="Due today" tone="warn" />
-                        )}
-                        {deal.lead?.canonical_phone ? (
-                          <a
-                            href={`tel:${deal.lead.canonical_phone}`}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ fontSize: 13, color: "var(--brand)", textDecoration: "none" }}
-                          >
-                            {deal.lead.canonical_phone}
-                          </a>
-                        ) : null}
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                        Follow-up set for {formatDate(deal.nextFollowupDate)}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-                {activeDeals.filter((d) => !d.nextFollowupDate).length > 0 ? (
-                  <div className="crm-card-muted" style={{ padding: 14 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
-                      {activeDeals.filter((d) => !d.nextFollowupDate).length} deals have no follow-up date set
-                    </div>
-                    <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-                      Open the pipeline and set a follow-up date so these surface here automatically.
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </article>
-
-            {/* Stale Deals */}
-            <article className="crm-card crm-section-card crm-stack-10">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Stale Deals</h2>
-                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
-              </div>
-              <div className="crm-stack-8">
-                {staleDeals.length === 0 ? (
-                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No stale deals. All active deals have had recent activity.
-                  </div>
-                ) : null}
-                {staleDeals.slice(0, 5).map((deal) => (
-                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                    <div className="crm-card-muted" style={{ padding: 14, cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                        <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "—"}</div>
-                        <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
-                      </div>
-                      <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
-                        No movement in {formatTimeAgo(deal.updatedAt)} — needs a follow-up or stage update.
-                      </div>
-                      {deal.lead?.canonical_phone ? (
-                        <a
-                          href={`tel:${deal.lead.canonical_phone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ fontSize: 12, color: "var(--brand)", textDecoration: "none", marginTop: 4, display: "block" }}
-                        >
-                          {deal.lead.canonical_phone}
-                        </a>
-                      ) : null}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </article>
+        {/* Morning Briefing */}
+        <article className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <div className="crm-stack-4">
+              <h2 className="crm-section-title">Today&apos;s Brief</h2>
+              {briefing ? (
+                <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>Generated at {briefing.generatedAt}</div>
+              ) : null}
+            </div>
+            <div className="crm-inline-actions" style={{ gap: 8 }}>
+              {paDrafts.length > 0 && (
+                <Link href="/app/secretary" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>
+                  {paDrafts.length} Secretary draft{paDrafts.length > 1 ? "s" : ""}
+                </Link>
+              )}
+              <Link href="/app/pipeline" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>Open pipeline</Link>
+            </div>
           </div>
 
-          {/* RIGHT — Appointments, PA Drafts, Tasks */}
-          <div className="crm-stack-12">
+          {briefing ? (
+            <p style={{ fontSize: 15, lineHeight: 1.65, color: "var(--ink)", margin: 0 }}>
+              {briefing.text}
+            </p>
+          ) : (
+            <div className="crm-stack-6">
+              {activeDeals.length === 0 ? (
+                <p style={{ color: "var(--ink-muted)", margin: 0 }}>No active deals yet. Open the pipeline to get started.</p>
+              ) : (
+                <p style={{ color: "var(--ink-muted)", margin: 0 }}>
+                  {activeDeals.length} active deal{activeDeals.length !== 1 ? "s" : ""}.
+                  {followupsDue.length > 0 ? ` ${followupsDue.length} follow-up${followupsDue.length !== 1 ? "s" : ""} due today.` : ""}
+                  {staleDeals.length > 0 ? ` ${staleDeals.length} deal${staleDeals.length !== 1 ? "s" : ""} need attention.` : ""}
+                </p>
+              )}
+            </div>
+          )}
 
-            {/* Today's Appointments */}
-            <article className="crm-card crm-section-card crm-stack-10">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Today&apos;s Appointments</h2>
-                <Link href="/app/calendar" className="crm-btn crm-btn-secondary">Open calendar</Link>
+          {/* Action row */}
+          {(followupsDue.length > 0 || staleDeals.length > 0 || todayAppointments.length > 0 || tasksDueToday.length > 0) ? (
+            <div className="crm-stack-6" style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                Needs attention
               </div>
-              <div className="crm-stack-8">
-                {todayAppointments.length === 0 ? (
-                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No appointments today. Add one from the calendar.
-                  </div>
-                ) : null}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {todayAppointments.map((appt) => {
-                  const context = appt.deal?.property_address ?? appt.lead?.full_name ?? null;
                   const time = new Date(appt.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
                   return (
-                    <Link key={appt.id} href="/app/calendar" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                      <div className="crm-card-muted crm-stack-4" style={{ padding: 14, borderLeft: "3px solid #2563eb", cursor: "pointer" }}>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{appt.title}</div>
-                        {context ? <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{context}</div> : null}
-                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                          {time}{appt.duration_minutes ? ` · ${appt.duration_minutes}min` : ""}{appt.location ? ` · ${appt.location}` : ""}
-                        </div>
-                      </div>
+                    <Link key={appt.id} href="/app/calendar" style={{ textDecoration: "none" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "5px 12px", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", fontWeight: 600, whiteSpace: "nowrap" }}>
+                        {time} · {appt.title}
+                      </span>
                     </Link>
                   );
                 })}
-              </div>
-            </article>
-
-            {/* Secretary Drafts */}
-            <article className="crm-card crm-section-card crm-stack-10">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Secretary Drafts</h2>
-                <Link href="/app/secretary" className="crm-btn crm-btn-secondary">Open Secretary</Link>
-              </div>
-              <div className="crm-stack-8">
-                {paDrafts.length === 0 ? (
-                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No drafts waiting. When a lead replies, your Secretary will draft a response for you to review.
-                  </div>
-                ) : null}
-                {paDrafts.map((draft) => {
-                  const meta = draft.metadata ?? {};
-                  const intent = meta.intent as string | null;
-                  const leadMsg = meta.lead_message as string | null;
-                  return (
-                    <Link key={draft.id} href="/app/secretary" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                      <div className="crm-card-muted crm-stack-4" style={{ padding: 14, borderLeft: "3px solid #7c3aed", cursor: "pointer" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>SECRETARY</span>
-                          {intent ? <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{intent.replace(/_/g, " ")}</span> : null}
-                        </div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{draft.title.replace(/^PA draft reply ready/, "Draft reply ready")}</div>
-                        {leadMsg ? (
-                          <div style={{ fontSize: 12, color: "var(--ink-muted)", fontStyle: "italic" }}>
-                            &ldquo;{leadMsg.slice(0, 100)}{leadMsg.length > 100 ? "…" : ""}&rdquo;
-                          </div>
-                        ) : null}
-                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{formatTimeAgo(draft.created_at)}</div>
-                      </div>
-                    </Link>
-                  );
-                })}
-                {paDrafts.length > 0 ? (
-                  <Link href="/app/secretary" className="crm-btn crm-btn-primary" style={{ fontSize: 13, textAlign: "center" }}>
-                    Review &amp; send in Secretary →
+                {followupsDue.map((deal) => (
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "5px 12px", borderRadius: 6, background: "#fef2f2", color: "#b91c1c", fontWeight: 600, whiteSpace: "nowrap" }}>
+                      Follow up · {deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}
+                    </span>
                   </Link>
-                ) : null}
-              </div>
-            </article>
-
-            {/* Tasks Due Today */}
-            <article className="crm-card crm-section-card crm-stack-10">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Tasks Due Today</h2>
-                <Link href="/app/priorities" className="crm-btn crm-btn-secondary">All tasks</Link>
-              </div>
-              <div className="crm-stack-8">
-                {tasksDueToday.length === 0 ? (
-                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    No tasks due today. You&apos;re clear.
-                  </div>
-                ) : null}
-                {tasksDueToday.map((task) => (
-                  <Link key={task.id} href="/app/priorities" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                    <div className="crm-card-muted crm-stack-4" style={{ padding: 14, cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{task.title}</div>
-                        <StatusBadge
-                          label={task.priority === "urgent" ? "Urgent" : task.priority === "high" ? "High" : "Due today"}
-                          tone={task.priority === "urgent" ? "danger" : task.priority === "high" ? "warn" : "default"}
-                        />
-                      </div>
-                      {task.description ? (
-                        <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{task.description}</div>
-                      ) : null}
-                    </div>
+                ))}
+                {staleDeals.slice(0, 3).map((deal) => (
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "5px 12px", borderRadius: 6, background: "#fffbeb", color: "#92400e", fontWeight: 600, whiteSpace: "nowrap" }}>
+                      Stale · {deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}
+                    </span>
+                  </Link>
+                ))}
+                {tasksDueToday.slice(0, 2).map((task) => (
+                  <Link key={task.id} href="/app/priorities" style={{ textDecoration: "none" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "5px 12px", borderRadius: 6, background: "var(--surface-2)", color: "var(--ink)", fontWeight: 500, whiteSpace: "nowrap" }}>
+                      {task.title}
+                    </span>
                   </Link>
                 ))}
               </div>
-            </article>
-
-          </div>
-        </section>
+            </div>
+          ) : null}
+        </article>
       </main>
     );
   }
