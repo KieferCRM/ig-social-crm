@@ -169,7 +169,7 @@ export default function DealsBoardClient() {
   const [addDealType, setAddDealType] = useState<"buyer" | "listing">("buyer");
   const [addDealAddress, setAddDealAddress] = useState("");
   const [addDealPrice, setAddDealPrice] = useState("");
-  const [addDealStage, setAddDealStage] = useState<DealStage>("New");
+  const [addDealStage, setAddDealStage] = useState<DealStage>("new");
   const [addDealSaving, setAddDealSaving] = useState(false);
   const [addDealError, setAddDealError] = useState("");
 
@@ -424,7 +424,7 @@ export default function DealsBoardClient() {
       setAddDealName("");
       setAddDealAddress("");
       setAddDealPrice("");
-      setAddDealStage("New");
+      setAddDealStage("new");
       setAddDealType("buyer");
     } catch {
       setAddDealError("Something went wrong. Please try again.");
