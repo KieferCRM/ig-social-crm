@@ -301,9 +301,6 @@ export default async function AppHome() {
       <main className="crm-page crm-page-wide crm-stack-12">
         <FormAlertsSection initialAlerts={formAlerts} title="New Activity" />
 
-        {/* Weekly Brief — loads async, no page blocking */}
-        <BriefingCard />
-
         {/* Rolling 7-day week strip */}
         <WeekStrip
           startDate={todayStr}
@@ -311,6 +308,9 @@ export default async function AppHome() {
           followupDates={followupDateStrings}
           taskDates={taskDateStrings}
         />
+
+        {/* AI Assistant — compact widget */}
+        <BriefingCard />
 
         {deals.length === 0 ? (
           <section className="crm-card crm-section-card">

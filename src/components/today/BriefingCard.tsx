@@ -5,9 +5,9 @@ import { useRef, useState } from "react";
 type Mode = "idle" | "loading" | "result";
 
 const CHIPS = [
-  "Brief me",
-  "What's stale?",
-  "How's my pipeline?",
+  { label: "Brief me", question: null },
+  { label: "What's stale?", question: "What's stale?" },
+  { label: "How's my pipeline?", question: "How's my pipeline?" },
 ];
 
 async function fetchBrief(question: string | null): Promise<string | null> {
@@ -52,61 +52,83 @@ export default function BriefingCard() {
 
   return (
     <article className="crm-card crm-section-card">
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        {/* Prompt chips */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
-          {CHIPS.map((chip) => (
-            <button
-              key={chip}
-              onClick={() => void run(chip === "Brief me" ? null : chip)}
-              disabled={mode === "loading"}
-              className="crm-btn crm-btn-secondary"
-              style={{ fontSize: 12, padding: "4px 10px" }}
-            >
-              {chip}
-            </button>
-          ))}
-        </div>
-
-        {/* Free text input */}
-        <div style={{ display: "flex", gap: 6, minWidth: 200 }}>
-          <input
-            ref={inputRef}
-            className="crm-input"
-            style={{ fontSize: 12, padding: "4px 10px", flex: 1 }}
-            placeholder="Ask your pipeline…"
-            value={input}
-            disabled={mode === "loading"}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
-          />
+      {/* Chips + input row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {CHIPS.map(({ label, question }) => (
           <button
-            className="crm-btn crm-btn-primary"
-            style={{ fontSize: 12, padding: "4px 10px", flexShrink: 0 }}
-            onClick={handleSubmit}
-            disabled={!input.trim() || mode === "loading"}
+            key={label}
+            onClick={() => void run(question)}
+            disabled={mode === "loading"}
+            style={{
+              fontSize: 12,
+              padding: "5px 12px",
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--surface-2)",
+              color: "var(--ink)",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              opacity: mode === "loading" ? 0.5 : 1,
+            }}
           >
-            Ask
+            {label}
           </button>
-        </div>
+        ))}
+        <input
+          ref={inputRef}
+          style={{
+            fontSize: 12,
+            padding: "5px 10px",
+            flex: 1,
+            minWidth: 140,
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            background: "var(--background)",
+            color: "var(--foreground)",
+          }}
+          placeholder="Ask your pipeline…"
+          value={input}
+          disabled={mode === "loading"}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={!input.trim() || mode === "loading"}
+          style={{
+            fontSize: 12,
+            padding: "5px 12px",
+            borderRadius: 6,
+            border: "none",
+            background: "var(--brand)",
+            color: "#fff",
+            cursor: "pointer",
+            flexShrink: 0,
+            opacity: !input.trim() || mode === "loading" ? 0.5 : 1,
+          }}
+        >
+          Ask
+        </button>
       </div>
 
-      {/* Result */}
+      {/* Loading skeleton */}
       {mode === "loading" && (
-        <div className="crm-stack-4" style={{ marginTop: 10 }}>
-          <div style={{ height: 12, borderRadius: 4, background: "var(--surface-2)", width: "85%" }} />
-          <div style={{ height: 12, borderRadius: 4, background: "var(--surface-2)", width: "68%" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+          <div style={{ height: 11, borderRadius: 4, background: "var(--surface-2)", width: "85%" }} />
+          <div style={{ height: 11, borderRadius: 4, background: "var(--surface-2)", width: "65%" }} />
         </div>
       )}
 
+      {/* Result */}
       {mode === "result" && (
-        <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 10 }}>
           <p style={{ fontSize: 13, lineHeight: 1.65, color: "var(--ink)", margin: 0, flex: 1 }}>
             {result ?? "Couldn't get a response. Try again."}
           </p>
           <button
             onClick={reset}
-            style={{ fontSize: 11, color: "var(--ink-faint)", background: "none", border: "none", cursor: "pointer", flexShrink: 0, paddingTop: 2 }}
+            style={{ fontSize: 11, color: "var(--ink-faint)", background: "none", border: "none", cursor: "pointer", flexShrink: 0, paddingTop: 1 }}
           >
             ✕
           </button>
