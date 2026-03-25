@@ -22,7 +22,7 @@ export async function GET(): Promise<NextResponse> {
 
   const { data: interactions, error } = await admin
     .from("lead_interactions")
-    .select("id, created_at, channel, direction, interaction_type, status, raw_message_body, summary, lead_id")
+    .select("id, created_at, channel, direction, interaction_type, status, raw_message_body, summary, raw_transcript, lead_id")
     .eq("agent_id", agentId)
     .order("created_at", { ascending: false })
     .limit(50);

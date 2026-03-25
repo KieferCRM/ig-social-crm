@@ -272,10 +272,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   const collectedBudget = collected.budget_range?.value || collected.budget?.value || collected.price?.value;
 
   const name = collectedName || extracted.name;
-  const intent = collectedIntent || extracted.intent;
-  const address = collectedAddress || extracted.address;
-  const timeline = collectedTimeline || extracted.timeline;
-  const budget = collectedBudget || extracted.budget;
   const resolvedPhone = collectedPhone || phone;
 
   // Build transcript text for notes
@@ -352,53 +348,69 @@ export async function POST(request: Request): Promise<NextResponse> {
     const callerLabel = name || phone || "Unknown caller";
     const durationSecs = data.metadata?.call_duration_secs;
     const durationLabel = durationSecs ? ` (${Math.round(Number(durationSecs) / 60)}m ${Number(durationSecs) % 60}s)` : "";
-    await admin.from("receptionist_alerts").insert({
-      agent_id: agentId,
-      lead_id: leadId,
-      alert_type: "call_inbound",
-      status: "open",
-      severity: "info",
-      title: `Inbound call — ${callerLabel}`,
-      message: summary || `Inbound call received${durationLabel}. ${intent ? `Intent: ${intent}.` : ""} ${address ? `Area: ${address}.` : ""}`.trim(),
-      metadata: {
-        conversation_id: data.conversation_id,
-        call_duration_secs: durationSecs ?? null,
-        caller_phone: phone || null,
-        call_successful: data.analysis?.call_successful ?? null,
-      },
-    });
+
+    // Deduplicate alert by conversation_id
+    const { data: existingAlert } = await admin
+      .from("receptionist_alerts")
+      .select("id")
+      .eq("agent_id", agentId)
+      .filter("metadata->conversation_id", "eq", data.conversation_id)
+      .maybeSingle();
+
+    if (!existingAlert) {
+      await admin.from("receptionist_alerts").insert({
+        agent_id: agentId,
+        lead_id: leadId,
+        alert_type: "call_inbound",
+        status: "open",
+        severity: "info",
+        title: `Inbound call — ${callerLabel}`,
+        message: summary || `Inbound call received${durationLabel}. ${intent ? `Intent: ${intent}.` : ""} ${address ? `Area: ${address}.` : ""}`.trim(),
+        metadata: {
+          conversation_id: data.conversation_id,
+          call_duration_secs: durationSecs ?? null,
+          caller_phone: phone || null,
+          call_successful: data.analysis?.call_successful ?? null,
+        },
+      });
+    }
   } catch (err) {
     console.warn("[elevenlabs-webhook] Could not create call alert:", err);
   }
 
-  // Save to lead_interactions so the Secretary activity + transcripts tabs populate
+  // Save to lead_interactions — deduplicate by conversation_id so retries don't create duplicates
   if (leadId) {
     try {
-      await admin.from("lead_interactions").insert({
-        agent_id: agentId,
-        lead_id: leadId,
-        channel: "call_inbound",
-        direction: "inbound",
-        interaction_type: "voice_call",
-        status: data.status || "completed",
-        raw_transcript: transcriptText || null,
-        raw_message_body: summary || null,
-        summary: summary || null,
-        structured_payload: {
-          conversation_id: data.conversation_id,
-          call_duration_secs: data.metadata?.call_duration_secs ?? null,
-          call_successful: data.analysis?.call_successful ?? null,
-          caller_phone: resolvedPhone || null,
-          collected: {
-            name,
-            intent,
-            address,
-            timeline,
-            budget,
+      const { data: existing } = await admin
+        .from("lead_interactions")
+        .select("id")
+        .eq("agent_id", agentId)
+        .filter("structured_payload->conversation_id", "eq", data.conversation_id)
+        .maybeSingle();
+
+      if (existing) {
+        console.log("[elevenlabs-webhook] lead_interaction already exists for conversation:", data.conversation_id, "— skipping duplicate");
+      } else {
+        await admin.from("lead_interactions").insert({
+          agent_id: agentId,
+          lead_id: leadId,
+          channel: "call_inbound",
+          direction: "inbound",
+          interaction_type: "voice_call",
+          status: data.status || "completed",
+          raw_transcript: transcriptText || null,
+          raw_message_body: summary || null,
+          summary: summary || null,
+          structured_payload: {
+            conversation_id: data.conversation_id,
+            call_duration_secs: data.metadata?.call_duration_secs ?? null,
+            call_successful: data.analysis?.call_successful ?? null,
+            caller_phone: resolvedPhone || null,
+            collected: { name, intent, address, timeline, budget },
           },
-        },
-      });
-      console.log("[elevenlabs-webhook] lead_interactions row saved for:", leadId);
+        });
+        console.log("[elevenlabs-webhook] lead_interactions row saved for:", leadId);
+      }
     } catch (err) {
       console.warn("[elevenlabs-webhook] Could not save lead_interaction:", err);
     }

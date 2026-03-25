@@ -83,7 +83,8 @@ export default function AppShellClient({
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
         { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
-        { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
+        { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
+        { href: "/app/secretary", label: "Assistant", active: pathname.startsWith("/app/secretary"), count: alertCount },
         {
           href: "/app/settings",
           label: "Settings",
@@ -94,12 +95,12 @@ export default function AppShellClient({
       ]
     : [
         { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
-        { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals"), count: 0 },
+        { href: "/app/deals", label: "Pipeline", active: pathname.startsWith("/app/deals"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
         {
           href: "/app/intake",
-          label: "Intake",
+          label: "Inquiries",
           active:
             pathname.startsWith("/app/intake") ||
             pathname.startsWith("/app/ingestion") ||
@@ -107,9 +108,10 @@ export default function AppShellClient({
           count: 0,
         },
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
-        { href: "/app/social", label: "Social Media", active: pathname.startsWith("/app/social"), count: 0 },
-        { href: "/app/priorities", label: "Priorities", active: pathname.startsWith("/app/priorities"), count: 0 },
-        { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
+        { href: "/app/social", label: "Social Leads", active: pathname.startsWith("/app/social"), count: 0 },
+        { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
+        { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
+        { href: "/app/secretary", label: "Assistant", active: pathname.startsWith("/app/secretary"), count: alertCount },
         {
           href: "/app/settings",
           label: "Settings",
@@ -129,10 +131,10 @@ export default function AppShellClient({
     }
     if (pathname.startsWith("/app/deals")) {
       return {
-        title: "Deals",
+        title: "Pipeline",
         subtitle: isOffMarketAccount
           ? "Work active opportunities from one board: stage, contact context, stale deals, and next steps stay visible."
-          : "Work the pipeline from one board: move stages fast, scan context quickly, and keep the next step visible.",
+          : "Track every client from first contact to close. Move stages fast, see context at a glance, and keep next steps visible.",
       };
     }
     if (pathname.startsWith("/app/contacts")) {
@@ -149,9 +151,10 @@ export default function AppShellClient({
       pathname.startsWith("/app/import")
     ) {
       return {
-        title: "Intake",
-        subtitle:
-          "Review new inbound inquiries, confirm what the system created, and keep source context clear.",
+        title: isOffMarketAccount ? "Intake" : "Inquiries",
+        subtitle: isOffMarketAccount
+          ? "Review new inbound inquiries, confirm what the system created, and keep source context clear."
+          : "Review new inquiries, confirm contact details, and get each lead into the right stage quickly.",
       };
     }
     if (pathname.startsWith("/app/documents")) {
@@ -164,9 +167,9 @@ export default function AppShellClient({
     }
     if (pathname.startsWith("/app/social")) {
       return {
-        title: "Social Media",
+        title: "Social Leads",
         subtitle:
-          "Plan outreach, keep scripts close, and move between platforms without turning the CRM into a scheduler.",
+          "See leads that came from Instagram, Facebook, and TikTok. Follow up before they go cold.",
       };
     }
     if (pathname.startsWith("/app/forms")) {
@@ -178,22 +181,30 @@ export default function AppShellClient({
     }
     if (pathname.startsWith("/app/priorities")) {
       return {
-        title: isOffMarketAccount ? "Tasks" : "Priorities",
+        title: "Tasks",
         subtitle: isOffMarketAccount
           ? "Actionable deal work first: due now, stale opportunities next, then the items that can wait."
-          : "Quiet operational guidance for what needs contact now, what needs an update, and what can wait.",
+          : "Who needs a call, who needs an update, and what can wait — all in one place.",
+      };
+    }
+    if (pathname.startsWith("/app/analytics")) {
+      return {
+        title: "Analytics",
+        subtitle: isOffMarketAccount
+          ? "Pipeline health, deal volume, financial metrics, and follow-up status."
+          : "Lead volume, temperature breakdown, source performance, and follow-up health.",
       };
     }
     if (pathname.startsWith("/app/secretary")) {
       return {
-        title: "Secretary",
+        title: "Assistant",
         subtitle:
-          "AI call handling, SMS conversations, transcripts, and alerts in one place.",
+          "AI call handling, SMS outreach, transcripts, and alerts in one place.",
       };
     }
     if (pathname.startsWith("/app/settings/receptionist")) {
       return {
-        title: "Secretary Settings",
+        title: "Assistant Settings",
         subtitle:
           "Configure call handling, voice AI, after-hours mode, and SMS behavior.",
       };

@@ -362,7 +362,6 @@ export async function POST(request: Request) {
   revalidatePath("/app/deals");
   revalidatePath("/app/priorities");
   revalidatePath("/app/list");
-  revalidatePath("/app/kanban");
   revalidatePath(`/app/leads/${data.id}`);
 
   return NextResponse.json({ lead: data });
@@ -398,7 +397,6 @@ export async function PATCH(request: Request) {
 
   revalidatePath("/app");
   revalidatePath("/app/list");
-  revalidatePath("/app/kanban");
   revalidatePath(`/app/leads/${id}`);
 
   return NextResponse.json({ lead: data });

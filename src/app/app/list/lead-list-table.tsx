@@ -131,6 +131,10 @@ export default function LeadListTable({
   toolbarActions,
 }: LeadListTableProps) {
   const [filters, setFilters] = useState<ViewFilters>(() => mergedFilters(initialFilters));
+  const showHandleColumn = useMemo(
+    () => leads.some((l) => l.ig_username && !isSyntheticHandle(l.ig_username)),
+    [leads]
+  );
   const [activeLead, setActiveLead] = useState<LeadListRow | null>(null);
   const [savedViews, setSavedViews] = useState<SavedView[]>(() => {
     if (typeof window === "undefined") return [];
@@ -234,7 +238,7 @@ export default function LeadListTable({
         <select value={filters.stage} onChange={(event) => applyFilters({ ...filters, stage: event.target.value })}>
           {stageOptions.map((option) => (
             <option key={option} value={option}>
-              {option === "all" ? "All stages" : option}
+              {option === "all" ? "All stages" : option === "Closed" ? "Past Client" : option}
             </option>
           ))}
         </select>
@@ -331,7 +335,7 @@ export default function LeadListTable({
           <table className="crm-data-table">
             <thead>
               <tr>
-                {["Name", "Handle", "Email", "Phone", "Tags", "Stage", "Temp", "Source", "Last message", "Updated", "Open"].map((label) => (
+                {["Name", ...(showHandleColumn ? ["Handle"] : []), "Email", "Phone", "Tags", "Stage", "Temp", "Source", "Last message", "Updated", "Open"].map((label) => (
                   <th key={label}>
                     {label}
                   </th>
@@ -342,15 +346,17 @@ export default function LeadListTable({
               {filteredLeads.map((lead) => (
                 <tr key={lead.id}>
                   <td style={{ fontWeight: 600 }}>{displayName(lead)}</td>
-                  <td>
-                    {lead.ig_username && !isSyntheticHandle(lead.ig_username) ? `@${lead.ig_username}` : "-"}
-                  </td>
+                  {showHandleColumn && (
+                    <td>
+                      {lead.ig_username && !isSyntheticHandle(lead.ig_username) ? `@${lead.ig_username}` : "-"}
+                    </td>
+                  )}
                   <td>{emailOf(lead) || "-"}</td>
                   <td>{phoneOf(lead) || "-"}</td>
                   <td className="crm-truncate-cell" style={{ maxWidth: 180 }}>
                     {tagsOf(lead) || "-"}
                   </td>
-                  <td>{lead.stage || "New"}</td>
+                  <td>{lead.stage === "Closed" ? "Past Client" : lead.stage || "New"}</td>
                   <td>{lead.lead_temp || "Warm"}</td>
                   <td>{lead.source || "-"}</td>
                   <td className="crm-truncate-cell">

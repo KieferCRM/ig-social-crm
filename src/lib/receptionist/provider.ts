@@ -10,6 +10,7 @@ export type SmsSendInput = {
 export type BusinessNumberAssignmentInput = {
   agentId: string;
   areaCode?: string | null;
+  elevenLabsAgentId?: string | null;
 };
 
 export type BusinessNumberAssignmentResult = {
@@ -239,16 +240,16 @@ async function assignTwilioBusinessNumber(
       });
     }
 
-    // Register the new number with ElevenLabs (default to female agent)
+    // Register the new number with ElevenLabs — prefer caller-supplied agent ID, fall back to female preset
     let elevenLabsPhoneNumberId: string | null = null;
-    const defaultElevenLabsAgent = (process.env.ELEVENLABS_AGENT_FEMALE || "").trim();
-    if (numberSid && defaultElevenLabsAgent) {
+    const elevenLabsAgentId = (input.elevenLabsAgentId || "").trim() || (process.env.ELEVENLABS_AGENT_FEMALE || "").trim();
+    if (numberSid && elevenLabsAgentId) {
       const elResult = await registerTwilioNumberWithElevenLabs({
         phoneNumber: assignedPhone,
         twilioPhoneNumberSid: numberSid,
         twilioAccountSid: credentials.accountSid,
         twilioAuthToken: credentials.authToken,
-        agentId: defaultElevenLabsAgent,
+        agentId: elevenLabsAgentId,
         label: `LockboxHQ - ${(input.agentId || "").slice(0, 8)}`,
       }).catch(() => ({ ok: false as const, phoneNumberId: null, error: "ElevenLabs registration failed." }));
       elevenLabsPhoneNumberId = elResult.ok ? elResult.phoneNumberId : null;

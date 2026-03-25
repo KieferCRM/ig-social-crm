@@ -16,13 +16,13 @@ export default async function SettingsPage() {
 
       <div className="crm-grid-cards-3">
         <section className="crm-card crm-section-card crm-stack-10">
-          <div style={{ fontWeight: 700 }}>Secretary</div>
+          <div style={{ fontWeight: 700 }}>AI Assistant</div>
           <p style={{ margin: 0, fontSize: 14, color: "var(--ink-muted)" }}>
             Configure call handling, voice AI, SMS behavior, after-hours mode, and your business phone number.
           </p>
           <div>
             <Link href="/app/settings/receptionist" className="crm-btn crm-btn-primary">
-              Secretary settings
+              Assistant settings
             </Link>
           </div>
         </section>

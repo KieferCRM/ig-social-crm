@@ -14,7 +14,7 @@ import Link from "next/link";
 // Types
 // ---------------------------------------------------------------------------
 
-type Tab = "activity" | "conversations" | "transcripts" | "alerts" | "broadcast";
+type Tab = "activity" | "conversations" | "alerts" | "broadcast";
 type LeadTemp = string | null;
 
 type LeadRef = {
@@ -33,6 +33,7 @@ type ActivityItem = {
   status: string;
   raw_message_body: string | null;
   summary: string | null;
+  raw_transcript: string | null;
   lead_id: string;
   leads: LeadRef | null;
 };
@@ -233,6 +234,8 @@ function SecretaryStatusBar({ settings }: { settings: SecretarySettings | null }
 // ---------------------------------------------------------------------------
 
 function ActivityTab({ items, loading, isActive }: { items: ActivityItem[]; loading: boolean; isActive: boolean }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   if (loading) {
     return <p style={{ color: "var(--ink-muted)", padding: "16px 0" }}>Loading activity…</p>;
   }
@@ -251,64 +254,72 @@ function ActivityTab({ items, loading, isActive }: { items: ActivityItem[]; load
           No activity yet. Calls and texts will appear here when they come in.
         </div>
       ) : (
-        items.map((item) => (
-          <div
-            key={item.id}
-            className="crm-card"
-            style={{
-              padding: "10px 14px",
-              borderLeft: `3px solid ${tempBorderColor(item.leads?.lead_temp ?? null)}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 8,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 11, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>
-                {formatTime(item.created_at)}
-              </span>
-              <span style={{ fontSize: 11, background: "#f3f4f6", borderRadius: 4, padding: "1px 6px", color: "#374151" }}>
-                {CHANNEL_LABELS[item.channel] ?? item.channel}
-              </span>
-              {item.leads ? (
-                <Link
-                  href={`/app/leads/${item.leads.id}`}
-                  style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-primary)", textDecoration: "none" }}
-                >
-                  {leadLabel(item.leads)}
-                </Link>
-              ) : (
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-body)" }}>Unknown</span>
+        items.map((item) => {
+          const isExpanded = expandedId === item.id;
+          const hasTranscript = Boolean(item.raw_transcript);
+          return (
+            <div
+              key={item.id}
+              className="crm-card"
+              style={{
+                borderLeft: `3px solid ${tempBorderColor(item.leads?.lead_temp ?? null)}`,
+                overflow: "hidden",
+              }}
+            >
+              {/* Main row */}
+              <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 11, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>
+                    {formatTime(item.created_at)}
+                  </span>
+                  <span style={{ fontSize: 11, background: "#f3f4f6", borderRadius: 4, padding: "1px 6px", color: "#374151" }}>
+                    {CHANNEL_LABELS[item.channel] ?? item.channel}
+                  </span>
+                  {item.leads ? (
+                    <Link href={`/app/leads/${item.leads.id}`} style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-primary)", textDecoration: "none" }}>
+                      {leadLabel(item.leads)}
+                    </Link>
+                  ) : (
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-body)" }}>Unknown</span>
+                  )}
+                  <TempBadge temp={item.leads?.lead_temp ?? null} />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  {item.leads && (
+                    <Link href={`/app/leads/${item.leads.id}`} className="crm-btn crm-btn-secondary" style={{ fontSize: 11, padding: "2px 8px" }}>
+                      View lead
+                    </Link>
+                  )}
+                  {hasTranscript && (
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                      style={{ fontSize: 11, padding: "2px 8px", background: "transparent", border: "1px solid var(--border)", borderRadius: 6, cursor: "pointer", color: "var(--ink-muted)" }}
+                    >
+                      {isExpanded ? "Hide" : "Transcript"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Summary — always visible if present */}
+              {item.summary && (
+                <div style={{ padding: "0 14px 10px", fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.6, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+                  {item.summary}
+                </div>
               )}
-              <TempBadge temp={item.leads?.lead_temp ?? null} />
-              {item.raw_message_body && (
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--ink-muted)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: 220,
-                  }}
-                >
-                  {item.raw_message_body}
-                </span>
+
+              {/* Transcript — expandable */}
+              {isExpanded && item.raw_transcript && (
+                <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)", background: "#f9fafb" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Full Transcript</div>
+                  <pre style={{ margin: 0, fontFamily: "inherit", fontSize: 12, lineHeight: 1.75, whiteSpace: "pre-wrap", color: "var(--ink-body)" }}>
+                    {item.raw_transcript}
+                  </pre>
+                </div>
               )}
             </div>
-            {item.leads && (
-              <Link
-                href={`/app/leads/${item.leads.id}`}
-                className="crm-btn crm-btn-secondary"
-                style={{ fontSize: 11, padding: "2px 8px" }}
-              >
-                View lead
-              </Link>
-            )}
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );
@@ -549,7 +560,7 @@ function TranscriptsTab({ calls, loading }: { calls: Transcript[]; loading: bool
 
   if (openCall) {
     const payload = openCall.structured_payload ?? {};
-    const duration = payload.call_duration_seconds as number | undefined;
+    const duration = (payload.call_duration_secs ?? payload.call_duration_seconds) as number | undefined;
     return (
       <div style={{ display: "grid", gap: 12 }}>
         <button
@@ -625,7 +636,7 @@ function TranscriptsTab({ calls, loading }: { calls: Transcript[]; loading: bool
     <div style={{ display: "grid", gap: 8 }}>
       {calls.map((call) => {
         const payload = call.structured_payload ?? {};
-        const duration = payload.call_duration_seconds as number | undefined;
+        const duration = (payload.call_duration_secs ?? payload.call_duration_seconds) as number | undefined;
         const isInProgress = call.status === "queued" || call.status === "logged";
 
         return (
@@ -984,7 +995,6 @@ export default function SecretaryPage() {
   const [settings, setSettings] = useState<SecretarySettings | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [conversations, setConversations] = useState<ConversationThread[]>([]);
-  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -992,26 +1002,23 @@ export default function SecretaryPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [settingsRes, feedRes, convRes, transRes, alertRes] = await Promise.all([
+      const [settingsRes, feedRes, convRes, alertRes] = await Promise.all([
         fetch("/api/receptionist/settings"),
         fetch("/api/secretary/feed"),
         fetch("/api/secretary/conversations"),
-        fetch("/api/secretary/transcripts"),
         fetch("/api/secretary/alerts"),
       ]);
 
-      const [settingsData, feedData, convData, transData, alertData] = await Promise.all([
+      const [settingsData, feedData, convData, alertData] = await Promise.all([
         settingsRes.json() as Promise<{ settings?: SecretarySettings }>,
         feedRes.json() as Promise<{ items?: ActivityItem[] }>,
         convRes.json() as Promise<{ threads?: ConversationThread[] }>,
-        transRes.json() as Promise<{ calls?: Transcript[] }>,
         alertRes.json() as Promise<{ alerts?: Alert[]; open_count?: number }>,
       ]);
 
       if (settingsData.settings) setSettings(settingsData.settings);
       setActivity(feedData.items ?? []);
       setConversations(convData.threads ?? []);
-      setTranscripts(transData.calls ?? []);
       setAlerts(alertData.alerts ?? []);
       setAlertCount(alertData.open_count ?? 0);
       setLastRefresh(new Date());
@@ -1057,7 +1064,6 @@ export default function SecretaryPage() {
   const TABS: { id: Tab; label: string; count?: number }[] = [
     { id: "activity",      label: "Activity" },
     { id: "conversations", label: "Conversations" },
-    { id: "transcripts",   label: "Transcripts" },
     { id: "alerts",        label: "Alerts", count: alertCount },
     { id: "broadcast",     label: "Broadcast" },
   ];
@@ -1133,9 +1139,6 @@ export default function SecretaryPage() {
         )}
         {tab === "conversations" && (
           <ConversationsTab threads={conversations} loading={loading} />
-        )}
-        {tab === "transcripts" && (
-          <TranscriptsTab calls={transcripts} loading={loading} />
         )}
         {tab === "alerts" && (
           <AlertsTab

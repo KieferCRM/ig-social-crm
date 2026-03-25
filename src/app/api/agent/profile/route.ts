@@ -17,6 +17,7 @@ type Body = {
   full_name?: string;
   brokerage?: string;
   business_phone?: string;
+  timezone?: string;
 };
 
 export async function PATCH(request: Request): Promise<NextResponse> {
@@ -27,7 +28,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
   const parsed = await parseJsonBody<Body>(request, { maxBytes: 2048 });
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
 
-  const { full_name, brokerage, business_phone } = parsed.data;
+  const { full_name, brokerage, business_phone, timezone } = parsed.data;
   const agentId = auth.context.user.id;
 
   // Read current settings so we can merge
@@ -43,6 +44,10 @@ export async function PATCH(request: Request): Promise<NextResponse> {
   if (brokerage !== undefined) mergedSettings.brokerage = brokerage.trim();
   if (business_phone !== undefined) {
     mergedSettings.business_phone_number = business_phone.trim();
+  }
+  // Only set timezone if not already configured — lets the agent override later in Profile Settings
+  if (timezone !== undefined && !mergedSettings.timezone) {
+    mergedSettings.timezone = timezone.trim();
   }
 
   const updatePayload: Record<string, unknown> = {

@@ -348,7 +348,7 @@ export default function ReceptionistSettingsPage() {
       const response = await fetch("/api/receptionist/number/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ voice_preset: settings.voice_preset ?? "female" }),
       });
 
       const data = (await response.json()) as NumberAssignResponse;
@@ -896,32 +896,28 @@ export default function ReceptionistSettingsPage() {
                 {(
                   [
                     {
-                      value: "qualify_transfer" as CallHandlingMode,
-                      label: "Qualify then Transfer",
-                      description:
-                        "AI answers and qualifies the lead with a few questions, then transfers to you if you are available.",
+                      value: "qualify_callback" as CallHandlingMode,
+                      label: "Smart Voicemail",
+                      description: "AI answers, lets them talk, gets their name, and confirms you'll call back within 24 hours. Simple and reliable.",
+                      badge: null,
                     },
                     {
-                      value: "always_transfer" as CallHandlingMode,
-                      label: "Always Transfer",
-                      description:
-                        "AI answers with a brief greeting then immediately bridges the call to you. If you're unavailable, AI takes a message.",
+                      value: "message_book" as CallHandlingMode,
+                      label: "Smart Voicemail + Booking",
+                      description: "Same as above, but before hanging up the AI asks if they'd like to schedule a call, showing, or FaceTime with you.",
+                      badge: "Recommended",
                     },
                     {
                       value: "always_ai" as CallHandlingMode,
-                      label: "Always AI",
-                      description:
-                        "AI always handles the full call, qualifies the lead, takes a message, and notifies you afterward.",
+                      label: "Full AI Assistant",
+                      description: "AI qualifies the lead, answers general questions, and tries to handle the full call. Best once you've dialed in your setup.",
+                      badge: "Advanced",
                     },
-                    {
-                      value: "qualify_callback" as CallHandlingMode,
-                      label: "Qualify then Callback",
-                      description:
-                        "AI qualifies the lead and offers to schedule a callback instead of transferring.",
-                    },
-                  ] as Array<{ value: CallHandlingMode; label: string; description: string }>
+                  ] as Array<{ value: CallHandlingMode; label: string; description: string; badge: string | null }>
                 ).map((option) => {
-                  const isSelected = settings.call_handling_mode === option.value;
+                  const isSelected = settings.call_handling_mode === option.value ||
+                    // map legacy values to smart voicemail
+                    (option.value === "qualify_callback" && (settings.call_handling_mode === "qualify_transfer" || settings.call_handling_mode === "always_transfer"));
                   return (
                     <label
                       key={option.value}
@@ -948,7 +944,14 @@ export default function ReceptionistSettingsPage() {
                         style={{ marginTop: 2 }}
                       />
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</span>
+                          {option.badge && (
+                            <span style={{ fontSize: 10, fontWeight: 700, background: option.badge === "Recommended" ? "#dcfce7" : "#f3f4f6", color: option.badge === "Recommended" ? "#15803d" : "#6b7280", borderRadius: 4, padding: "1px 6px" }}>
+                              {option.badge}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
                           {option.description}
                         </div>

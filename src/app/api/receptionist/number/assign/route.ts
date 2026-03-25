@@ -11,6 +11,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 
 type AssignBody = {
   area_code?: string | null;
+  voice_agent_id?: string | null;
+  voice_preset?: string | null;
 };
 
 function optionalString(value: string | null | undefined): string | null {
@@ -42,9 +44,31 @@ export async function POST(request: Request) {
   }
 
   const areaCode = optionalString(parsed.data?.area_code || null);
+
+  // Determine which ElevenLabs Conversational AI agent to connect.
+  // Priority: body voice_agent_id → saved voice_agent_id → env preset → female fallback.
+  const savedSettings = readReceptionistSettingsFromAgentSettings(currentRow?.settings || null);
+  const bodyAgentId = optionalString(parsed.data?.voice_agent_id || null);
+  const bodyPreset = (parsed.data?.voice_preset || "").trim() || savedSettings.voice_preset || "female";
+  const savedAgentId = savedSettings.voice_agent_id.trim() || null;
+  const resolvedAgentId = bodyAgentId ?? savedAgentId;
+
+  let elevenLabsAgentId: string | null = null;
+  if (resolvedAgentId) {
+    elevenLabsAgentId = resolvedAgentId;
+  } else if (bodyPreset === "male") {
+    elevenLabsAgentId = (process.env.ELEVENLABS_AGENT_MALE || "").trim() || null;
+  } else {
+    elevenLabsAgentId = (process.env.ELEVENLABS_AGENT_FEMALE || "").trim() || null;
+  }
+
+  // If the agent provided a custom agent ID, persist it to settings now.
+  const agentIdPatch = resolvedAgentId ? { voice_agent_id: resolvedAgentId } : {};
+
   const assignment = await assignReceptionistBusinessNumber({
     agentId: auth.context.user.id,
     areaCode,
+    elevenLabsAgentId,
   });
 
   if (!assignment.ok || !assignment.businessPhoneNumber) {
@@ -64,6 +88,7 @@ export async function POST(request: Request) {
     business_number_provider: assignment.provider,
     existing_number_setup_notes: "",
     ...(assignment.elevenLabsPhoneNumberId ? { elevenlabs_phone_number_id: assignment.elevenLabsPhoneNumberId } : {}),
+    ...agentIdPatch,
   };
 
   const mergedSettings = mergeReceptionistIntoAgentSettings(

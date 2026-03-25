@@ -252,7 +252,7 @@ export default function DashboardPanel({
           compact
         />
         <KpiCard
-          label="Active Deals"
+          label="Active Clients"
           value={activeDeals}
           tone={activeDeals > 0 ? "ok" : "default"}
           helper={underContract > 0 ? `${underContract} under contract` : "No contracts yet"}

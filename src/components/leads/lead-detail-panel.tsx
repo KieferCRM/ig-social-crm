@@ -371,6 +371,31 @@ function MiniField({ label, value }: { label: string; value: string }) {
   );
 }
 
+type ActivityInteraction = {
+  id: string;
+  created_at: string;
+  channel: string;
+  interaction_type: string;
+  raw_message_body: string | null;
+  summary: string | null;
+};
+
+const ACTIVITY_TYPES = [
+  { value: "call", label: "Called" },
+  { value: "email", label: "Emailed" },
+  { value: "text", label: "Texted" },
+  { value: "meeting", label: "Met in person" },
+  { value: "note", label: "Note" },
+] as const;
+
+function activityIcon(channel: string): string {
+  if (channel === "call_outbound" || channel === "call_inbound") return "📞";
+  if (channel === "email") return "✉️";
+  if (channel === "sms") return "💬";
+  if (channel === "meeting") return "🤝";
+  return "📝";
+}
+
 export default function LeadDetailPanel({ leadId, open, initialLead = null, onClose }: LeadDetailPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -381,6 +406,13 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
   const [dealDraft, setDealDraft] = useState<DealDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState<SaveNotice | null>(null);
+
+  // Activity log
+  const [activities, setActivities] = useState<ActivityInteraction[]>([]);
+  const [logOpen, setLogOpen] = useState(false);
+  const [logType, setLogType] = useState<"call" | "email" | "text" | "meeting" | "note">("call");
+  const [logNote, setLogNote] = useState("");
+  const [loggingActivity, setLoggingActivity] = useState(false);
 
   const seededLead = useMemo<LeadDetail | null>(() => {
     if (!initialLead) return null;
@@ -469,6 +501,17 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
       } finally {
         window.clearTimeout(timeout);
         if (!cancelled) setLoading(false);
+      }
+
+      // Load activity log
+      if (!cancelled) {
+        try {
+          const actRes = await fetch(`/api/leads/${encodeURIComponent(currentLeadId)}/activity`, { cache: "no-store" });
+          if (actRes.ok) {
+            const actData = (await actRes.json()) as { interactions?: ActivityInteraction[] };
+            if (!cancelled) setActivities(actData.interactions ?? []);
+          }
+        } catch { /* non-critical */ }
       }
     }
 
@@ -758,6 +801,26 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
     }
   }
 
+  async function logActivity() {
+    if (!displayLead?.id || loggingActivity) return;
+    setLoggingActivity(true);
+    try {
+      const res = await fetch(`/api/leads/${encodeURIComponent(displayLead.id)}/activity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activity_type: logType, note: logNote.trim() || undefined }),
+      });
+      const data = (await res.json()) as { ok?: boolean; interaction?: ActivityInteraction; error?: string };
+      if (res.ok && data.interaction) {
+        setActivities((prev) => [data.interaction!, ...prev]);
+        setLogNote("");
+        setLogOpen(false);
+      }
+    } catch { /* ignore */ } finally {
+      setLoggingActivity(false);
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -893,7 +956,9 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                       onChange={(event) => updateDraftField("stage", event.target.value)}
                     >
                       {STAGE_OPTIONS.map((option) => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option}>
+                          {option === "Closed" ? "Past Client" : option}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -951,11 +1016,78 @@ export default function LeadDetailPanel({ leadId, open, initialLead = null, onCl
                       </div>
                     </div>
                     <div className="crm-card crm-detail-action-card">
-                      <div className="crm-detail-action-label">Recent Activity</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <div className="crm-detail-action-label" style={{ margin: 0 }}>Activity Log</div>
+                        <button
+                          type="button"
+                          className="crm-btn crm-btn-secondary"
+                          onClick={() => setLogOpen((v) => !v)}
+                          style={{ fontSize: 12, padding: "3px 10px" }}
+                        >
+                          {logOpen ? "Cancel" : "+ Log activity"}
+                        </button>
+                      </div>
+
+                      {logOpen && (
+                        <div style={{ display: "grid", gap: 8, marginBottom: 12, padding: 10, background: "var(--surface-1)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {ACTIVITY_TYPES.map(({ value, label }) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setLogType(value)}
+                                style={{
+                                  fontSize: 12,
+                                  padding: "4px 10px",
+                                  borderRadius: 6,
+                                  border: "1px solid var(--border)",
+                                  background: logType === value ? "var(--ink-primary)" : "transparent",
+                                  color: logType === value ? "#fff" : "var(--ink-muted)",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={logNote}
+                            onChange={(e) => setLogNote(e.target.value)}
+                            placeholder="Optional note..."
+                            style={{ fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-1)", color: "var(--ink)", resize: "none" }}
+                          />
+                          <button
+                            type="button"
+                            className="crm-btn crm-btn-primary"
+                            onClick={() => void logActivity()}
+                            disabled={loggingActivity}
+                            style={{ fontSize: 13 }}
+                          >
+                            {loggingActivity ? "Saving..." : "Log it"}
+                          </button>
+                        </div>
+                      )}
+
                       <div className="crm-detail-activity-list">
-                        <div>Lead created — {formatShortDate(displayLead.created_at) || "No timestamp"}</div>
-                        <div>Profile updated — {formatShortDate(displayLead.time_last_updated) || "No timestamp"}</div>
-                        <div>Last message — {firstNonEmpty(displayLead.last_message_preview) || "No recent message"}</div>
+                        {activities.length === 0 ? (
+                          <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>No activity logged yet.</div>
+                        ) : (
+                          activities.slice(0, 8).map((a) => (
+                            <div key={a.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, paddingBottom: 6, borderBottom: "1px solid var(--border-subtle, #f1f5f9)" }}>
+                              <span style={{ flexShrink: 0, fontSize: 14 }}>{activityIcon(a.channel)}</span>
+                              <div>
+                                <div style={{ color: "var(--ink)", lineHeight: 1.4 }}>{a.summary || a.interaction_type}</div>
+                                <div style={{ color: "var(--ink-faint)", marginTop: 2 }}>{formatShortDate(a.created_at)}</div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                        {activities.length === 0 && (
+                          <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 4 }}>
+                            Lead created — {formatShortDate(displayLead.created_at) || "—"}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="crm-card crm-detail-action-card">

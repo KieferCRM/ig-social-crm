@@ -27,6 +27,7 @@ export default function ProfileClient({ initialFullName, initialBrokerage, initi
     setError("");
 
     try {
+      const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const res = await fetch("/api/agent/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -34,6 +35,7 @@ export default function ProfileClient({ initialFullName, initialBrokerage, initi
           full_name: fullName.trim(),
           brokerage: brokerage.trim(),
           business_phone: phone.trim(),
+          timezone: detectedTimezone,
         }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
@@ -50,6 +52,15 @@ export default function ProfileClient({ initialFullName, initialBrokerage, initi
   }
 
   async function handleSkip() {
+    // Save timezone even on skip so date calculations use local time
+    try {
+      const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      await fetch("/api/agent/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timezone: detectedTimezone }),
+      });
+    } catch { /* non-critical */ }
     router.replace("/setup/slug");
   }
 

@@ -362,7 +362,7 @@ export default function LeadCommandWorkspace({
                       <option value="New">New</option>
                       <option value="Contacted">Contacted</option>
                       <option value="Qualified">Qualified</option>
-                      <option value="Closed">Closed</option>
+                      <option value="Closed">Past Client</option>
                     </select>
                   </label>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)" }}>

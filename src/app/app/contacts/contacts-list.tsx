@@ -206,7 +206,7 @@ function EditModal({ contact, onClose, onSaved, onDeleted }: {
                 <option value="New">New</option>
                 <option value="Contacted">Contacted</option>
                 <option value="Qualified">Qualified</option>
-                <option value="Closed">Closed</option>
+                <option value="Closed">Past Client</option>
               </select>
             </label>
             <label className="crm-filter-field" style={{ gridColumn: "1 / -1" }}>
