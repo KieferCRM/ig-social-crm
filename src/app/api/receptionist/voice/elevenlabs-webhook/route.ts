@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { upsertReceptionistLead } from "@/lib/receptionist/lead-upsert";
 import { readReceptionistSettingsFromAgentSettings } from "@/lib/receptionist/settings";
+import { analyzeCallTranscript } from "@/lib/receptionist/call-analyzer";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -282,9 +283,27 @@ export async function POST(request: Request): Promise<NextResponse> {
     .map((t) => `${t.role === "agent" ? "AI" : "Caller"}: ${t.message}`)
     .join("\n");
 
-  const summary = data.analysis?.transcript_summary || "";
+  const elevenLabsSummary = data.analysis?.transcript_summary || "";
 
-  console.log("[elevenlabs-webhook] Lead data:", { phone, name, intent, address, timeline, budget });
+  // Run Claude analysis on the transcript for richer extraction + urgency scoring
+  const agentRow = await admin.from("agents").select("full_name").eq("id", agentId).maybeSingle();
+  const agentFullName = (agentRow.data?.full_name as string | null) || "the agent";
+
+  const claudeAnalysis = transcriptText
+    ? await analyzeCallTranscript({ transcript: transcriptText, agentName: agentFullName }).catch(() => null)
+    : null;
+
+  console.log("[elevenlabs-webhook] Claude analysis:", claudeAnalysis);
+
+  // Claude results override regex extraction; ElevenLabs data collection overrides both
+  const intent = collectedIntent || claudeAnalysis?.intent || extracted.intent;
+  const address = collectedAddress || claudeAnalysis?.property_area || extracted.address;
+  const timeline = collectedTimeline || claudeAnalysis?.timeline || extracted.timeline;
+  const budget = collectedBudget || claudeAnalysis?.budget || extracted.budget;
+  const summary = elevenLabsSummary || claudeAnalysis?.summary || "";
+  const urgencyScore = claudeAnalysis?.urgency === "hot" ? 85 : claudeAnalysis?.urgency === "warm" ? 55 : claudeAnalysis?.urgency === "cold" ? 20 : null;
+
+  console.log("[elevenlabs-webhook] Lead data:", { phone, name, intent, address, timeline, budget, urgency: claudeAnalysis?.urgency });
 
   let leadId: string | null = null;
 
@@ -300,7 +319,13 @@ export async function POST(request: Request): Promise<NextResponse> {
         location_area: address || null,
         timeline: timeline || null,
         budget_range: budget || null,
-        notes: [summary, transcriptText ? `\n\nTranscript:\n${transcriptText}` : ""]
+        urgency_score: urgencyScore ?? undefined,
+        urgency_level: claudeAnalysis?.urgency === "hot" ? "high" : claudeAnalysis?.urgency ? "normal" : undefined,
+        notes: [
+          summary,
+          claudeAnalysis?.action_items ? `\nNext step: ${claudeAnalysis.action_items}` : "",
+          transcriptText ? `\n\nTranscript:\n${transcriptText}` : "",
+        ]
           .filter(Boolean)
           .join("")
           .slice(0, 4000) || null,

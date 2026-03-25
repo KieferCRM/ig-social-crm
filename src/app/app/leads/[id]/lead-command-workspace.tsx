@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type LeadDraft = {
   full_name: string;
@@ -217,6 +217,19 @@ export default function LeadCommandWorkspace({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedQuickStep, setSelectedQuickStep] = useState<string | null>(null);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  useEffect(() => {
+    setSummaryLoading(true);
+    fetch(`/api/leads/${lead.id}/summary`)
+      .then((r) => r.json())
+      .then((data: { summary?: string }) => {
+        if (data.summary) setAiSummary(data.summary);
+      })
+      .catch(() => null)
+      .finally(() => setSummaryLoading(false));
+  }, [lead.id]);
 
   async function handleSave() {
     setSaving(true);
@@ -312,6 +325,18 @@ export default function LeadCommandWorkspace({
 
   return (
     <main className="crm-page crm-page-wide crm-lead-command-page">
+      {(aiSummary || summaryLoading) && (
+        <section className="crm-card crm-section-card" style={{ background: "#f0f9ff", border: "1px solid #bae6fd", padding: "14px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ fontSize: 18, lineHeight: 1 }}>✦</div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#0369a1", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>AI Briefing</div>
+            {summaryLoading && !aiSummary
+              ? <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>Generating briefing…</div>
+              : <div style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.55 }}>{aiSummary}</div>
+            }
+          </div>
+        </section>
+      )}
       <section className="crm-card crm-section-card crm-lead-command-hero">
         <div className="crm-lead-command-hero-main">
           <div className="crm-lead-command-kicker">Lead Command Workspace</div>
