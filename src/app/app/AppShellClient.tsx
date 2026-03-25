@@ -76,7 +76,7 @@ export default function AppShellClient({
 
   const navItems = isOffMarketAccount
     ? [
-        { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
+        { href: "/app", label: "Home", active: pathname === "/app", count: 0 },
         { href: "/app/pipeline", label: "Pipeline", active: pathname.startsWith("/app/pipeline"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
@@ -94,7 +94,7 @@ export default function AppShellClient({
         },
       ]
     : [
-        { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
+        { href: "/app", label: "Home", active: pathname === "/app", count: 0 },
         { href: "/app/deals", label: "Pipeline", active: pathname.startsWith("/app/deals"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
@@ -217,9 +217,9 @@ export default function AppShellClient({
       };
     }
     return {
-      title: "Today",
+      title: "Home",
       subtitle: isOffMarketAccount
-        ? "Start with active deals, recent documents, upcoming tasks, and what needs attention now."
+        ? "Your weekly ops view — brief, pipeline pulse, and everything that needs attention."
         : "Start with the deals, hot inquiries, and follow-ups that matter right now.",
     };
   }, [isOffMarketAccount, pathname]);

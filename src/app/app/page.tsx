@@ -18,7 +18,8 @@ import {
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
 import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
-import { generateMorningBriefing } from "@/lib/today/morning-briefing";
+import BriefingCard from "@/components/today/BriefingCard";
+import WeekStrip from "@/components/today/WeekStrip";
 import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 
 export const dynamic = "force-dynamic";
@@ -205,7 +206,6 @@ export default async function AppHome() {
   const agentTimezone = (agentRow?.timezone as string | null) ?? "America/New_York";
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: agentTimezone });
   const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
-  const todayEnd = new Date(new Date().setHours(23, 59, 59, 999)).toISOString();
 
   // ── OFF-MARKET BRANCH ──────────────────────────────────────────────────────
   if (isOffMarketAccount) {
@@ -235,11 +235,11 @@ export default async function AppHome() {
         .limit(10),
       supabase
         .from("appointments")
-        .select("id,title,scheduled_at,duration_minutes,appointment_type,status,location,lead:leads(full_name),deal:deals(property_address)")
+        .select("id,title,scheduled_at,duration_minutes,location,lead:leads(full_name),deal:deals(property_address)")
         .eq("agent_id", user.id)
         .neq("status", "cancelled")
         .gte("scheduled_at", todayStart)
-        .lte("scheduled_at", todayEnd)
+        .lte("scheduled_at", new Date(Date.now() + 56 * 24 * 3600_000).toISOString())
         .order("scheduled_at", { ascending: true }),
       supabase
         .from("receptionist_alerts")
@@ -254,9 +254,9 @@ export default async function AppHome() {
         .select("id,title,description,priority,due_at")
         .or(recommendationOwnerFilter)
         .eq("status", "open")
-        .lte("due_at", todayEnd)
+        .lte("due_at", new Date(Date.now() + 56 * 24 * 3600_000).toISOString())
         .order("due_at", { ascending: true })
-        .limit(8),
+        .limit(40),
     ]);
 
     const deals = ((dealData || []) as DealRow[])
@@ -267,88 +267,57 @@ export default async function AppHome() {
     const followupsDue = activeDeals
       .filter((d) => d.nextFollowupDate && d.nextFollowupDate <= todayStr)
       .sort((a, b) => (a.nextFollowupDate ?? "").localeCompare(b.nextFollowupDate ?? ""));
-    const todayAppointments = (appointmentData ?? []) as unknown as TodayAppointment[];
+    const allAppointments = (appointmentData ?? []) as unknown as TodayAppointment[];
     const paDrafts = (paDraftData ?? []) as PaDraft[];
-    const tasksDueToday = (taskData ?? []) as TodayTask[];
+    const allTasks = (taskData ?? []) as TodayTask[];
     const formAlerts = (formAlertData || []) as Array<{ id: string; title: string; message: string; severity: string; created_at: string }>;
 
-    const briefing = await generateMorningBriefing({
-      todayStr,
-      activeDeals: activeDeals.map((d) => ({
-        propertyAddress: d.propertyAddress,
-        stage: d.stage,
-        updatedAt: d.updatedAt,
-        nextFollowupDate: d.nextFollowupDate,
-        leadName: leadDisplayName(d.lead),
-        leadPhone: d.lead?.canonical_phone ?? null,
-      })),
-      followupsDue: followupsDue.map((d) => ({
-        propertyAddress: d.propertyAddress,
-        leadName: leadDisplayName(d.lead),
-        nextFollowupDate: d.nextFollowupDate,
-        stage: d.stage,
-      })),
-      staleDeals: staleDeals.map((d) => ({
-        propertyAddress: d.propertyAddress,
-        leadName: leadDisplayName(d.lead),
-        updatedAt: d.updatedAt,
-        stage: d.stage,
-      })),
-      todayAppointments: todayAppointments.map((a) => ({
-        title: a.title,
-        scheduledAt: a.scheduled_at,
-        location: a.location,
-        leadName: a.lead?.full_name ?? null,
-      })),
-      secretaryDrafts: paDrafts.length,
-      tasksDueToday: tasksDueToday.map((t) => ({ title: t.title, priority: t.priority })),
-      newLeadsOvernight: formAlerts.length,
-    });
+    // Date strings for WeekStrip heat map (YYYY-MM-DD in agent timezone)
+    const appointmentDateStrings = allAppointments.map((a) =>
+      new Date(a.scheduled_at).toLocaleDateString("en-CA", { timeZone: agentTimezone })
+    );
+    const followupDateStrings = activeDeals
+      .filter((d) => d.nextFollowupDate)
+      .map((d) => d.nextFollowupDate!);
+    const taskDateStrings = allTasks
+      .filter((t) => t.due_at)
+      .map((t) => new Date(t.due_at!).toLocaleDateString("en-CA", { timeZone: agentTimezone }));
+
+    // Pipeline pulse — stage counts
+    const offMarketActiveStages = ["new", "prospecting", "offer_sent", "negotiating", "under_contract", "inspection", "appraisal", "closing"] as const;
+    const stageCounts = offMarketActiveStages.map((stage) => ({
+      stage,
+      label: stage.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      count: activeDeals.filter((d) => d.stage === stage).length,
+      stale: staleDeals.filter((d) => d.stage === stage).length,
+    })).filter((s) => s.count > 0);
+
+    // Action queue — unified urgency feed
+    const overdueDue = followupsDue.filter((d) => d.nextFollowupDate && d.nextFollowupDate < todayStr);
+    const dueTodayDeals = followupsDue.filter((d) => d.nextFollowupDate === todayStr);
+    const urgentTasks = allTasks.filter((t) => t.due_at && t.due_at <= new Date().setHours(23, 59, 59, 999).toString() && (t.priority === "urgent" || t.priority === "high"));
 
     return (
       <main className="crm-page crm-page-wide crm-stack-12">
         <FormAlertsSection initialAlerts={formAlerts} title="New Activity" />
-        <WelcomeChecklist />
 
-        {/* KPIs */}
-        <section className="crm-kpi-grid crm-dashboard-kpi-grid">
-          <KpiCard label="Active Deals" value={activeDeals.length} tone="ok" href="/app/pipeline" compact />
-          <KpiCard
-            label="Follow-ups Due"
-            value={followupsDue.length}
-            tone={followupsDue.length > 0 ? "danger" : "default"}
-            href="/app/pipeline"
-            compact
-          />
-          <KpiCard
-            label="Secretary Drafts"
-            value={paDrafts.length}
-            tone={paDrafts.length > 0 ? "danger" : "default"}
-            href="/app/secretary"
-            compact
-          />
-          <KpiCard
-            label="Today's Appointments"
-            value={todayAppointments.length}
-            tone={todayAppointments.length > 0 ? "ok" : "default"}
-            href="/app/calendar"
-            compact
-          />
-          <KpiCard
-            label="Stale Deals"
-            value={staleDeals.length}
-            tone={staleDeals.length > 0 ? "warn" : "default"}
-            href="/app/pipeline"
-            compact
-          />
-        </section>
+        {/* Weekly Brief — loads async, no page blocking */}
+        <BriefingCard />
+
+        {/* Rolling 7-day week strip */}
+        <WeekStrip
+          startDate={todayStr}
+          appointmentDates={appointmentDateStrings}
+          followupDates={followupDateStrings}
+          taskDates={taskDateStrings}
+        />
 
         {deals.length === 0 ? (
           <section className="crm-card crm-section-card">
             <EmptyState
               eyebrow="Off-Market workspace"
               title="Your deal command center is ready."
-              body="No deals, contacts, or follow-up items yet. Start with the pipeline, share a seller form, or add a contact."
+              body="No deals yet. Start with the pipeline, share a seller form, or add a contact."
               action={
                 <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                   <Link href="/app/pipeline" className="crm-btn crm-btn-primary">Open pipeline</Link>
@@ -358,87 +327,120 @@ export default async function AppHome() {
               }
             />
           </section>
-        ) : null}
+        ) : (
+          <section className="crm-today-grid">
 
-        {/* Morning Briefing */}
-        <article className="crm-card crm-section-card crm-stack-10">
-          <div className="crm-section-head">
-            <div className="crm-stack-4">
-              <h2 className="crm-section-title">Today&apos;s Brief</h2>
-              {briefing ? (
-                <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>Generated at {briefing.generatedAt}</div>
-              ) : null}
-            </div>
-            <div className="crm-inline-actions" style={{ gap: 8 }}>
-              {paDrafts.length > 0 && (
-                <Link href="/app/secretary" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>
-                  {paDrafts.length} Secretary draft{paDrafts.length > 1 ? "s" : ""}
-                </Link>
-              )}
-              <Link href="/app/pipeline" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>Open pipeline</Link>
-            </div>
-          </div>
-
-          {briefing ? (
-            <p style={{ fontSize: 15, lineHeight: 1.65, color: "var(--ink)", margin: 0 }}>
-              {briefing.text}
-            </p>
-          ) : (
-            <div className="crm-stack-6">
-              {activeDeals.length === 0 ? (
-                <p style={{ color: "var(--ink-muted)", margin: 0 }}>No active deals yet. Open the pipeline to get started.</p>
-              ) : (
-                <p style={{ color: "var(--ink-muted)", margin: 0 }}>
-                  {activeDeals.length} active deal{activeDeals.length !== 1 ? "s" : ""}.
-                  {followupsDue.length > 0 ? ` ${followupsDue.length} follow-up${followupsDue.length !== 1 ? "s" : ""} due today.` : ""}
-                  {staleDeals.length > 0 ? ` ${staleDeals.length} deal${staleDeals.length !== 1 ? "s" : ""} need attention.` : ""}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Action row */}
-          {(followupsDue.length > 0 || staleDeals.length > 0 || todayAppointments.length > 0 || tasksDueToday.length > 0) ? (
-            <div className="crm-stack-6" style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                Needs attention
+            {/* LEFT — Pipeline Pulse */}
+            <article className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Pipeline Pulse</h2>
+                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {todayAppointments.map((appt) => {
-                  const time = new Date(appt.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-                  return (
-                    <Link key={appt.id} href="/app/calendar" style={{ textDecoration: "none" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "5px 12px", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", fontWeight: 600, whiteSpace: "nowrap" }}>
-                        {time} · {appt.title}
-                      </span>
-                    </Link>
-                  );
-                })}
-                {followupsDue.map((deal) => (
-                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "5px 12px", borderRadius: 6, background: "#fef2f2", color: "#b91c1c", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      Follow up · {deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}
-                    </span>
+              <div className="crm-stack-6">
+                {stageCounts.length === 0 ? (
+                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>No active deals in pipeline.</div>
+                ) : stageCounts.map(({ stage, label, count, stale }) => (
+                  <div key={stage} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        height: 6,
+                        borderRadius: 3,
+                        background: "var(--brand)",
+                        width: `${Math.max(8, (count / activeDeals.length) * 100)}%`,
+                        maxWidth: "60%",
+                        flexShrink: 0,
+                      }} />
+                      <span style={{ fontSize: 13, color: "var(--ink)", fontWeight: 500 }}>{label}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      {stale > 0 && (
+                        <span style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", borderRadius: 4, padding: "1px 6px", fontWeight: 600 }}>
+                          {stale} stale
+                        </span>
+                      )}
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", minWidth: 20, textAlign: "right" }}>{count}</span>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10, display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: "var(--ink-muted)" }}>Total active</span>
+                  <span style={{ fontWeight: 700 }}>{activeDeals.length}</span>
+                </div>
+              </div>
+            </article>
+
+            {/* RIGHT — Action Queue */}
+            <article className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Action Queue</h2>
+                {paDrafts.length > 0 && (
+                  <Link href="/app/secretary" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>
+                    {paDrafts.length} Secretary draft{paDrafts.length > 1 ? "s" : ""}
+                  </Link>
+                )}
+              </div>
+              <div className="crm-stack-6">
+                {overdueDue.length === 0 && dueTodayDeals.length === 0 && staleDeals.length === 0 && urgentTasks.length === 0 ? (
+                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
+                    Queue is clear. No urgent items right now.
+                  </div>
+                ) : null}
+                {overdueDue.map((deal) => (
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 12, borderLeft: "3px solid #ef4444", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
+                        <StatusBadge label="Overdue" tone="danger" />
+                      </div>
+                      {deal.lead?.canonical_phone && (
+                        <div style={{ fontSize: 12, color: "var(--brand)", marginTop: 4 }}>{deal.lead.canonical_phone}</div>
+                      )}
+                    </div>
                   </Link>
                 ))}
-                {staleDeals.slice(0, 3).map((deal) => (
-                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "5px 12px", borderRadius: 6, background: "#fffbeb", color: "#92400e", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      Stale · {deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}
-                    </span>
+                {dueTodayDeals.map((deal) => (
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 12, borderLeft: "3px solid #f59e0b", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
+                        <StatusBadge label="Due today" tone="warn" />
+                      </div>
+                      {deal.lead?.canonical_phone && (
+                        <div style={{ fontSize: 12, color: "var(--brand)", marginTop: 4 }}>{deal.lead.canonical_phone}</div>
+                      )}
+                    </div>
                   </Link>
                 ))}
-                {tasksDueToday.slice(0, 2).map((task) => (
-                  <Link key={task.id} href="/app/priorities" style={{ textDecoration: "none" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, padding: "5px 12px", borderRadius: 6, background: "var(--surface-2)", color: "var(--ink)", fontWeight: 500, whiteSpace: "nowrap" }}>
-                      {task.title}
-                    </span>
+                {urgentTasks.map((task) => (
+                  <Link key={task.id} href="/app/priorities" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 12, borderLeft: "3px solid #6366f1", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{task.title}</span>
+                        <StatusBadge label={task.priority === "urgent" ? "Urgent" : "High"} tone={task.priority === "urgent" ? "danger" : "warn"} />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+                {staleDeals.slice(0, 4).map((deal) => (
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 12, cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
+                        <StatusBadge label="Stale" tone="default" />
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 4 }}>
+                        No movement in {formatTimeAgo(deal.updatedAt)}
+                      </div>
+                    </div>
                   </Link>
                 ))}
               </div>
-            </div>
-          ) : null}
-        </article>
+            </article>
+
+          </section>
+        )}
+
+        <WelcomeChecklist />
       </main>
     );
   }
