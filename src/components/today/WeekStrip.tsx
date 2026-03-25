@@ -154,11 +154,11 @@ export default function WeekStrip({ startDate, appointmentDates, followupDates, 
                   {formatMonthDay(day)}
                 </div>
                 {total > 0 ? (
-                  <div style={{ fontSize: 11, fontWeight: 700, color: HEAT_TEXT[level], marginTop: 2 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: HEAT_TEXT[level], marginTop: 2, lineHeight: 1 }}>
                     {total}
                   </div>
                 ) : (
-                  <div style={{ height: 15 }} />
+                  <div style={{ height: 19 }} />
                 )}
                 {/* Heat bar */}
                 <div style={{
