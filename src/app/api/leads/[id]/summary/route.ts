@@ -30,7 +30,7 @@ export async function GET(
   // Load lead
   const { data: lead, error } = await admin
     .from("leads")
-    .select("full_name,canonical_phone,canonical_email,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,lead_temp,urgency_score,stage,created_at,last_communication_at")
+    .select("full_name,canonical_phone,canonical_email,source,intent,timeline,budget_range,location_area,contact_preference,next_step,notes,lead_temp,urgency_score,stage,created_at,last_communication_at,source_detail,custom_fields")
     .eq("id", id)
     .eq("agent_id", auth.context.user.id)
     .maybeSingle();
@@ -50,6 +50,20 @@ export async function GET(
     .filter(Boolean)
     .join("\n");
 
+  const sourceDetail = lead.source_detail && typeof lead.source_detail === "object" && !Array.isArray(lead.source_detail)
+    ? (lead.source_detail as Record<string, unknown>)
+    : null;
+  const customFields = lead.custom_fields && typeof lead.custom_fields === "object" && !Array.isArray(lead.custom_fields)
+    ? (lead.custom_fields as Record<string, unknown>)
+    : null;
+  const buyerProfile =
+    (customFields?.buyer_profile && typeof customFields.buyer_profile === "object" && !Array.isArray(customFields.buyer_profile)
+      ? (customFields.buyer_profile as Record<string, unknown>)
+      : null) ||
+    (sourceDetail?.buyer_profile && typeof sourceDetail.buyer_profile === "object" && !Array.isArray(sourceDetail.buyer_profile)
+      ? (sourceDetail.buyer_profile as Record<string, unknown>)
+      : null);
+
   const leadContext = [
     lead.full_name ? `Name: ${lead.full_name}` : null,
     lead.canonical_phone ? `Phone: ${lead.canonical_phone}` : null,
@@ -60,6 +74,7 @@ export async function GET(
     lead.lead_temp ? `Temperature: ${lead.lead_temp}` : null,
     lead.source ? `Source: ${lead.source}` : null,
     lead.notes ? `Notes: ${lead.notes.slice(0, 500)}` : null,
+    buyerProfile ? `Buyer profile: ${JSON.stringify(buyerProfile)}` : null,
     interactionSummary ? `Recent interactions:\n${interactionSummary}` : null,
   ].filter(Boolean).join("\n");
 

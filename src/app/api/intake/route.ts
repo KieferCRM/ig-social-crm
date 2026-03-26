@@ -121,6 +121,10 @@ function optionalAnswerString(value: unknown): string | null {
   return null;
 }
 
+function customFieldString(fields: Record<string, unknown>, key: string): string | null {
+  return optionalAnswerString(fields[key]);
+}
+
 function parseIntakeAgentId(): string | null {
   return optionalString(process.env.INTAKE_AGENT_ID || null);
 }
@@ -318,11 +322,134 @@ export async function POST(request: Request) {
   );
 
   const existingSourceDetail = asRecord(existingLead?.source_detail) || {};
+  const callerCustomFields = asRecord(body.custom_fields) || {};
+  const preapprovalStatus = optionalString(
+    callerCustomFields["preapproval_status"] as string | null | undefined
+  );
+  const buyerFormStep = customFieldString(callerCustomFields, "form_step");
+  const isBuyerForm = formVariant === "buyer" || formVariant === "off_market_buyer";
+  const buyerProfile: Record<string, unknown> = {};
+  const buyerProfileSummaryParts: string[] = [];
+  if (isBuyerForm) {
+    const coBuyerInvolved = customFieldString(callerCustomFields, "co_buyer_involved");
+    const coBuyerName = customFieldString(callerCustomFields, "co_buyer_name");
+    const lenderName = customFieldString(callerCustomFields, "lender_name");
+    const preapprovalAmount = customFieldString(callerCustomFields, "preapproval_amount");
+    const budgetMin = customFieldString(callerCustomFields, "budget_min");
+    const budgetMax = customFieldString(callerCustomFields, "budget_max");
+    const hasPropertyToSell = customFieldString(callerCustomFields, "has_property_to_sell");
+    const propertyTypeRequested =
+      customFieldString(callerCustomFields, "property_type_requested") ||
+      optionalString(resolvedInput.property_type);
+    const bedrooms = customFieldString(callerCustomFields, "bedrooms");
+    const bathrooms = customFieldString(callerCustomFields, "bathrooms");
+    const minimumSquareFootage = customFieldString(callerCustomFields, "minimum_square_footage");
+    const preferredAreas =
+      customFieldString(callerCustomFields, "preferred_areas") ||
+      optionalString(resolvedInput.location_area);
+    const mustHaves = customFieldString(callerCustomFields, "must_haves");
+    const firstTimeBuyer = customFieldString(callerCustomFields, "first_time_buyer");
+    const buyingReason = customFieldString(callerCustomFields, "buying_reason");
+    const agencyStatusChoice =
+      customFieldString(callerCustomFields, "agency_status_choice") ||
+      optionalString(resolvedInput.agency_status);
+    const purchasedBefore = customFieldString(callerCustomFields, "purchased_before");
+    const otherFinancing = customFieldString(callerCustomFields, "other_financing");
+
+    if (coBuyerInvolved) {
+      buyerProfile.co_buyer_involved = coBuyerInvolved;
+      buyerProfileSummaryParts.push(
+        coBuyerInvolved === "Yes"
+          ? `Co-buyer: yes${coBuyerName ? ` (${coBuyerName})` : ""}`
+          : "Co-buyer: no"
+      );
+    }
+    if (coBuyerName) buyerProfile.co_buyer_name = coBuyerName;
+    if (optionalString(resolvedInput.financing_status)) {
+      buyerProfile.financing_status = optionalString(resolvedInput.financing_status);
+      buyerProfileSummaryParts.push(`Financing: ${optionalString(resolvedInput.financing_status)}`);
+    }
+    if (preapprovalStatus) {
+      buyerProfile.preapproval_status = preapprovalStatus;
+      buyerProfileSummaryParts.push(`Pre-approved: ${preapprovalStatus}`);
+    }
+    if (lenderName) {
+      buyerProfile.lender_name = lenderName;
+      buyerProfileSummaryParts.push(`Lender: ${lenderName}`);
+    }
+    if (preapprovalAmount) {
+      buyerProfile.preapproval_amount = preapprovalAmount;
+      buyerProfileSummaryParts.push(`Pre-approval amount: ${preapprovalAmount}`);
+    }
+    if (budgetMin) buyerProfile.budget_min = budgetMin;
+    if (budgetMax) buyerProfile.budget_max = budgetMax;
+    if (budgetMin || budgetMax) {
+      const budgetSummary = [budgetMin, budgetMax].filter(Boolean).join(" - ");
+      buyerProfile.budget_range = budgetSummary;
+      buyerProfileSummaryParts.push(`Budget: ${budgetSummary}`);
+    }
+    if (hasPropertyToSell) {
+      buyerProfile.has_property_to_sell = hasPropertyToSell;
+      buyerProfileSummaryParts.push(`Need to sell first: ${hasPropertyToSell}`);
+    }
+    if (propertyTypeRequested) {
+      buyerProfile.property_type_requested = propertyTypeRequested;
+      buyerProfileSummaryParts.push(`Property type: ${propertyTypeRequested}`);
+    }
+    if (bedrooms) {
+      buyerProfile.bedrooms = bedrooms;
+      buyerProfileSummaryParts.push(`Beds: ${bedrooms}`);
+    }
+    if (bathrooms) {
+      buyerProfile.bathrooms = bathrooms;
+      buyerProfileSummaryParts.push(`Baths: ${bathrooms}`);
+    }
+    if (minimumSquareFootage) {
+      buyerProfile.minimum_square_footage = minimumSquareFootage;
+      buyerProfileSummaryParts.push(`Min sq ft: ${minimumSquareFootage}`);
+    }
+    if (preferredAreas) {
+      buyerProfile.preferred_areas = preferredAreas;
+      buyerProfileSummaryParts.push(`Areas: ${preferredAreas}`);
+    }
+    if (mustHaves) {
+      buyerProfile.must_haves = mustHaves;
+      buyerProfileSummaryParts.push(`Must-haves: ${mustHaves}`);
+    }
+    if (firstTimeBuyer) {
+      buyerProfile.first_time_buyer = firstTimeBuyer;
+      buyerProfileSummaryParts.push(`First-time buyer: ${firstTimeBuyer}`);
+    }
+    if (buyingReason) {
+      buyerProfile.buying_reason = buyingReason;
+      buyerProfileSummaryParts.push(`Reason: ${buyingReason}`);
+    }
+    if (agencyStatusChoice) {
+      buyerProfile.agency_status_choice = agencyStatusChoice;
+      buyerProfileSummaryParts.push(`Representation: ${agencyStatusChoice}`);
+    }
+    if (purchasedBefore) {
+      buyerProfile.purchased_before = purchasedBefore;
+      buyerProfileSummaryParts.push(`Purchased before: ${purchasedBefore}`);
+    }
+    if (otherFinancing) buyerProfile.other_financing = otherFinancing;
+  }
+  const buyerProfileSummary =
+    buyerProfileSummaryParts.length > 0 ? buyerProfileSummaryParts.join(" · ") : null;
   const inferredTags = inferLeadTags({
     intent: optionalString(resolvedInput.intent),
     source,
     leadTemp,
     timeline: optionalString(resolvedInput.timeline),
+    financingStatus: optionalString(resolvedInput.financing_status),
+    preapprovalStatus,
+    propertyType:
+      optionalString(resolvedInput.property_type) ||
+      customFieldString(callerCustomFields, "property_type_requested"),
+    firstTimeBuyer: customFieldString(callerCustomFields, "first_time_buyer"),
+    buyingReason: customFieldString(callerCustomFields, "buying_reason"),
+    hasPropertyToSell: customFieldString(callerCustomFields, "has_property_to_sell"),
+    agencyStatus: optionalString(resolvedInput.agency_status),
   });
   const combinedTags = normalizeTagList([
     ...normalizeTagList(existingSourceDetail.tags),
@@ -349,9 +476,12 @@ export async function POST(request: Request) {
   if (optionalString(resolvedInput.location_area)) sourceDetailPatch.location_area = optionalString(resolvedInput.location_area);
   if (optionalString(resolvedInput.property_context)) sourceDetailPatch.property_context = optionalString(resolvedInput.property_context);
   if (optionalString(resolvedInput.financing_status)) sourceDetailPatch.financing_status = optionalString(resolvedInput.financing_status);
+  if (preapprovalStatus) sourceDetailPatch.preapproval_status = preapprovalStatus;
   if (optionalString(resolvedInput.seller_readiness)) sourceDetailPatch.seller_readiness = optionalString(resolvedInput.seller_readiness);
   if (optionalString(resolvedInput.agency_status)) sourceDetailPatch.agency_status = optionalString(resolvedInput.agency_status);
   if (optionalString(resolvedInput.property_type)) sourceDetailPatch.property_type = optionalString(resolvedInput.property_type);
+  if (buyerProfileSummary) sourceDetailPatch.buyer_profile_summary = buyerProfileSummary;
+  if (Object.keys(buyerProfile).length > 0) sourceDetailPatch.buyer_profile = buyerProfile;
   if (optionalString(resolvedInput.utm_source)) sourceDetailPatch.utm_source = optionalString(resolvedInput.utm_source);
   if (optionalString(resolvedInput.utm_medium)) sourceDetailPatch.utm_medium = optionalString(resolvedInput.utm_medium);
   if (optionalString(resolvedInput.utm_campaign)) sourceDetailPatch.utm_campaign = optionalString(resolvedInput.utm_campaign);
@@ -427,18 +557,18 @@ export async function POST(request: Request) {
   const intent = optionalString(resolvedInput.intent);
   const timeline = optionalString(resolvedInput.timeline);
   const notes = optionalString(resolvedInput.notes);
+  const resolvedNotes = notes || buyerProfileSummary;
   const budgetRange = optionalString(resolvedInput.budget_range);
   const locationArea = optionalString(resolvedInput.location_area);
   const contactPreference = optionalString(resolvedInput.contact_preference);
   if (intent) payload.intent = intent;
   if (timeline) payload.timeline = timeline;
-  if (notes) payload.notes = notes;
+  if (resolvedNotes) payload.notes = resolvedNotes;
   if (budgetRange) payload.budget_range = budgetRange;
   if (locationArea) payload.location_area = locationArea;
   if (contactPreference) payload.contact_preference = contactPreference;
 
   const existingCustomFields = asRecord(existingLead?.custom_fields) || {};
-  const callerCustomFields = asRecord(body.custom_fields) || {};
   const derivedCustomFields: Record<string, unknown> = {
     qualification_score: qualification.score,
     next_action_title: nextAction.title,
@@ -448,6 +578,8 @@ export async function POST(request: Request) {
     seller_readiness: optionalString(resolvedInput.seller_readiness),
     agency_status: optionalString(resolvedInput.agency_status),
     property_type: optionalString(resolvedInput.property_type),
+    buyer_profile_summary: buyerProfileSummary,
+    buyer_profile: Object.keys(buyerProfile).length > 0 ? buyerProfile : null,
     form_variant: formVariant,
     tags: combinedTags,
   };
@@ -542,7 +674,7 @@ export async function POST(request: Request) {
   let dealId: string | null = null;
   const { data: existingDeal } = await admin
     .from("deals")
-    .select("id,stage")
+    .select("id,stage,notes")
     .eq("agent_id", intakeAgentId)
     .eq("lead_id", leadId)
     .neq("stage", "closed")
@@ -553,6 +685,23 @@ export async function POST(request: Request) {
 
   if (existingDeal?.id) {
     dealId = String(existingDeal.id);
+    if (isBuyerForm && buyerFormStep === "2" && resolvedNotes) {
+      const { error: dealUpdateError } = await admin
+        .from("deals")
+        .update({
+          property_address: buildPropertyContext({
+            intent,
+            locationArea,
+            propertyContext: optionalString(resolvedInput.property_context),
+          }),
+          notes: resolvedNotes,
+        })
+        .eq("id", existingDeal.id);
+
+      if (dealUpdateError) {
+        console.warn("[intake] buyer deal update failed", { error: dealUpdateError.message });
+      }
+    }
   } else {
     const isOffMarketForm = formVariant === "off_market_seller" || formVariant === "off_market_buyer";
     // Auto-set follow-up date to tomorrow for off-market form submissions
@@ -585,7 +734,7 @@ export async function POST(request: Request) {
         next_followup_date: autoFollowupDate,
         expected_close_date: null,
         notes:
-          notes ||
+          resolvedNotes ||
           `${sourceChannelLabel(sourceChannel)} inquiry. ${buildTemperatureReason(qualification)}`,
       })
       .select("id")
@@ -624,6 +773,8 @@ export async function POST(request: Request) {
       if (askingPrice) detailParts.push(`Asking: ${askingPrice}`);
       detailParts.push(`Temp: ${leadTemp}`);
       details = detailParts.join(" · ");
+    } else if (formDerivedSource === "buyer_form" && buyerProfileSummary) {
+      details = [`Temp: ${leadTemp}`, buyerProfileSummary].join(" · ");
     }
 
     void notifyAgentFormSubmission(admin, intakeAgentId, {

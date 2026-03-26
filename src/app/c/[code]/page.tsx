@@ -1,5 +1,5 @@
 import LockboxMark from "@/components/branding/lockbox-mark";
-import FormRenderer from "@/components/forms/FormRenderer";
+import OffMarketBuyerForm from "@/components/forms/OffMarketBuyerForm";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +40,7 @@ export default async function ContactShortPage({
         <div style={{ marginBottom: 24 }}>
           <LockboxMark variant="full" decorative />
         </div>
-        <FormRenderer formType="off_market_buyer" agentSlug={data.id as string} />
+        <OffMarketBuyerForm agentSlug={data.id as string} />
       </div>
     </main>
   );

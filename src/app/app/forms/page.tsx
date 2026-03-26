@@ -51,24 +51,17 @@ async function copyText(value: string): Promise<boolean> {
 
 function FormShareRow({
   path,
-  submissionCount,
   downloadName,
-  shortPath,
 }: {
   path: string;
-  submissionCount: number;
   downloadName: string;
-  shortPath?: string;
 }) {
   const [url, setUrl] = useState(`https://lockboxhq.com${path}`);
-  const [shortUrl, setShortUrl] = useState(shortPath ? `https://lockboxhq.com${shortPath}` : "");
   const [msg, setMsg] = useState("");
-  const [shortMsg, setShortMsg] = useState("");
   const [showQr, setShowQr] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => { setUrl(`${window.location.origin}${path}`); }, [path]);
-  useEffect(() => { if (shortPath) setShortUrl(`${window.location.origin}${shortPath}`); }, [shortPath]);
 
   useEffect(() => {
     if (!url) return;
@@ -76,12 +69,6 @@ function FormShareRow({
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(""));
   }, [url]);
-
-  async function handleCopyShort() {
-    const ok = await copyText(shortUrl);
-    setShortMsg(ok ? "Copied!" : "Failed");
-    window.setTimeout(() => setShortMsg(""), 1800);
-  }
 
   async function handleCopy() {
     const ok = await copyText(url);
@@ -101,17 +88,6 @@ function FormShareRow({
 
   return (
     <div className="crm-stack-8">
-      {/* Short link — shown first when available */}
-      {shortUrl ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-muted)", minWidth: 64 }}>Short link</span>
-          <code style={{ fontSize: 13, color: "var(--ink-body)", fontWeight: 600 }}>{shortUrl}</code>
-          <button type="button" className="crm-btn crm-btn-primary" style={{ fontSize: 12, padding: "5px 12px" }} onClick={handleCopyShort}>
-            Copy
-          </button>
-          {shortMsg ? <span style={{ fontSize: 12, color: "var(--ok, #16a34a)", fontWeight: 600 }}>{shortMsg}</span> : null}
-        </div>
-      ) : null}
       {/* Full URL */}
       <code style={{ display: "block", fontSize: 12, color: "var(--ink-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {url}
@@ -154,14 +130,12 @@ function BuiltInFormCard({
   path,
   submissionCount,
   downloadName,
-  shortPath,
 }: {
   label: string;
   description: string;
   path: string;
   submissionCount: number;
   downloadName: string;
-  shortPath?: string;
 }) {
   return (
     <div className="crm-card crm-section-card crm-stack-10">
@@ -172,7 +146,7 @@ function BuiltInFormCard({
         </div>
         <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>{description}</p>
       </div>
-      <FormShareRow path={path} submissionCount={submissionCount} downloadName={downloadName} shortPath={shortPath} />
+      <FormShareRow path={path} downloadName={downloadName} />
     </div>
   );
 }
@@ -415,7 +389,6 @@ export default function FormsPage() {
   const [buyerCount, setBuyerCount] = useState(0);
   const [genericForms, setGenericForms] = useState<GenericForm[]>([]);
   const [loading, setLoading] = useState(true);
-  const [linkCode, setLinkCode] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingForm, setEditingForm] = useState<GenericForm | null>(null);
   const [viewingSubmissions, setViewingSubmissions] = useState<GenericForm | null>(null);
@@ -433,13 +406,6 @@ export default function FormsPage() {
       if (active) {
         setIsOffMarketAccount(onboardingState.account_type === "off_market_agent");
         setVanitySlug((agentRow?.vanity_slug as string | null) ?? null);
-      }
-
-      // Auto-generate link code if not set yet
-      const lcRes = await fetch("/api/agent/link-code", { method: "POST" });
-      if (lcRes.ok && active) {
-        const lcData = await lcRes.json() as { link_code?: string };
-        if (lcData.link_code) setLinkCode(lcData.link_code);
       }
 
       const [sellerRes, buyerRes, formsRes] = await Promise.all([
@@ -542,19 +508,17 @@ export default function FormsPage() {
                 path={`/forms/seller/${vanitySlug ?? agentId}`}
                 submissionCount={sellerCount}
                 downloadName="seller-form-qr.png"
-                shortPath={linkCode ? `/s/${linkCode}` : undefined}
               />
               <BuiltInFormCard
-                label={isOffMarketAccount ? "Contact Form" : "Buyer Form"}
+                label={isOffMarketAccount ? "Buyer Qualification Form" : "Buyer Form"}
                 description={
                   isOffMarketAccount
-                    ? "Captures name, phone, email, budget range, and notes. Use for general inquiries, open house sign-ins, referrals, or anyone reaching out about a property."
+                    ? "Captures contact info, financing, budget, and search criteria. Use for off-market buyer matching, referrals, and serious inbound inquiries."
                     : "Collects name, phone, email, price range, location preference, and notes. Submissions create a new buyer lead."
                 }
                 path={`/forms/buyer/${vanitySlug ?? agentId}`}
                 submissionCount={buyerCount}
-                downloadName={isOffMarketAccount ? "contact-form-qr.png" : "buyer-form-qr.png"}
-                shortPath={linkCode ? `/c/${linkCode}` : undefined}
+                downloadName={isOffMarketAccount ? "buyer-qualification-form-qr.png" : "buyer-form-qr.png"}
               />
             </>
           ) : null}
@@ -632,7 +596,6 @@ export default function FormsPage() {
                   path={`/forms/generic/${form.id}`}
                   submissionCount={form.submission_count}
                   downloadName={`${form.title.toLowerCase().replace(/\s+/g, "-")}-qr.png`}
-                  shortPath={form.short_code ? `/f/${form.short_code}` : undefined}
                 />
               </div>
             ))}

@@ -11,11 +11,21 @@ export function inferLeadTags(input: {
   source?: string | null;
   leadTemp?: string | null;
   timeline?: string | null;
+  financingStatus?: string | null;
+  preapprovalStatus?: string | null;
+  propertyType?: string | null;
+  firstTimeBuyer?: string | null;
+  buyingReason?: string | null;
+  hasPropertyToSell?: string | null;
+  agencyStatus?: string | null;
 }): string[] {
   const tags: string[] = [];
   const intent = (input.intent || "").trim().toLowerCase();
   const temp = (input.leadTemp || "").trim().toLowerCase();
   const source = normalizeSourceChannel(input.source);
+  const financing = (input.financingStatus || "").trim().toLowerCase();
+  const preapproval = (input.preapprovalStatus || "").trim().toLowerCase();
+  const agency = (input.agencyStatus || "").trim().toLowerCase();
 
   if (intent === "buy") {
     pushTag(tags, "buyer");
@@ -42,6 +52,50 @@ export function inferLeadTags(input: {
 
   if (temp === "hot" || temp === "warm" || temp === "cold") {
     pushTag(tags, temp);
+  }
+
+  if (financing) {
+    if (financing.includes("cash")) {
+      pushTag(tags, "cash buyer");
+    } else if (financing.includes("mortgage") || financing.includes("financ")) {
+      pushTag(tags, "financed buyer");
+    }
+  }
+
+  if (preapproval.includes("yes") || preapproval.includes("pre-approv") || preapproval.includes("pre approv")) {
+    pushTag(tags, "preapproved");
+  }
+
+  const propertyType = (input.propertyType || "").trim().toLowerCase();
+  if (propertyType) {
+    if (propertyType.includes("single")) pushTag(tags, "single family");
+    else if (propertyType.includes("condo")) pushTag(tags, "condo");
+    else if (propertyType.includes("town")) pushTag(tags, "townhome");
+    else if (propertyType.includes("multi")) pushTag(tags, "multi-family");
+    else if (propertyType.includes("land")) pushTag(tags, "land");
+    else pushTag(tags, propertyType);
+  }
+
+  const firstTimeBuyer = (input.firstTimeBuyer || "").trim().toLowerCase();
+  if (firstTimeBuyer === "yes") pushTag(tags, "first-time buyer");
+
+  const buyingReason = (input.buyingReason || "").trim().toLowerCase();
+  if (buyingReason) {
+    if (buyingReason.includes("invest")) pushTag(tags, "investor");
+    if (buyingReason.includes("primary")) pushTag(tags, "primary residence");
+    if (buyingReason.includes("relocat")) pushTag(tags, "relocation");
+    if (buyingReason.includes("downsiz")) pushTag(tags, "downsizing");
+  }
+
+  const hasPropertyToSell = (input.hasPropertyToSell || "").trim().toLowerCase();
+  if (hasPropertyToSell === "yes") pushTag(tags, "sell before buying");
+
+  if (agency) {
+    if (agency.includes("need") || agency.includes("no agent") || agency.includes("need representation")) {
+      pushTag(tags, "needs representation");
+    } else if (agency.includes("have") || agency.includes("already") || agency.includes("another agent")) {
+      pushTag(tags, "already represented");
+    }
   }
 
   const timeline = (input.timeline || "").trim();
