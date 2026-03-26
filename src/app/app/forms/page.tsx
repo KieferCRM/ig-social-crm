@@ -594,7 +594,6 @@ export default function FormsPage() {
                 {/* Share controls */}
                 <FormShareRow
                   path={`/forms/generic/${form.id}`}
-                  submissionCount={form.submission_count}
                   downloadName={`${form.title.toLowerCase().replace(/\s+/g, "-")}-qr.png`}
                 />
               </div>
