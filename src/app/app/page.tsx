@@ -306,6 +306,7 @@ export default async function AppHome() {
           appointmentDates={appointmentDateStrings}
           followupDates={followupDateStrings}
           taskDates={taskDateStrings}
+          appointments={allAppointments}
         />
 
         {deals.length === 0 ? (

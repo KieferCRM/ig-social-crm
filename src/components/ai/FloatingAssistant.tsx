@@ -4,11 +4,26 @@ import { useEffect, useRef, useState } from "react";
 
 type Message = { role: "user" | "assistant"; content: string };
 
-const QUICK_PROMPTS = [
+const ALL_PROMPTS = [
   "What should I focus on today?",
   "Who needs follow-up?",
   "How's my pipeline?",
+  "Who haven't I talked to in over 2 weeks?",
+  "What deals are going cold?",
+  "How many deals have I closed this year?",
+  "Draft me a follow-up text for my most urgent deal",
+  "What's my most important call to make today?",
+  "Any deals I should be worried about?",
+  "What's my pipeline worth right now?",
+  "Who submitted a buyer form recently?",
+  "Which sellers are overdue for a check-in?",
 ];
+
+function pickPrompts(exclude: string[] = []): string[] {
+  const pool = ALL_PROMPTS.filter((p) => !exclude.includes(p));
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 3);
+}
 
 async function sendChat(messages: Message[]): Promise<string | null> {
   try {
@@ -29,6 +44,7 @@ export default function FloatingAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [prompts, setPrompts] = useState<string[]>(() => pickPrompts());
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -212,34 +228,42 @@ export default function FloatingAssistant() {
 
           {/* Quick prompts — shown only before first message */}
           {messages.length === 0 && (
-            <div
-              style={{
-                padding: "0 14px 10px",
-                display: "flex",
-                gap: 6,
-                flexWrap: "wrap",
-              }}
-            >
-              {QUICK_PROMPTS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => void send(p)}
-                  disabled={loading}
-                  style={{
-                    fontSize: 11,
-                    padding: "4px 10px",
-                    borderRadius: 20,
-                    border: "1px solid var(--border, #e2e8f0)",
-                    background: "var(--surface-2, #f8fafc)",
-                    color: "var(--ink-muted)",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                  }}
-                >
-                  {p}
-                </button>
-              ))}
+            <div style={{ padding: "0 14px 10px" }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                {prompts.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => void send(p)}
+                    disabled={loading}
+                    style={{
+                      fontSize: 11,
+                      padding: "4px 10px",
+                      borderRadius: 20,
+                      border: "1px solid var(--border, #e2e8f0)",
+                      background: "var(--surface-2, #f8fafc)",
+                      color: "var(--ink-muted)",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setPrompts(pickPrompts(prompts))}
+                style={{
+                  fontSize: 11,
+                  color: "var(--ink-faint)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                ↺ Shuffle suggestions
+              </button>
             </div>
           )}
 
