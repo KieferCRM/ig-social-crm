@@ -294,7 +294,7 @@ export default async function AppHome() {
     // Action queue — unified urgency feed
     const overdueDue = followupsDue.filter((d) => d.nextFollowupDate && d.nextFollowupDate < todayStr);
     const dueTodayDeals = followupsDue.filter((d) => d.nextFollowupDate === todayStr);
-    const urgentTasks = allTasks.filter((t) => t.due_at && t.due_at <= new Date().setHours(23, 59, 59, 999).toString() && (t.priority === "urgent" || t.priority === "high"));
+    const urgentTasks = allTasks.filter((t) => t.due_at && t.due_at <= todayStr && (t.priority === "urgent" || t.priority === "high"));
 
     return (
       <main className="crm-page crm-page-wide crm-stack-12">

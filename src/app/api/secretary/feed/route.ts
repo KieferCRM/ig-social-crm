@@ -37,7 +37,8 @@ export async function GET(): Promise<NextResponse> {
     const { data: leads } = await admin
       .from("leads")
       .select("id, full_name, canonical_phone, lead_temp")
-      .in("id", leadIds);
+      .in("id", leadIds)
+      .eq("agent_id", agentId);
     leadsMap = Object.fromEntries((leads ?? []).map((l) => [l.id, l]));
   }
 
