@@ -20,10 +20,13 @@ export async function GET(): Promise<NextResponse> {
   const admin = supabaseAdmin();
   const agentId = auth.context.user.id;
 
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 3600_000).toISOString();
+
   const { data: interactions, error } = await admin
     .from("lead_interactions")
     .select("id, created_at, channel, direction, interaction_type, status, raw_message_body, summary, raw_transcript, lead_id")
     .eq("agent_id", agentId)
+    .gte("created_at", ninetyDaysAgo)
     .order("created_at", { ascending: false })
     .limit(50);
 

@@ -233,8 +233,19 @@ function SecretaryStatusBar({ settings }: { settings: SecretarySettings | null }
 // Tab: Activity
 // ---------------------------------------------------------------------------
 
-function ActivityTab({ items, loading, isActive }: { items: ActivityItem[]; loading: boolean; isActive: boolean }) {
+function ActivityTab({ items, loading, isActive, onDelete }: { items: ActivityItem[]; loading: boolean; isActive: boolean; onDelete: (id: string) => void }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string) {
+    setDeletingId(id);
+    try {
+      await fetch(`/api/secretary/feed/${id}`, { method: "DELETE" });
+      onDelete(id);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   if (loading) {
     return <p style={{ color: "var(--ink-muted)", padding: "16px 0" }}>Loading activity…</p>;
@@ -298,6 +309,13 @@ function ActivityTab({ items, loading, isActive }: { items: ActivityItem[]; load
                       {isExpanded ? "Hide" : "Transcript"}
                     </button>
                   )}
+                  <button
+                    onClick={() => void handleDelete(item.id)}
+                    disabled={deletingId === item.id}
+                    style={{ fontSize: 11, padding: "2px 8px", background: "transparent", border: "1px solid var(--border)", borderRadius: 6, cursor: "pointer", color: "var(--danger, #dc2626)", opacity: deletingId === item.id ? 0.5 : 1 }}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
 
@@ -1135,7 +1153,7 @@ export default function SecretaryPage() {
       {/* Tab Content */}
       <div style={{ paddingTop: 16 }}>
         {tab === "activity" && (
-          <ActivityTab items={activity} loading={loading} isActive={isActive} />
+          <ActivityTab items={activity} loading={loading} isActive={isActive} onDelete={(id) => setActivity((prev) => prev.filter((a) => a.id !== id))} />
         )}
         {tab === "conversations" && (
           <ConversationsTab threads={conversations} loading={loading} />
