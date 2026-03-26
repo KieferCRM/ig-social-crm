@@ -209,6 +209,27 @@ export async function insertLeadInteraction(input: {
 }): Promise<LeadInteractionRow> {
   const createdAt = input.createdAt || new Date().toISOString();
 
+  // Idempotency: if a provider ID is present, skip insert if already recorded
+  if (input.providerMessageId) {
+    const { data: existing } = await input.admin
+      .from("lead_interactions")
+      .select("id,agent_id,lead_id,channel,direction,interaction_type,status,raw_transcript,raw_message_body,summary,structured_payload,provider_message_id,provider_call_id,created_at")
+      .eq("agent_id", input.agentId)
+      .eq("provider_message_id", input.providerMessageId)
+      .maybeSingle();
+    if (existing) return existing as LeadInteractionRow;
+  }
+
+  if (input.providerCallId) {
+    const { data: existing } = await input.admin
+      .from("lead_interactions")
+      .select("id,agent_id,lead_id,channel,direction,interaction_type,status,raw_transcript,raw_message_body,summary,structured_payload,provider_message_id,provider_call_id,created_at")
+      .eq("agent_id", input.agentId)
+      .eq("provider_call_id", input.providerCallId)
+      .maybeSingle();
+    if (existing) return existing as LeadInteractionRow;
+  }
+
   const { data, error } = await input.admin
     .from("lead_interactions")
     .insert({
