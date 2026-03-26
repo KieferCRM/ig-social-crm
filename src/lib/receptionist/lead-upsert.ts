@@ -255,6 +255,27 @@ export function nextMissingReceptionistQuestion(
   return null;
 }
 
+export function extractNameFromText(text: string): string | null {
+  const patterns = [
+    /my name(?:'s| is) ([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)/i,
+    /this is ([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)/i,
+    /i(?:'m| am) ([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)/i,
+    /name(?:'s| is) ([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)/i,
+  ];
+  const stopWords = new Set([
+    "calling", "interested", "looking", "trying", "wondering",
+    "contacting", "available", "a", "the", "not", "just",
+  ]);
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const name = match[1].trim();
+      if (!stopWords.has(name.toLowerCase())) return name;
+    }
+  }
+  return null;
+}
+
 export function extractStructuredFieldsFromSms(text: string): ReceptionistLeadInput {
   const raw = text.trim();
   if (!raw) return {};
@@ -263,6 +284,9 @@ export function extractStructuredFieldsFromSms(text: string): ReceptionistLeadIn
 
   const email = raw.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || null;
   if (email) output.email = email;
+
+  const name = extractNameFromText(raw);
+  if (name) output.full_name = name;
 
   if (/\b(buy and sell|buy\/sell|both)\b/i.test(lower)) {
     output.intent = "Buy and sell";

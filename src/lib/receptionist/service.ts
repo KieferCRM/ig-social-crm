@@ -9,6 +9,7 @@ import {
   type ReceptionistSettings,
 } from "@/lib/receptionist/settings";
 import {
+  extractNameFromText,
   extractStructuredFieldsFromSms,
   nextMissingReceptionistQuestion,
   normalizePhoneToE164,
@@ -1081,12 +1082,15 @@ export async function processInboundCallLog(input: {
   const transcript = optionalString(input.transcript) || "";
   const urgency = detectUrgency(transcript, context.settings.escalation_keywords);
 
+  const nameFromTranscript = transcript ? extractNameFromText(transcript) : null;
+
   const upsertResult = await upsertReceptionistLead({
     admin: input.admin,
     agentId: input.agentId,
     source: "call_inbound",
     values: {
       phone: input.fromPhone,
+      full_name: nameFromTranscript,
       source: "call_inbound",
       source_detail: {
         channel: "phone",
