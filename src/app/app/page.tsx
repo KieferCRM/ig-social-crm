@@ -18,7 +18,6 @@ import {
 import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
 import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
-import BriefingCard from "@/components/today/BriefingCard";
 import WeekStrip from "@/components/today/WeekStrip";
 import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 
@@ -308,9 +307,6 @@ export default async function AppHome() {
           followupDates={followupDateStrings}
           taskDates={taskDateStrings}
         />
-
-        {/* AI Assistant — compact widget */}
-        <BriefingCard />
 
         {deals.length === 0 ? (
           <section className="crm-card crm-section-card">

@@ -9,6 +9,7 @@ import { PRODUCT_NAME } from "@/lib/features";
 import { type AccountType } from "@/lib/onboarding";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import FounderSwitcher from "@/components/founder/FounderSwitcher";
+import FloatingAssistant from "@/components/ai/FloatingAssistant";
 
 export default function AppShellClient({
   children,
@@ -380,6 +381,8 @@ export default function AppShellClient({
 
         <div className="crm-workspace-content">{children}</div>
       </div>
+
+      {isOffMarketAccount && <FloatingAssistant />}
     </div>
   );
 }
