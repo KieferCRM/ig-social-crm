@@ -22,7 +22,7 @@ export default async function CompletePage() {
   const handles = (settings.social_handles as Record<string, string> | null) ?? {};
   const socialCount = Object.values(handles).filter(Boolean).length;
   const vanitySlug = (agent?.vanity_slug as string | null) ?? "";
-  const inboxEmail = vanitySlug ? `${vanitySlug}@inbox.lockboxhq.com` : null;
+  const inboxEmail = vanitySlug ? `${vanitySlug}@drop.lockboxhq.com` : null;
 
   return (
     <main className="crm-auth-shell">

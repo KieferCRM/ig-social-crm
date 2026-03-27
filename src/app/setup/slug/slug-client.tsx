@@ -94,7 +94,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
 
   const previewSlug = normalize(slug) || "your-slug";
   const previewUrl = `lockboxhq.com/forms/seller/${previewSlug}`;
-  const previewInbox = `${previewSlug}@inbox.lockboxhq.com`;
+  const previewInbox = `${previewSlug}@drop.lockboxhq.com`;
 
   const statusColor =
     checkState === "available" ? "var(--ok, #16a34a)" :

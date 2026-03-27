@@ -16,7 +16,7 @@ export default async function InboxPage() {
     .maybeSingle();
 
   const vanitySlug = (agentRow?.vanity_slug as string | null) ?? null;
-  const inboxEmail = vanitySlug ? `${vanitySlug}@inbox.lockboxhq.com` : null;
+  const inboxEmail = vanitySlug ? `${vanitySlug}@drop.lockboxhq.com` : null;
 
   return <InboxClient agentId={auth.context.user.id} inboxEmail={inboxEmail} />;
 }
