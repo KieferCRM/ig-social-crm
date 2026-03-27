@@ -22,6 +22,7 @@ export default function AppShellClient({
   const pathname = usePathname();
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [alertCount, setAlertCount] = useState(0);
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
 
   // Global search
   type SearchResult = { id: string; type: "contact" | "deal"; label: string; sub: string; href: string };
@@ -68,6 +69,43 @@ export default function AppShellClient({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let active = true;
+
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !active) return;
+
+      async function refetch() {
+        const { count } = await supabase
+          .from("inbox_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("agent_id", user!.id)
+          .eq("read", false);
+        if (active) setInboxUnreadCount(count ?? 0);
+      }
+
+      await refetch();
+
+      channel = supabase
+        .channel(`shell-inbox-${user.id}`)
+        .on("postgres_changes", {
+          event: "*",
+          schema: "public",
+          table: "inbox_messages",
+          filter: `agent_id=eq.${user.id}`,
+        }, () => { void refetch(); })
+        .subscribe();
+    }
+
+    void init();
+    return () => {
+      active = false;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/auth");
@@ -82,7 +120,7 @@ export default function AppShellClient({
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
-        { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox"), count: 0 },
+        { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox"), count: inboxUnreadCount },
         { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type InboxMessage = {
@@ -46,14 +46,18 @@ export default function InboxClient({
   agentId: string;
   inboxEmail: string | null;
 }) {
+  const supabase = useMemo(() => supabaseBrowser(), []);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "unread" | "attachments">("all");
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const [replyError, setReplyError] = useState("");
 
+  // Initial load + Realtime subscription
   useEffect(() => {
-    const supabase = supabaseBrowser();
-
     async function load() {
       setLoading(true);
       const { data } = await supabase
@@ -67,12 +71,72 @@ export default function InboxClient({
     }
 
     void load();
-  }, [agentId]);
+
+    const channel = supabase
+      .channel(`inbox-${agentId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "inbox_messages", filter: `agent_id=eq.${agentId}` },
+        (payload) => {
+          setMessages((prev) => [payload.new as InboxMessage, ...prev]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "inbox_messages", filter: `agent_id=eq.${agentId}` },
+        (payload) => {
+          setMessages((prev) =>
+            prev.map((m) => m.id === (payload.new as InboxMessage).id ? (payload.new as InboxMessage) : m)
+          );
+        }
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [agentId, supabase]);
 
   async function markRead(id: string) {
-    const supabase = supabaseBrowser();
     await supabase.from("inbox_messages").update({ read: true }).eq("id", id);
     setMessages((prev) => prev.map((m) => m.id === id ? { ...m, read: true } : m));
+  }
+
+  async function markAllRead() {
+    await supabase
+      .from("inbox_messages")
+      .update({ read: true })
+      .eq("agent_id", agentId)
+      .eq("read", false);
+    setMessages((prev) => prev.map((m) => ({ ...m, read: true })));
+  }
+
+  async function sendReply(messageId: string) {
+    if (!replyText.trim()) return;
+    setReplySending(true);
+    setReplyError("");
+    try {
+      const res = await fetch(`/api/inbox/${messageId}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replyText }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setReplyError(data.error ?? "Failed to send reply.");
+      } else {
+        setReplyingToId(null);
+        setReplyText("");
+      }
+    } catch {
+      setReplyError("Something went wrong. Please try again.");
+    } finally {
+      setReplySending(false);
+    }
+  }
+
+  async function deleteMessage(id: string) {
+    await supabase.from("inbox_messages").delete().eq("id", id);
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+    if (expandedId === id) setExpandedId(null);
   }
 
   function toggleExpand(id: string) {
@@ -123,6 +187,15 @@ export default function InboxClient({
               </div>
             )}
           </div>
+
+          {unreadCount > 0 && (
+            <button
+              onClick={() => void markAllRead()}
+              style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-muted)", cursor: "pointer" }}
+            >
+              Mark all read
+            </button>
+          )}
         </div>
 
         {/* Filter tabs */}
@@ -151,14 +224,14 @@ export default function InboxClient({
       {/* Message list */}
       <section className="crm-card crm-section-card" style={{ padding: 0, overflow: "hidden" }}>
         {loading ? (
-          <div style={{ padding: 24, color: "var(--ink-muted)", fontSize: 13 }}>Loading inbox...</div>
+          <div style={{ padding: 24, color: "var(--ink-muted)", fontSize: 13 }}>Loading...</div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: 32, textAlign: "center" }}>
             <div style={{ fontSize: 13, color: "var(--ink-faint)", fontStyle: "italic" }}>
               {filter === "all"
                 ? inboxEmail
                   ? `No messages yet. Share ${inboxEmail} with clients, title companies, or set it as your Plaud transcript destination.`
-                  : "Set up your vanity slug to activate your inbox."
+                  : "Set up your vanity slug to activate your drop address."
                 : filter === "unread"
                   ? "No unread messages."
                   : "No messages with attachments."}
@@ -270,14 +343,96 @@ export default function InboxClient({
                         </div>
                       )}
 
-                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
                         {msg.linked_deal_id && (
-                          <a href="/app/pipeline" style={{ fontSize: 12, color: "var(--brand)" }}>View deal →</a>
+                          <a
+                            href={`/app/pipeline?deal=${msg.linked_deal_id}`}
+                            style={{ fontSize: 12, color: "var(--brand)" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            View deal →
+                          </a>
                         )}
                         {msg.linked_lead_id && (
-                          <a href="/app/contacts" style={{ fontSize: 12, color: "var(--brand)" }}>View contact →</a>
+                          <a
+                            href={`/app/contacts?contact=${msg.linked_lead_id}`}
+                            style={{ fontSize: 12, color: "var(--brand)" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            View contact →
+                          </a>
                         )}
+                        {msg.from_email && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReplyingToId((prev) => prev === msg.id ? null : msg.id);
+                              setReplyText("");
+                              setReplyError("");
+                            }}
+                            style={{ fontSize: 12, color: "var(--brand)", background: "none", border: "none", cursor: "pointer", padding: "2px 4px", fontWeight: 600 }}
+                          >
+                            {replyingToId === msg.id ? "Cancel" : "↩ Reply"}
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm("Delete this message?")) void deleteMessage(msg.id);
+                          }}
+                          style={{ marginLeft: "auto", fontSize: 12, color: "var(--danger, #dc2626)", background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}
+                        >
+                          Delete
+                        </button>
                       </div>
+
+                      {/* Reply composer */}
+                      {replyingToId === msg.id && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}
+                        >
+                          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                            To: <strong>{msg.from_name ?? msg.from_email}</strong>
+                          </div>
+                          <textarea
+                            autoFocus
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder="Write your reply..."
+                            rows={5}
+                            style={{
+                              width: "100%",
+                              boxSizing: "border-box",
+                              fontSize: 13,
+                              padding: "10px 12px",
+                              border: "1px solid var(--border)",
+                              borderRadius: 8,
+                              background: "var(--surface-1, #fff)",
+                              color: "var(--ink)",
+                              resize: "vertical",
+                              fontFamily: "inherit",
+                              lineHeight: 1.5,
+                            }}
+                          />
+                          {replyError && (
+                            <div style={{ fontSize: 12, color: "var(--danger, #dc2626)" }}>{replyError}</div>
+                          )}
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <button
+                              onClick={() => void sendReply(msg.id)}
+                              disabled={replySending || !replyText.trim()}
+                              className="crm-btn crm-btn-primary"
+                              style={{ fontSize: 13 }}
+                            >
+                              {replySending ? "Sending..." : "Send reply"}
+                            </button>
+                            <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>
+                              Sent as: {agentId ? "Your Name via LockboxHQ" : ""} &lt;hello@lockboxhq.com&gt;
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

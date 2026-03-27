@@ -39,6 +39,7 @@ export default async function ContactsPage({
 }) {
   const params = await searchParams;
   const showAddForm = params.add === "true";
+  const highlightContactId = typeof params.contact === "string" ? params.contact : undefined;
 
   const supabase = await supabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -104,6 +105,7 @@ export default async function ContactsPage({
           contacts={contacts}
           deals={deals}
           isOffMarketAccount={isOffMarketAccount}
+          highlightId={highlightContactId}
         />
       </section>
     </main>

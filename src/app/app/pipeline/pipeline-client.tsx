@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import EmptyState from "@/components/ui/empty-state";
 import StatusBadge from "@/components/ui/status-badge";
 import { parsePositiveDecimal, formatCurrency, asInputNumber, asInputDate } from "@/lib/deal-metrics";
@@ -229,6 +230,7 @@ function draftFromDeal(deal: PipelineDeal): DetailDraft {
 
 export default function PipelineClient() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const searchParams = useSearchParams();
 
   const [stageConfig, setStageConfig] = useState<PipelineStageConfig[]>(DEFAULT_PIPELINE_STAGES);
   const [deals, setDeals] = useState<PipelineDeal[]>([]);
@@ -356,6 +358,18 @@ export default function PipelineClient() {
       active = false;
     };
   }, [supabase, refreshKey]);
+
+  // ── Auto-open deal from ?deal= URL param (e.g. linked from Drop inbox) ──────
+
+  useEffect(() => {
+    if (loading || deals.length === 0) return;
+    const dealId = searchParams.get("deal");
+    if (!dealId) return;
+    const match = deals.find((d) => d.id === dealId);
+    if (match) openDetail(match);
+    // only run once after initial load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // ── Sync detail draft + appointments when selected deal changes ─────────────
 

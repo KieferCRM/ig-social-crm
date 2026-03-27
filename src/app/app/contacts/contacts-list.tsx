@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ContactEmailPanel from "@/components/email/ContactEmailPanel";
 
@@ -284,12 +284,23 @@ export default function ContactsList({
   contacts: initialContacts,
   deals,
   isOffMarketAccount,
+  highlightId,
 }: {
   contacts: ContactRow[];
   deals: DealSummary[];
   isOffMarketAccount: boolean;
+  highlightId?: string;
 }) {
   const [contacts, setContacts] = useState<ContactRow[]>(initialContacts);
+  const [flashId, setFlashId] = useState<string | null>(highlightId ?? null);
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    highlightRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = setTimeout(() => setFlashId(null), 2500);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
   const [search, setSearch] = useState("");
   const [filterTemp, setFilterTemp] = useState("all");
   const [filterIntent, setFilterIntent] = useState("all");
@@ -464,12 +475,14 @@ export default function ContactsList({
                 const phone = contact.canonical_phone;
                 const email = contact.canonical_email;
 
+                const isHighlighted = contact.id === flashId;
                 return (
                   <tr
                     key={contact.id}
-                    style={{ borderBottom: "1px solid var(--border)", transition: "background 0.1s", background: selected.has(contact.id) ? "var(--surface-2)" : undefined }}
-                    onMouseEnter={(e) => { if (!selected.has(contact.id)) e.currentTarget.style.background = "var(--surface-hover, #f9fafb)"; }}
-                    onMouseLeave={(e) => { if (!selected.has(contact.id)) e.currentTarget.style.background = ""; }}
+                    ref={contact.id === highlightId ? highlightRowRef : null}
+                    style={{ borderBottom: "1px solid var(--border)", transition: "background 0.6s", background: isHighlighted ? "var(--brand-faint, #f0fdf4)" : selected.has(contact.id) ? "var(--surface-2)" : undefined, outline: isHighlighted ? "2px solid var(--brand, #16a34a)" : undefined }}
+                    onMouseEnter={(e) => { if (!selected.has(contact.id) && !isHighlighted) e.currentTarget.style.background = "var(--surface-hover, #f9fafb)"; }}
+                    onMouseLeave={(e) => { if (!selected.has(contact.id) && !isHighlighted) e.currentTarget.style.background = ""; }}
                   >
                     <td style={{ padding: "10px 12px", width: 36 }}>
                       <input type="checkbox" checked={selected.has(contact.id)} onChange={() => toggleSelect(contact.id)} />
