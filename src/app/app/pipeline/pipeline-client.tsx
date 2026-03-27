@@ -69,6 +69,26 @@ type DetailDraft = {
   notes: string;
 };
 
+// ─── Tag system ──────────────────────────────────────────────────────────────
+
+type AgentTag = { name: string; color: string };
+
+const TAG_COLORS = [
+  "#6b7280", // gray (default)
+  "#dc2626", // red
+  "#ea580c", // orange
+  "#ca8a04", // yellow
+  "#16a34a", // green
+  "#0891b2", // cyan
+  "#2563eb", // blue
+  "#7c3aed", // purple
+  "#db2777", // pink
+];
+
+function tagColor(name: string, tags: AgentTag[]): string {
+  return tags.find((t) => t.name === name)?.color ?? "#6b7280";
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const EMPTY_ADD_DRAFT: AddDraft = {
@@ -226,9 +246,15 @@ export default function PipelineClient() {
   const draggedDealIdRef = useRef<string | null>(null);
 
   // Custom tags — loaded from agents.settings.pipeline_tags
-  const [agentTags, setAgentTags] = useState<string[]>([...PIPELINE_TAGS]);
+  const [agentTags, setAgentTags] = useState<AgentTag[]>(
+    [...PIPELINE_TAGS].map((t) => ({ name: t, color: "#6b7280" }))
+  );
   const [agentSettings, setAgentSettings] = useState<Record<string, unknown>>({});
   const [newTagInput, setNewTagInput] = useState("");
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]!);
+  const [tagSearch, setTagSearch] = useState("");
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const tagDragIdxRef = useRef<number | null>(null);
 
   // Filters
   const [stageFilter, setStageFilter] = useState<"all" | OffMarketStage>("all");
@@ -293,7 +319,12 @@ export default function PipelineClient() {
         setAgentSettings(settings);
         const savedTags = settings.pipeline_tags;
         if (Array.isArray(savedTags) && savedTags.length > 0) {
-          setAgentTags(savedTags.filter((t): t is string => typeof t === "string"));
+          const parsed = (savedTags as unknown[]).map((t) => {
+            if (typeof t === "string") return { name: t, color: "#6b7280" };
+            if (t && typeof t === "object" && "name" in t) return t as AgentTag;
+            return null;
+          }).filter((t): t is AgentTag => t !== null);
+          if (parsed.length > 0) setAgentTags(parsed);
         }
       }
 
@@ -559,7 +590,7 @@ export default function PipelineClient() {
 
   // ── Tag management ────────────────────────────────────────────────────────────
 
-  async function saveAgentTags(tags: string[]) {
+  async function saveAgentTags(tags: AgentTag[]) {
     if (!agentId) return;
     const newSettings = { ...agentSettings, pipeline_tags: tags };
     setAgentSettings(newSettings);
@@ -570,22 +601,32 @@ export default function PipelineClient() {
   }
 
   async function handleAddTag() {
-    const tag = newTagInput.trim();
-    if (!tag || agentTags.includes(tag)) {
+    const name = newTagInput.trim();
+    if (!name || agentTags.some((t) => t.name === name)) {
       setNewTagInput("");
       return;
     }
-    const next = [...agentTags, tag];
+    const next = [...agentTags, { name, color: newTagColor }];
     setAgentTags(next);
     setNewTagInput("");
     await saveAgentTags(next);
   }
 
-  async function handleDeleteTag(tag: string) {
-    const next = agentTags.filter((t) => t !== tag);
+  async function handleDeleteTag(tagName: string) {
+    const next = agentTags.filter((t) => t.name !== tagName);
     setAgentTags(next);
-    // Also clear this tag from active filters
-    setTagFilters((prev) => prev.filter((t) => t !== tag));
+    setTagFilters((prev) => prev.filter((t) => t !== tagName));
+    await saveAgentTags(next);
+  }
+
+  async function handleTagDrop(targetIdx: number) {
+    const fromIdx = tagDragIdxRef.current;
+    if (fromIdx === null || fromIdx === targetIdx) { tagDragIdxRef.current = null; return; }
+    const next = [...agentTags];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(targetIdx, 0, moved!);
+    setAgentTags(next);
+    tagDragIdxRef.current = null;
     await saveAgentTags(next);
   }
 
@@ -713,106 +754,130 @@ export default function PipelineClient() {
             <div style={{ fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-muted)", marginBottom: 8 }}>
               Tags
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {agentTags.map((tag) => (
-                <div
-                  key={tag}
-                  style={{ display: "flex", alignItems: "center", gap: 6 }}
-                >
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      cursor: "pointer",
-                      fontSize: 13,
-                      padding: "4px 0",
-                      flex: 1,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={tagFilters.includes(tag)}
-                      onChange={() => setTagFilters((prev) => toggleTag(prev, tag))}
-                      style={{ accentColor: "var(--brand)", width: 14, height: 14, cursor: "pointer" }}
-                    />
-                    <span style={{ flex: 1 }}>{tag}</span>
-                    <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>
-                      {tagCountMap[tag] || 0}
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    title="Remove tag"
-                    onClick={() => void handleDeleteTag(tag)}
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1,
-                      color: "var(--ink-faint)",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "2px 4px",
-                      borderRadius: 4,
-                      flexShrink: 0,
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+
+            {/* Search */}
+            {agentTags.length > 4 && (
+              <input
+                type="text"
+                value={tagSearch}
+                placeholder="Search tags..."
+                onChange={(e) => setTagSearch(e.target.value)}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  fontSize: 12,
+                  padding: "4px 8px",
+                  border: "1px solid var(--line)",
+                  borderRadius: 6,
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  marginBottom: 6,
+                }}
+              />
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {(() => {
+                const filtered = tagSearch
+                  ? agentTags.filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                  : agentTags;
+                const visible = tagsExpanded || tagSearch ? filtered : filtered.slice(0, 6);
+                const hidden = tagSearch ? 0 : Math.max(0, filtered.length - 6);
+                return (
+                  <>
+                    {visible.map((tag, idx) => (
+                      <div
+                        key={tag.name}
+                        draggable
+                        onDragStart={() => { tagDragIdxRef.current = idx; }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => void handleTagDrop(idx)}
+                        style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "2px 0" }}
+                      >
+                        {/* Drag handle */}
+                        <span style={{ color: "var(--ink-faint)", fontSize: 11, cursor: "grab", flexShrink: 0, lineHeight: 1, paddingTop: 1 }} title="Drag to reorder">⠿</span>
+                        {/* Color dot */}
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color, flexShrink: 0, display: "inline-block" }} />
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, flex: 1, minWidth: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={tagFilters.includes(tag.name)}
+                            onChange={() => setTagFilters((prev) => toggleTag(prev, tag.name))}
+                            style={{ accentColor: "var(--brand)", width: 13, height: 13, cursor: "pointer", flexShrink: 0 }}
+                          />
+                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tag.name}</span>
+                          <span style={{ fontSize: 11, color: "var(--ink-muted)", flexShrink: 0 }}>{tagCountMap[tag.name] || 0}</span>
+                        </label>
+                        <button
+                          type="button"
+                          title="Remove tag"
+                          onClick={() => void handleDeleteTag(tag.name)}
+                          style={{ fontSize: 14, lineHeight: 1, color: "var(--ink-faint)", background: "none", border: "none", cursor: "pointer", padding: "2px 2px", flexShrink: 0 }}
+                        >×</button>
+                      </div>
+                    ))}
+
+                    {!tagSearch && hidden > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setTagsExpanded((v) => !v)}
+                        style={{ fontSize: 12, color: "var(--ink-muted)", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: "4px 0", marginTop: 2 }}
+                      >
+                        {tagsExpanded ? "Show less" : `Show ${hidden} more`}
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
 
               {tagFilters.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setTagFilters([])}
-                  style={{
-                    fontSize: 12,
-                    color: "var(--ink-muted)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    padding: "4px 0",
-                  }}
+                  style={{ fontSize: 12, color: "var(--ink-muted)", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: "4px 0" }}
                 >
                   Clear filters
                 </button>
               )}
 
               {/* Add new tag */}
-              <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+              <div style={{ display: "flex", gap: 4, marginTop: 6, alignItems: "center" }}>
+                {/* Color swatches */}
+                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", flexShrink: 0 }}>
+                  {TAG_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      title={c}
+                      onClick={() => setNewTagColor(c)}
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: "50%",
+                        background: c,
+                        border: newTagColor === c ? "2px solid var(--foreground)" : "2px solid transparent",
+                        cursor: "pointer",
+                        padding: 0,
+                        flexShrink: 0,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
                 <input
                   type="text"
                   value={newTagInput}
                   placeholder="New tag..."
                   onChange={(e) => setNewTagInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") void handleAddTag(); }}
-                  style={{
-                    flex: 1,
-                    fontSize: 12,
-                    padding: "4px 8px",
-                    border: "1px solid var(--line)",
-                    borderRadius: 6,
-                    background: "var(--background)",
-                    color: "var(--foreground)",
-                  }}
+                  style={{ flex: 1, fontSize: 12, padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--background)", color: "var(--foreground)" }}
                 />
                 <button
                   type="button"
                   onClick={() => void handleAddTag()}
-                  style={{
-                    fontSize: 13,
-                    padding: "4px 8px",
-                    border: "1px solid var(--line)",
-                    borderRadius: 6,
-                    background: "var(--background)",
-                    cursor: "pointer",
-                    color: "var(--foreground)",
-                  }}
-                >
-                  +
-                </button>
+                  style={{ fontSize: 13, padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--background)", cursor: "pointer", color: "var(--foreground)" }}
+                >+</button>
               </div>
             </div>
           </div>
@@ -956,7 +1021,8 @@ export default function PipelineClient() {
                               {deal.tags.length > 0 ? (
                                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                                   {deal.tags.slice(0, 2).map((tag) => (
-                                    <span key={tag} className="crm-chip" style={{ fontSize: 11 }}>
+                                    <span key={tag} className="crm-chip" style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
                                       {tag}
                                     </span>
                                   ))}
@@ -1062,7 +1128,8 @@ export default function PipelineClient() {
                           {deal.tags.length > 0 && (
                             <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                               {deal.tags.map((tag) => (
-                                <span key={tag} className="crm-chip" style={{ fontSize: 10 }}>
+                                <span key={tag} className="crm-chip" style={{ fontSize: 10, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
                                   {tag}
                                 </span>
                               ))}
@@ -1201,16 +1268,17 @@ export default function PipelineClient() {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {agentTags.map((tag) => (
                   <button
-                    key={tag}
+                    key={tag.name}
                     type="button"
                     disabled={addSaving}
                     onClick={() =>
-                      setAddDraft((prev) => ({ ...prev, tags: toggleTag(prev.tags, tag) }))
+                      setAddDraft((prev) => ({ ...prev, tags: toggleTag(prev.tags, tag.name) }))
                     }
-                    className={addDraft.tags.includes(tag) ? "crm-chip crm-chip-ok" : "crm-chip"}
-                    style={{ cursor: "pointer", border: "none" }}
+                    className={addDraft.tags.includes(tag.name) ? "crm-chip crm-chip-ok" : "crm-chip"}
+                    style={{ cursor: "pointer", border: "none", display: "flex", alignItems: "center", gap: 5 }}
                   >
-                    {tag}
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color, flexShrink: 0, display: "inline-block" }} />
+                    {tag.name}
                   </button>
                 ))}
               </div>
@@ -1488,21 +1556,22 @@ export default function PipelineClient() {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {agentTags.map((tag) => (
                   <button
-                    key={tag}
+                    key={tag.name}
                     type="button"
                     disabled={detailSaving}
                     onClick={() => {
                       setDetailDraft((prev) =>
-                        prev ? { ...prev, tags: toggleTag(prev.tags, tag) } : prev
+                        prev ? { ...prev, tags: toggleTag(prev.tags, tag.name) } : prev
                       );
                       setDetailDirty(true);
                     }}
                     className={
-                      detailDraft.tags.includes(tag) ? "crm-chip crm-chip-ok" : "crm-chip"
+                      detailDraft.tags.includes(tag.name) ? "crm-chip crm-chip-ok" : "crm-chip"
                     }
-                    style={{ cursor: "pointer", border: "none" }}
+                    style={{ cursor: "pointer", border: "none", display: "flex", alignItems: "center", gap: 5 }}
                   >
-                    {tag}
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color, flexShrink: 0, display: "inline-block" }} />
+                    {tag.name}
                   </button>
                 ))}
               </div>
