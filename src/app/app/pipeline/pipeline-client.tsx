@@ -1332,22 +1332,6 @@ export default function PipelineClient() {
               </label>
 
               <label className="crm-filter-field">
-                <span>Asking Price</span>
-                <input
-                  value={detailDraft.asking_price}
-                  inputMode="decimal"
-                  placeholder="350000"
-                  disabled={detailSaving}
-                  onChange={(e) => {
-                    setDetailDraft((prev) =>
-                      prev ? { ...prev, asking_price: e.target.value } : prev
-                    );
-                    setDetailDirty(true);
-                  }}
-                />
-              </label>
-
-              <label className="crm-filter-field">
                 <span>A-B Contract Price</span>
                 <input
                   value={detailDraft.offer_price}
@@ -1387,7 +1371,7 @@ export default function PipelineClient() {
                 const spread = bc - ab;
                 return (
                   <label className="crm-filter-field">
-                    <span>Your Spread</span>
+                    <span>Commission / Fee</span>
                     <div style={{
                       padding: "7px 10px",
                       borderRadius: 8,
