@@ -29,6 +29,7 @@ type PipelineDeal = {
   property_address: string | null;
   price: number | null;
   offer_price: number | null;
+  assignment_price: number | null;
   stage: string;
   tags: string[];
   stage_entered_at: string | null;
@@ -54,6 +55,7 @@ type DetailDraft = {
   property_address: string;
   asking_price: string;
   offer_price: string;
+  assignment_price: string;
   stage: OffMarketStage;
   tags: string[];
   next_followup_date: string;
@@ -113,6 +115,7 @@ type RawDealRow = {
   property_address?: unknown;
   price?: unknown;
   offer_price?: unknown;
+  assignment_price?: unknown;
   stage?: unknown;
   tags?: unknown;
   stage_entered_at?: unknown;
@@ -157,6 +160,7 @@ function mapDealRow(row: RawDealRow): PipelineDeal | null {
     property_address: typeof row.property_address === "string" ? row.property_address : null,
     price: typeof row.price === "number" ? row.price : null,
     offer_price: typeof row.offer_price === "number" ? row.offer_price : null,
+    assignment_price: typeof row.assignment_price === "number" ? row.assignment_price : null,
     stage: typeof row.stage === "string" ? row.stage : "prospecting",
     tags: Array.isArray(row.tags)
       ? (row.tags as unknown[]).filter((t): t is string => typeof t === "string")
@@ -177,6 +181,7 @@ function draftFromDeal(deal: PipelineDeal): DetailDraft {
     property_address: deal.property_address || "",
     asking_price: asInputNumber(deal.price),
     offer_price: asInputNumber(deal.offer_price),
+    assignment_price: asInputNumber(deal.assignment_price),
     stage: normalizeOffMarketStage(deal.stage),
     tags: deal.tags.slice(),
     next_followup_date: asInputDate(deal.next_followup_date),
@@ -227,6 +232,12 @@ export default function PipelineClient() {
   const [detailDirty, setDetailDirty] = useState(false);
   const [detailSaving, setDetailSaving] = useState(false);
   const [dealAppts, setDealAppts] = useState<Array<{ id: string; title: string; scheduled_at: string; appointment_type: string; status: string }>>([]);
+  const [dealDocs, setDealDocs] = useState<Array<{ id: string; file_name: string; status: string; file_type: string; signed_url?: string | null }>>([]);
+  const [docUploading, setDocUploading] = useState(false);
+  const [showDocUpload, setShowDocUpload] = useState(false);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docFileType, setDocFileType] = useState("agreement");
+  const [docStatus, setDocStatus] = useState("draft");
 
   // ── Load deals ──────────────────────────────────────────────────────────────
 
@@ -274,7 +285,7 @@ export default function PipelineClient() {
       const { data, error } = await supabase
         .from("deals")
         .select(
-          "id,lead_id,property_address,price,offer_price,stage,tags,stage_entered_at,next_followup_date,expected_close_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email,source)"
+          "id,lead_id,property_address,price,offer_price,assignment_price,stage,tags,stage_entered_at,next_followup_date,expected_close_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email,source)"
         )
         .eq("agent_id", user.id)
         .order("updated_at", { ascending: false });
@@ -306,6 +317,9 @@ export default function PipelineClient() {
       setDetailDraft(null);
       setDetailDirty(false);
       setDealAppts([]);
+      setDealDocs([]);
+      setShowDocUpload(false);
+      setDocFile(null);
       return;
     }
     setDetailDraft(draftFromDeal(selectedDeal));
@@ -321,6 +335,16 @@ export default function PipelineClient() {
       .order("scheduled_at", { ascending: true })
       .limit(5)
       .then(({ data }) => setDealAppts(data ?? []));
+
+    // Load documents linked to this deal
+    const dealId = selectedDeal.id;
+    void fetch("/api/documents", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { documents?: Array<{ id: string; file_name: string; status: string; file_type: string; deal_id?: string; signed_url?: string | null }> }) => {
+        const docs = (d.documents ?? []).filter((doc) => doc.deal_id === dealId);
+        setDealDocs(docs);
+      })
+      .catch(() => {/* non-critical */});
   }, [selectedDeal, supabase]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
@@ -446,6 +470,7 @@ export default function PipelineClient() {
         property_address: address,
         price: parsePositiveDecimal(detailDraft.asking_price),
         offer_price: parsePositiveDecimal(detailDraft.offer_price),
+        assignment_price: parsePositiveDecimal(detailDraft.assignment_price),
         stage: detailDraft.stage,
         tags: detailDraft.tags,
         stage_entered_at: stageChanged ? now : selectedDeal.stage_entered_at,
@@ -488,6 +513,30 @@ export default function PipelineClient() {
     }
     closeDetail();
     setRefreshKey((k) => k + 1);
+  }
+
+  // ── Document upload ───────────────────────────────────────────────────────────
+
+  async function handleDocUpload() {
+    if (!docFile || !selectedDeal) return;
+    setDocUploading(true);
+    const form = new FormData();
+    form.append("file", docFile);
+    form.append("deal_id", selectedDeal.id);
+    form.append("file_type", docFileType);
+    form.append("status", docStatus);
+    try {
+      const res = await fetch("/api/documents", { method: "POST", body: form });
+      const data = (await res.json()) as { ok?: boolean; document?: { id: string; file_name: string; status: string; file_type: string; signed_url?: string | null } };
+      if (data.ok && data.document) {
+        setDealDocs((prev) => [...prev, data.document!]);
+        setDocFile(null);
+        setShowDocUpload(false);
+        setDocFileType("agreement");
+        setDocStatus("draft");
+      }
+    } catch {/* non-critical */}
+    setDocUploading(false);
   }
 
   // ── Tag management ────────────────────────────────────────────────────────────
@@ -1265,7 +1314,7 @@ export default function PipelineClient() {
               </label>
 
               <label className="crm-filter-field">
-                <span>Est. Asking Price Range</span>
+                <span>Asking Price</span>
                 <input
                   value={detailDraft.asking_price}
                   inputMode="decimal"
@@ -1281,11 +1330,11 @@ export default function PipelineClient() {
               </label>
 
               <label className="crm-filter-field">
-                <span>Offer Price</span>
+                <span>A-B Contract Price</span>
                 <input
                   value={detailDraft.offer_price}
                   inputMode="decimal"
-                  placeholder="320000"
+                  placeholder="200000"
                   disabled={detailSaving}
                   onChange={(e) => {
                     setDetailDraft((prev) =>
@@ -1295,6 +1344,46 @@ export default function PipelineClient() {
                   }}
                 />
               </label>
+
+              <label className="crm-filter-field">
+                <span>B-C Contract Price</span>
+                <input
+                  value={detailDraft.assignment_price}
+                  inputMode="decimal"
+                  placeholder="250000"
+                  disabled={detailSaving}
+                  onChange={(e) => {
+                    setDetailDraft((prev) =>
+                      prev ? { ...prev, assignment_price: e.target.value } : prev
+                    );
+                    setDetailDirty(true);
+                  }}
+                />
+              </label>
+
+              {/* Spread — read-only calculated field */}
+              {(() => {
+                const ab = parsePositiveDecimal(detailDraft.offer_price);
+                const bc = parsePositiveDecimal(detailDraft.assignment_price);
+                if (ab === null || bc === null) return null;
+                const spread = bc - ab;
+                return (
+                  <label className="crm-filter-field">
+                    <span>Your Spread</span>
+                    <div style={{
+                      padding: "7px 10px",
+                      borderRadius: 8,
+                      border: "1px solid var(--border)",
+                      background: spread >= 0 ? "#f0fdf4" : "#fef2f2",
+                      color: spread >= 0 ? "#15803d" : "#dc2626",
+                      fontWeight: 700,
+                      fontSize: 14,
+                    }}>
+                      {spread >= 0 ? "+" : ""}{formatCurrency(spread)}
+                    </div>
+                  </label>
+                );
+              })()}
 
               <label className="crm-filter-field">
                 <span>Stage</span>
@@ -1411,6 +1500,96 @@ export default function PipelineClient() {
                 </div>
               </div>
             )}
+
+            {/* Documents */}
+            <div style={{ marginTop: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Documents ({dealDocs.length})
+                </div>
+                <button
+                  type="button"
+                  className="crm-btn crm-btn-secondary"
+                  style={{ fontSize: 12, padding: "4px 10px" }}
+                  onClick={() => setShowDocUpload((v) => !v)}
+                >
+                  {showDocUpload ? "Cancel" : "+ Add Document"}
+                </button>
+              </div>
+
+              {showDocUpload && (
+                <div style={{ background: "var(--surface-2)", borderRadius: 8, padding: "12px", marginBottom: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input
+                    type="file"
+                    style={{ fontSize: 13 }}
+                    onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <select
+                      value={docFileType}
+                      onChange={(e) => setDocFileType(e.target.value)}
+                      style={{ flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)" }}
+                    >
+                      <option value="agreement">Agreement</option>
+                      <option value="ab_contract">A-B Contract</option>
+                      <option value="bc_contract">B-C Contract</option>
+                      <option value="tn_senate_bill">TN Senate Bill</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <select
+                      value={docStatus}
+                      onChange={(e) => setDocStatus(e.target.value)}
+                      style={{ flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)" }}
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="sent">Sent</option>
+                      <option value="signed">Signed</option>
+                      <option value="final">Final</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    className="crm-btn crm-btn-primary"
+                    style={{ fontSize: 13, alignSelf: "flex-end" }}
+                    disabled={!docFile || docUploading}
+                    onClick={() => void handleDocUpload()}
+                  >
+                    {docUploading ? "Uploading..." : "Upload"}
+                  </button>
+                </div>
+              )}
+
+              {dealDocs.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--ink-faint)", fontStyle: "italic" }}>No documents yet.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {dealDocs.map((doc) => {
+                    const statusColors: Record<string, { bg: string; color: string }> = {
+                      draft:  { bg: "#f3f4f6", color: "#6b7280" },
+                      sent:   { bg: "#dbeafe", color: "#1d4ed8" },
+                      signed: { bg: "#dcfce7", color: "#15803d" },
+                      final:  { bg: "#fef9c3", color: "#a16207" },
+                    };
+                    const sc = statusColors[doc.status] ?? statusColors.draft;
+                    return (
+                      <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8 }}>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {doc.file_name}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 4, padding: "2px 7px", background: sc.bg, color: sc.color, flexShrink: 0 }}>
+                          {doc.status.toUpperCase()}
+                        </span>
+                        {doc.signed_url && (
+                          <a href={doc.signed_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--brand)", flexShrink: 0 }}>
+                            View
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <div
               style={{
