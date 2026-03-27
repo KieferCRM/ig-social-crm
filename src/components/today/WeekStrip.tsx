@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type WeekAppointment = {
   id: string;
@@ -306,6 +307,17 @@ export default function WeekStrip({ startDate, appointmentDates, followupDates, 
                 Nothing scheduled for this day.
               </div>
             )}
+
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+              <Link
+                href="/app/calendar"
+                onClick={() => setSelectedDay(null)}
+                className="crm-btn crm-btn-secondary"
+                style={{ display: "block", textAlign: "center", fontSize: 13 }}
+              >
+                View Calendar →
+              </Link>
+            </div>
           </div>
         </div>
       )}
