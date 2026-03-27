@@ -30,6 +30,9 @@ type PipelineDeal = {
   price: number | null;
   offer_price: number | null;
   assignment_price: number | null;
+  acreage: number | null;
+  mls_number: string | null;
+  parcel_id: string | null;
   stage: string;
   tags: string[];
   stage_entered_at: string | null;
@@ -56,6 +59,9 @@ type DetailDraft = {
   asking_price: string;
   offer_price: string;
   assignment_price: string;
+  acreage: string;
+  mls_number: string;
+  parcel_id: string;
   stage: OffMarketStage;
   tags: string[];
   next_followup_date: string;
@@ -116,6 +122,9 @@ type RawDealRow = {
   price?: unknown;
   offer_price?: unknown;
   assignment_price?: unknown;
+  acreage?: unknown;
+  mls_number?: unknown;
+  parcel_id?: unknown;
   stage?: unknown;
   tags?: unknown;
   stage_entered_at?: unknown;
@@ -161,6 +170,9 @@ function mapDealRow(row: RawDealRow): PipelineDeal | null {
     price: typeof row.price === "number" ? row.price : null,
     offer_price: typeof row.offer_price === "number" ? row.offer_price : null,
     assignment_price: typeof row.assignment_price === "number" ? row.assignment_price : null,
+    acreage: typeof row.acreage === "number" ? row.acreage : null,
+    mls_number: typeof row.mls_number === "string" ? row.mls_number : null,
+    parcel_id: typeof row.parcel_id === "string" ? row.parcel_id : null,
     stage: typeof row.stage === "string" ? row.stage : "prospecting",
     tags: Array.isArray(row.tags)
       ? (row.tags as unknown[]).filter((t): t is string => typeof t === "string")
@@ -182,6 +194,9 @@ function draftFromDeal(deal: PipelineDeal): DetailDraft {
     asking_price: asInputNumber(deal.price),
     offer_price: asInputNumber(deal.offer_price),
     assignment_price: asInputNumber(deal.assignment_price),
+    acreage: deal.acreage != null ? String(deal.acreage) : "",
+    mls_number: deal.mls_number ?? "",
+    parcel_id: deal.parcel_id ?? "",
     stage: normalizeOffMarketStage(deal.stage),
     tags: deal.tags.slice(),
     next_followup_date: asInputDate(deal.next_followup_date),
@@ -285,7 +300,7 @@ export default function PipelineClient() {
       const { data, error } = await supabase
         .from("deals")
         .select(
-          "id,lead_id,property_address,price,offer_price,assignment_price,stage,tags,stage_entered_at,next_followup_date,expected_close_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email,source)"
+          "id,lead_id,property_address,price,offer_price,assignment_price,acreage,mls_number,parcel_id,stage,tags,stage_entered_at,next_followup_date,expected_close_date,notes,updated_at,created_at,lead:leads(full_name,canonical_phone,canonical_email,source)"
         )
         .eq("agent_id", user.id)
         .order("updated_at", { ascending: false });
@@ -471,6 +486,9 @@ export default function PipelineClient() {
         price: parsePositiveDecimal(detailDraft.asking_price),
         offer_price: parsePositiveDecimal(detailDraft.offer_price),
         assignment_price: parsePositiveDecimal(detailDraft.assignment_price),
+        acreage: detailDraft.acreage ? parsePositiveDecimal(detailDraft.acreage) : null,
+        mls_number: detailDraft.mls_number.trim() || null,
+        parcel_id: detailDraft.parcel_id.trim() || null,
         stage: detailDraft.stage,
         tags: detailDraft.tags,
         stage_entered_at: stageChanged ? now : selectedDeal.stage_entered_at,
@@ -1384,6 +1402,46 @@ export default function PipelineClient() {
                   </label>
                 );
               })()}
+
+              <label className="crm-filter-field">
+                <span>Acreage</span>
+                <input
+                  value={detailDraft.acreage}
+                  inputMode="decimal"
+                  placeholder="36.5"
+                  disabled={detailSaving}
+                  onChange={(e) => {
+                    setDetailDraft((prev) => prev ? { ...prev, acreage: e.target.value } : prev);
+                    setDetailDirty(true);
+                  }}
+                />
+              </label>
+
+              <label className="crm-filter-field">
+                <span>MLS Number</span>
+                <input
+                  value={detailDraft.mls_number}
+                  placeholder="MLS-123456"
+                  disabled={detailSaving}
+                  onChange={(e) => {
+                    setDetailDraft((prev) => prev ? { ...prev, mls_number: e.target.value } : prev);
+                    setDetailDirty(true);
+                  }}
+                />
+              </label>
+
+              <label className="crm-filter-field">
+                <span>Parcel ID</span>
+                <input
+                  value={detailDraft.parcel_id}
+                  placeholder="123-456-789"
+                  disabled={detailSaving}
+                  onChange={(e) => {
+                    setDetailDraft((prev) => prev ? { ...prev, parcel_id: e.target.value } : prev);
+                    setDetailDirty(true);
+                  }}
+                />
+              </label>
 
               <label className="crm-filter-field">
                 <span>Stage</span>
