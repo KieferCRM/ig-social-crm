@@ -255,6 +255,7 @@ export default function PipelineClient() {
   const [tagSearch, setTagSearch] = useState("");
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const tagDragIdxRef = useRef<number | null>(null);
+  const [editingTagColor, setEditingTagColor] = useState<string | null>(null); // tag name being recolored
 
   // Filters
   const [stageFilter, setStageFilter] = useState<"all" | OffMarketStage>("all");
@@ -630,6 +631,13 @@ export default function PipelineClient() {
     await saveAgentTags(next);
   }
 
+  async function handleRecolorTag(tagName: string, color: string) {
+    const next = agentTags.map((t) => t.name === tagName ? { ...t, color } : t);
+    setAgentTags(next);
+    setEditingTagColor(null);
+    await saveAgentTags(next);
+  }
+
   // ── Drag-and-drop stage update ────────────────────────────────────────────────
 
   async function handleDrop(targetStage: OffMarketStage, dealId: string) {
@@ -786,34 +794,53 @@ export default function PipelineClient() {
                 return (
                   <>
                     {visible.map((tag, idx) => (
-                      <div
-                        key={tag.name}
-                        draggable
-                        onDragStart={() => { tagDragIdxRef.current = idx; }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => void handleTagDrop(idx)}
-                        style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "2px 0" }}
-                      >
-                        {/* Drag handle */}
-                        <span style={{ color: "var(--ink-faint)", fontSize: 11, cursor: "grab", flexShrink: 0, lineHeight: 1, paddingTop: 1 }} title="Drag to reorder">⠿</span>
-                        {/* Color dot */}
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color, flexShrink: 0, display: "inline-block" }} />
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, flex: 1, minWidth: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={tagFilters.includes(tag.name)}
-                            onChange={() => setTagFilters((prev) => toggleTag(prev, tag.name))}
-                            style={{ accentColor: "var(--brand)", width: 13, height: 13, cursor: "pointer", flexShrink: 0 }}
+                      <div key={tag.name}>
+                        <div
+                          draggable
+                          onDragStart={() => { tagDragIdxRef.current = idx; }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => void handleTagDrop(idx)}
+                          style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "2px 0" }}
+                        >
+                          {/* Drag handle */}
+                          <span style={{ color: "var(--ink-faint)", fontSize: 11, cursor: "grab", flexShrink: 0, lineHeight: 1, paddingTop: 1 }} title="Drag to reorder">⠿</span>
+                          {/* Color dot — click to recolor */}
+                          <span
+                            title="Change color"
+                            onClick={(e) => { e.stopPropagation(); setEditingTagColor(editingTagColor === tag.name ? null : tag.name); }}
+                            style={{ width: 10, height: 10, borderRadius: "50%", background: tag.color, flexShrink: 0, display: "inline-block", cursor: "pointer", outline: editingTagColor === tag.name ? "2px solid var(--foreground)" : "none", outlineOffset: 1 }}
                           />
-                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tag.name}</span>
-                          <span style={{ fontSize: 11, color: "var(--ink-muted)", flexShrink: 0 }}>{tagCountMap[tag.name] || 0}</span>
-                        </label>
-                        <button
-                          type="button"
-                          title="Remove tag"
-                          onClick={() => void handleDeleteTag(tag.name)}
-                          style={{ fontSize: 14, lineHeight: 1, color: "var(--ink-faint)", background: "none", border: "none", cursor: "pointer", padding: "2px 2px", flexShrink: 0 }}
-                        >×</button>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, flex: 1, minWidth: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={tagFilters.includes(tag.name)}
+                              onChange={() => setTagFilters((prev) => toggleTag(prev, tag.name))}
+                              style={{ accentColor: "var(--brand)", width: 13, height: 13, cursor: "pointer", flexShrink: 0 }}
+                            />
+                            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tag.name}</span>
+                            <span style={{ fontSize: 11, color: "var(--ink-muted)", flexShrink: 0 }}>{tagCountMap[tag.name] || 0}</span>
+                          </label>
+                          <button
+                            type="button"
+                            title="Remove tag"
+                            onClick={() => void handleDeleteTag(tag.name)}
+                            style={{ fontSize: 14, lineHeight: 1, color: "var(--ink-faint)", background: "none", border: "none", cursor: "pointer", padding: "2px 2px", flexShrink: 0 }}
+                          >×</button>
+                        </div>
+                        {/* Inline color picker */}
+                        {editingTagColor === tag.name && (
+                          <div style={{ display: "flex", gap: 5, paddingLeft: 20, paddingBottom: 4, flexWrap: "wrap" }}>
+                            {TAG_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                title={c}
+                                onClick={() => void handleRecolorTag(tag.name, c)}
+                                style={{ width: 16, height: 16, borderRadius: "50%", background: c, border: tag.color === c ? "2px solid var(--foreground)" : "2px solid transparent", cursor: "pointer", padding: 0 }}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
 
