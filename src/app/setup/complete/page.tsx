@@ -10,7 +10,7 @@ export default async function CompletePage() {
 
   const { data: agent } = await supabase
     .from("agents")
-    .select("full_name, settings")
+    .select("full_name, vanity_slug, settings")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -21,6 +21,8 @@ export default async function CompletePage() {
   const voiceName = (receptionistSettings.voice_name as string | null) ?? "";
   const handles = (settings.social_handles as Record<string, string> | null) ?? {};
   const socialCount = Object.values(handles).filter(Boolean).length;
+  const vanitySlug = (agent?.vanity_slug as string | null) ?? "";
+  const inboxEmail = vanitySlug ? `${vanitySlug}@inbox.lockboxhq.com` : null;
 
   return (
     <main className="crm-auth-shell">
@@ -64,6 +66,11 @@ export default async function CompletePage() {
                 hint={!brokerage ? "Add in Profile Settings" : undefined}
               />
               <SummaryRow
+                done={!!inboxEmail}
+                label={inboxEmail ? `Inbox ready — ${inboxEmail}` : "Inbox address not set"}
+                hint={!inboxEmail ? "Set a slug in Settings → Profile to activate your inbox" : "Forward transcripts, contracts, and deals here — Lockbox processes them automatically"}
+              />
+              <SummaryRow
                 done={!!voiceName}
                 label={voiceName ? `AI receptionist — ${voiceName}` : "AI receptionist not configured"}
                 hint={!voiceName ? "Configure in Receptionist Settings" : undefined}
@@ -85,8 +92,7 @@ export default async function CompletePage() {
           <div className="crm-auth-panel-kicker">What&apos;s next</div>
           <h2 className="crm-auth-panel-title">Start capturing leads immediately.</h2>
           <p className="crm-auth-panel-body">
-            Share your intake form link with sellers and contacts. Your AI receptionist will answer calls
-            and log leads directly to your CRM — all automatically.
+            Your CRM is ready. Share your intake form, forward transcripts and documents to your inbox, and let Lockbox handle the rest.
           </p>
           <div className="crm-auth-value-list">
             <div className="crm-auth-value-item">
@@ -95,11 +101,15 @@ export default async function CompletePage() {
             </div>
             <div className="crm-auth-value-item">
               <span className="crm-auth-value-dot" aria-hidden />
-              <span>Connect your business phone in Receptionist Settings</span>
+              <span>Set your Plaud device to email transcripts to your inbox address</span>
             </div>
             <div className="crm-auth-value-item">
               <span className="crm-auth-value-dot" aria-hidden />
-              <span>Review your Today view every morning to stay on top of follow-ups</span>
+              <span>Forward signed contracts to your inbox — stored to Documents automatically</span>
+            </div>
+            <div className="crm-auth-value-item">
+              <span className="crm-auth-value-dot" aria-hidden />
+              <span>Review your Home view every morning to stay on top of follow-ups</span>
             </div>
           </div>
         </aside>

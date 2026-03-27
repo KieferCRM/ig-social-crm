@@ -94,6 +94,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
 
   const previewSlug = normalize(slug) || "your-slug";
   const previewUrl = `lockboxhq.com/forms/seller/${previewSlug}`;
+  const previewInbox = `${previewSlug}@inbox.lockboxhq.com`;
 
   const statusColor =
     checkState === "available" ? "var(--ok, #16a34a)" :
@@ -115,32 +116,49 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 3 of 5 — Your form URL</div>
+            <div className="crm-auth-kicker">Step 3 of 5 — Your slug</div>
           </div>
 
           <div className="crm-auth-copy">
-            <h1 className="crm-auth-title">Choose your form URL</h1>
+            <h1 className="crm-auth-title">Choose your slug</h1>
             <p className="crm-auth-subtitle">
-              This becomes the public link you share with sellers and contacts. Keep it short and recognizable.
+              This powers two things: your public intake form link, and your personal LockboxHQ inbox address where you can forward documents, transcripts, and deals.
             </p>
           </div>
 
           <div className="crm-stack-10">
-            {/* URL preview */}
+            {/* Dual preview */}
             <div
               style={{
                 background: "var(--surface-2, #f8fafc)",
                 border: "1px solid var(--border, #e2e8f0)",
                 borderRadius: 10,
                 padding: "12px 16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
               }}
             >
-              <div style={{ fontSize: 11, color: "var(--ink-muted)", marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Your form link preview
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-muted)", marginBottom: 3, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  Form link
+                </div>
+                <code style={{ fontSize: 13, color: "var(--foreground)", wordBreak: "break-all" }}>
+                  {previewUrl}
+                </code>
               </div>
-              <code style={{ fontSize: 13, color: "var(--foreground)", wordBreak: "break-all" }}>
-                {previewUrl}
-              </code>
+              <div style={{ height: 1, background: "var(--border)" }} />
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-muted)", marginBottom: 3, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  Your inbox address
+                </div>
+                <code style={{ fontSize: 13, color: "var(--foreground)", wordBreak: "break-all" }}>
+                  {previewInbox}
+                </code>
+                <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 4 }}>
+                  Forward call transcripts, signed contracts, and new deals here — Lockbox processes them automatically.
+                </div>
+              </div>
             </div>
 
             {/* Slug input */}
@@ -199,23 +217,26 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
 
         <aside className="crm-card crm-auth-trust-panel">
           <div className="crm-auth-panel-kicker">Why this matters</div>
-          <h2 className="crm-auth-panel-title">A clean link people actually remember.</h2>
+          <h2 className="crm-auth-panel-title">Your slug is the brain of your CRM.</h2>
           <p className="crm-auth-panel-body">
-            Your slug appears in every form URL you share. A branded slug looks more professional and is easier
-            to include in bios, flyers, and follow-up messages.
+            It powers your intake form link AND your private inbox address. Anything forwarded to your inbox — call transcripts, signed contracts, new referrals — gets processed automatically and logged to the right deal.
           </p>
           <div className="crm-auth-value-list">
             <div className="crm-auth-value-item">
               <span className="crm-auth-value-dot" aria-hidden />
-              <span>Works for both your seller and contact forms</span>
+              <span>Forward Plaud transcripts here — Lockbox logs them to the right deal</span>
             </div>
             <div className="crm-auth-value-item">
               <span className="crm-auth-value-dot" aria-hidden />
-              <span>You can change it later in Settings — old links redirect automatically</span>
+              <span>Email signed contracts to your inbox — stored to Documents automatically</span>
             </div>
             <div className="crm-auth-value-item">
               <span className="crm-auth-value-dot" aria-hidden />
-              <span>Case-insensitive — capitalization in shared links still works</span>
+              <span>BCC your inbox on any email you send — Lockbox logs it as a note</span>
+            </div>
+            <div className="crm-auth-value-item">
+              <span className="crm-auth-value-dot" aria-hidden />
+              <span>You can change your slug later in Settings</span>
             </div>
           </div>
         </aside>
