@@ -82,6 +82,7 @@ export default function AppShellClient({
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
+        { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox"), count: 0 },
         { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
@@ -156,6 +157,12 @@ export default function AppShellClient({
         subtitle: isOffMarketAccount
           ? "Review new inbound inquiries, confirm what the system created, and keep source context clear."
           : "Review new inquiries, confirm contact details, and get each lead into the right stage quickly.",
+      };
+    }
+    if (pathname.startsWith("/app/inbox")) {
+      return {
+        title: "Inbox",
+        subtitle: "Emails sent to your inbox address land here — transcripts, signed contracts, and client messages processed automatically.",
       };
     }
     if (pathname.startsWith("/app/documents")) {
