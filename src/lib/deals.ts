@@ -1,4 +1,5 @@
 export const DEAL_STAGE_VALUES = [
+  // shared / traditional general
   "new",
   "showing",
   "offer_made",
@@ -8,6 +9,16 @@ export const DEAL_STAGE_VALUES = [
   "closing",
   "closed",
   "lost",
+  "past_client",
+  // buyer-specific
+  "contacted",
+  "qualified",
+  "buyer_consultation",
+  "active_search",
+  // listing-specific
+  "listing_appointment",
+  "agreement_signed",
+  "active_listing",
   // off-market stages
   "prospecting",
   "offer_sent",
@@ -15,6 +26,7 @@ export const DEAL_STAGE_VALUES = [
   "dead",
 ] as const;
 
+// Legacy combined board (kept for off-market compat)
 export const DEAL_BOARD_STAGES = [
   "new",
   "showing",
@@ -25,6 +37,44 @@ export const DEAL_BOARD_STAGES = [
   "closing",
   "closed",
 ] as const;
+
+// Buyer pipeline stages
+export const BUYER_PIPELINE_STAGES = [
+  "new",
+  "contacted",
+  "qualified",
+  "buyer_consultation",
+  "active_search",
+  "showing",
+  "offer_made",
+  "under_contract",
+  "closed",
+  "past_client",
+] as const;
+
+// Listing/seller pipeline stages
+export const LISTING_PIPELINE_STAGES = [
+  "new",
+  "listing_appointment",
+  "agreement_signed",
+  "active_listing",
+  "under_contract",
+  "closed",
+  "past_client",
+] as const;
+
+export type BuyerPipelineStage = (typeof BUYER_PIPELINE_STAGES)[number];
+export type ListingPipelineStage = (typeof LISTING_PIPELINE_STAGES)[number];
+
+export function getPipelineStages(dealType: "buyer" | "listing" | "all"): readonly string[] {
+  if (dealType === "buyer") return BUYER_PIPELINE_STAGES;
+  if (dealType === "listing") return LISTING_PIPELINE_STAGES;
+  return DEAL_BOARD_STAGES;
+}
+
+export function getDefaultStageForType(_dealType: "buyer" | "listing"): DealStage {
+  return "new";
+}
 
 export const DEAL_TYPE_VALUES = ["buyer", "listing"] as const;
 
@@ -57,6 +107,7 @@ export type DealRow = {
   stage: DealStage;
   expected_close_date: string | null;
   notes: string | null;
+  deal_details: Record<string, unknown> | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -75,6 +126,14 @@ const STAGE_LABELS: Record<DealStage, string> = {
   closing: "Closing",
   closed: "Closed",
   lost: "Lost",
+  past_client: "Past Client",
+  contacted: "Contacted",
+  qualified: "Qualified",
+  buyer_consultation: "Buyer Consultation",
+  active_search: "Active Search",
+  listing_appointment: "Listing Appointment",
+  agreement_signed: "Agreement Signed",
+  active_listing: "Active Listing",
   prospecting: "Prospecting",
   offer_sent: "Offer Sent",
   negotiating: "Negotiating",
@@ -91,13 +150,21 @@ const DEAL_STAGE_TONES: Record<
   "stage-new" | "stage-qualified" | "stage-active" | "stage-contract" | "stage-closed" | "stage-lost"
 > = {
   new: "stage-new",
+  contacted: "stage-new",
+  qualified: "stage-qualified",
+  buyer_consultation: "stage-qualified",
+  active_search: "stage-active",
   showing: "stage-active",
+  listing_appointment: "stage-new",
+  agreement_signed: "stage-qualified",
+  active_listing: "stage-active",
   offer_made: "stage-qualified",
   under_contract: "stage-contract",
   inspection: "stage-contract",
   appraisal: "stage-contract",
   closing: "stage-contract",
   closed: "stage-closed",
+  past_client: "stage-closed",
   lost: "stage-lost",
   prospecting: "stage-new",
   offer_sent: "stage-qualified",

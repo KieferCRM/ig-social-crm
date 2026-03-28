@@ -49,7 +49,8 @@ type EmailAnalysis = {
   summary: string;
   action: "created_lead" | "updated_deal" | "logged_note" | "stored_document" | "none";
   is_transcript: boolean;
-  seller_name: string | null;
+  contact_name: string | null;
+  contact_intent: "buyer" | "seller" | "both" | null;
   property_address: string | null;
   deal_address_hint: string | null; // fuzzy match hint for existing deals
   lead_name_hint: string | null;
@@ -76,7 +77,8 @@ Analyze this email and respond with a JSON object (no markdown, raw JSON only):
   "summary": "one sentence describing what this email is and what action was taken",
   "action": "created_lead" | "updated_deal" | "logged_note" | "stored_document" | "none",
   "is_transcript": true | false,
-  "seller_name": "full name if a seller/contact is mentioned, else null",
+  "contact_name": "full name of the person this email is about or from, else null",
+  "contact_intent": "buyer" | "seller" | "both" | null,
   "property_address": "property address if mentioned, else null",
   "deal_address_hint": "partial address to fuzzy-match an existing deal, else null",
   "lead_name_hint": "name to fuzzy-match an existing lead, else null",
@@ -88,6 +90,8 @@ Rules:
 - If subject or attachments suggest a signed contract, set action: stored_document
 - If a new person is introduced who isn't likely an existing contact, set action: created_lead
 - If it's about an existing deal (mentions an address), set action: updated_deal or logged_note
+- For contact_intent: set "seller" if they want to sell a property, "buyer" if they want to buy, "both" if both, null if unclear
+- If the email is a Plaud/call transcript about a buyer consultation or showing, set contact_intent: "buyer"
 - Keep summary concise and specific`;
 
   try {
@@ -105,7 +109,8 @@ Rules:
       summary: `Email from ${subject}`,
       action: "none",
       is_transcript: false,
-      seller_name: null,
+      contact_name: null,
+      contact_intent: null,
       property_address: null,
       deal_address_hint: null,
       lead_name_hint: null,
@@ -149,12 +154,18 @@ async function applyAnalysis(
   }
 
   // Create a lead if Claude says so and we found a name
-  if (analysis.action === "created_lead" && analysis.seller_name && !linkedLeadId) {
+  if (analysis.action === "created_lead" && analysis.contact_name && !linkedLeadId) {
+    const intentMap: Record<string, string> = {
+      buyer: "Buy",
+      seller: "Sell",
+      both: "Buy and sell",
+    };
+    const intent = analysis.contact_intent ? (intentMap[analysis.contact_intent] ?? "Sell") : "Sell";
     const { data: newLead } = await admin.from("leads").insert({
       agent_id: agentId,
-      full_name: analysis.seller_name,
+      full_name: analysis.contact_name,
       source: "inbox",
-      intent: "seller",
+      intent,
     }).select("id").single();
     linkedLeadId = newLead?.id ?? null;
   }
@@ -290,7 +301,8 @@ export async function POST(req: Request) {
     summary: `Email: ${subject}`,
     action: "none",
     is_transcript: false,
-    seller_name: null,
+    contact_name: null,
+    contact_intent: null,
     property_address: null,
     deal_address_hint: null,
     lead_name_hint: null,

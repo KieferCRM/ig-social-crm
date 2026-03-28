@@ -6,11 +6,14 @@ import EmptyState from "@/components/ui/empty-state";
 import StatusBadge from "@/components/ui/status-badge";
 import { parsePositiveDecimal } from "@/lib/deal-metrics";
 import {
+  BUYER_PIPELINE_STAGES,
   DEAL_BOARD_STAGES,
   DEAL_STAGE_VALUES,
+  LISTING_PIPELINE_STAGES,
   dealStageLabel,
   dealStageTone,
   dealTypeLabel,
+  getPipelineStages,
   leadDisplayName,
   leadTempTone,
   normalizeDealStage,
@@ -22,12 +25,30 @@ import { normalizeSourceChannel, sourceChannelLabel, sourceChannelTone } from "@
 import { readOnboardingStateFromAgentSettings, type AccountType } from "@/lib/onboarding";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
+type BuyerDetails = {
+  preapproval_status?: string;
+  preapproval_amount?: string;
+  lender_name?: string;
+  financing_type?: string;
+  search_criteria?: string;
+};
+
+type ListingDetails = {
+  list_price?: string;
+  sale_price?: string;
+  mls_number?: string;
+  commission_rate?: string;
+  listing_expiration_date?: string;
+};
+
 type DealDraft = {
   property_address: string;
   price: string;
   stage: DealStage;
   expected_close_date: string;
   notes: string;
+  buyerDetails?: BuyerDetails;
+  listingDetails?: ListingDetails;
 };
 
 type DealLeadRow = {
@@ -55,6 +76,7 @@ type DealRow = {
   stage?: unknown;
   expected_close_date?: unknown;
   notes?: unknown;
+  deal_details?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
   lead?: DealLeadRow | DealLeadRow[];
@@ -89,13 +111,28 @@ function formatUpdatedAt(value: string | null): string {
 }
 
 function draftFromDeal(deal: DealWithLead): DealDraft {
+  const details = deal.deal_details ?? {};
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
   return {
     property_address: deal.property_address || "",
-    price:
-      typeof deal.price === "number" || typeof deal.price === "string" ? String(deal.price) : "",
+    price: typeof deal.price === "number" || typeof deal.price === "string" ? String(deal.price) : "",
     stage: deal.stage,
     expected_close_date: deal.expected_close_date?.slice(0, 10) || "",
     notes: deal.notes || "",
+    buyerDetails: deal.deal_type === "buyer" ? {
+      preapproval_status: str(details.preapproval_status),
+      preapproval_amount: str(details.preapproval_amount),
+      lender_name: str(details.lender_name),
+      financing_type: str(details.financing_type),
+      search_criteria: str(details.search_criteria),
+    } : undefined,
+    listingDetails: deal.deal_type === "listing" ? {
+      list_price: str(details.list_price),
+      sale_price: str(details.sale_price),
+      mls_number: str(details.mls_number),
+      commission_rate: str(details.commission_rate),
+      listing_expiration_date: str(details.listing_expiration_date),
+    } : undefined,
   };
 }
 
@@ -138,6 +175,7 @@ function mapDealRow(row: DealRow): DealWithLead | null {
     expected_close_date:
       typeof row.expected_close_date === "string" ? row.expected_close_date : null,
     notes: typeof row.notes === "string" ? row.notes : null,
+    deal_details: row.deal_details && typeof row.deal_details === "object" ? row.deal_details as Record<string, unknown> : null,
     created_at: typeof row.created_at === "string" ? row.created_at : null,
     updated_at: typeof row.updated_at === "string" ? row.updated_at : null,
     lead: lead && lead.id ? lead : null,
@@ -161,9 +199,15 @@ export default function DealsBoardClient() {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [tempFilter, setTempFilter] = useState<TempFilter>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "buyer" | "listing">("all");
+  const [pipelineView, setPipelineView] = useState<"all" | "buyer" | "listing">("all");
   const [accountType, setAccountType] = useState<AccountType | null>(null);
 
   // Add Deal modal
+  const [generatingDesc, setGeneratingDesc] = useState(false);
+  const [descFeatures, setDescFeatures] = useState("");
+  const [generatedDesc, setGeneratedDesc] = useState("");
+  const [showDescGenerator, setShowDescGenerator] = useState(false);
+
   const [addDealOpen, setAddDealOpen] = useState(false);
   const [addDealName, setAddDealName] = useState("");
   const [addDealType, setAddDealType] = useState<"buyer" | "listing">("buyer");
@@ -218,7 +262,7 @@ export default function DealsBoardClient() {
       const { data, error } = await supabase
         .from("deals")
         .select(
-          "id,agent_id,lead_id,property_address,deal_type,price,stage,expected_close_date,notes,created_at,updated_at,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,source,intent,timeline,location_area)"
+          "id,agent_id,lead_id,property_address,deal_type,price,stage,expected_close_date,notes,deal_details,created_at,updated_at,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,source,intent,timeline,location_area)"
         )
         .eq("agent_id", user.id)
         .order("updated_at", { ascending: false });
@@ -250,17 +294,29 @@ export default function DealsBoardClient() {
     });
   }, [deals, sourceFilter, tempFilter, typeFilter]);
 
+  const activeStages = useMemo(() => {
+    if (isOffMarketAccount) return DEAL_BOARD_STAGES;
+    return getPipelineStages(pipelineView) as readonly DealStage[];
+  }, [isOffMarketAccount, pipelineView]);
+
   const groupedColumns = useMemo(() => {
-    return DEAL_BOARD_STAGES.map((stage) => ({
+    // In split view, filter deals to match pipeline type
+    const viewDeals = !isOffMarketAccount && pipelineView !== "all"
+      ? filteredDeals.filter((d) => d.deal_type === pipelineView)
+      : filteredDeals;
+
+    return activeStages.map((stage) => ({
       stage,
-      deals: filteredDeals
+      deals: viewDeals
         .filter((deal) => deal.stage === stage)
         .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || "")),
     }));
-  }, [filteredDeals]);
+  }, [filteredDeals, activeStages, isOffMarketAccount, pipelineView]);
+
+  const isOffMarketAccount = accountType === "off_market_agent";
 
   const stats = useMemo(() => {
-    const active = filteredDeals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost").length;
+    const active = filteredDeals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost" && deal.stage !== "past_client").length;
     const hot = filteredDeals.filter((deal) => (deal.lead?.lead_temp || "").toLowerCase() === "hot").length;
     const stale = filteredDeals.filter((deal) => {
       if (!deal.updated_at) return true;
@@ -269,8 +325,6 @@ export default function DealsBoardClient() {
     }).length;
     return { active, hot, stale };
   }, [filteredDeals]);
-
-  const isOffMarketAccount = accountType === "off_market_agent";
 
   function patchDealLocal(dealId: string, patch: Partial<DealWithLead>) {
     setDeals((previous) => previous.map((deal) => (deal.id === dealId ? { ...deal, ...patch } : deal)));
@@ -327,18 +381,45 @@ export default function DealsBoardClient() {
 
     setSavingDraft(true);
 
+    const dealDetails = selectedDeal.deal_type === "buyer"
+      ? (draft.buyerDetails ?? {})
+      : selectedDeal.deal_type === "listing"
+        ? (draft.listingDetails ?? {})
+        : undefined;
+
     const ok = await persistDealPatch(selectedDeal.id, {
       property_address: propertyAddress,
       price: parsedPrice,
       stage: draft.stage,
       expected_close_date: draft.expected_close_date.trim() || null,
       notes: draft.notes.trim() || null,
+      ...(dealDetails !== undefined ? { deal_details: dealDetails } : {}),
     });
 
     setSavingDraft(false);
     if (ok) {
       setDraftDirty(false);
       setStatus("Deal saved.");
+    }
+  }
+
+  async function generateDescription() {
+    if (!selectedDeal) return;
+    setGeneratingDesc(true);
+    setGeneratedDesc("");
+    try {
+      const res = await fetch(`/api/deals/${selectedDeal.id}/generate-description`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ features: descFeatures }),
+      });
+      const data = await res.json() as { description?: string; error?: string };
+      if (data.description) setGeneratedDesc(data.description);
+      else setGeneratedDesc(data.error ?? "Failed to generate.");
+    } catch {
+      setGeneratedDesc("Something went wrong. Please try again.");
+    } finally {
+      setGeneratingDesc(false);
     }
   }
 
@@ -487,6 +568,28 @@ export default function DealsBoardClient() {
           <StatusBadge label={`Stale ${stats.stale}`} tone={stats.stale > 0 ? "warn" : "default"} />
         </div>
 
+        {/* Pipeline view switcher — traditional agents only */}
+        {!isOffMarketAccount && (
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["all", "buyer", "listing"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => { setPipelineView(v); setTypeFilter(v === "all" ? "all" : v); }}
+                style={{
+                  fontSize: 12, padding: "4px 14px", borderRadius: 20, cursor: "pointer",
+                  border: "1px solid var(--border)",
+                  background: pipelineView === v ? "var(--ink)" : "transparent",
+                  color: pipelineView === v ? "#fff" : "var(--ink-muted)",
+                  fontWeight: pipelineView === v ? 600 : 400,
+                }}
+              >
+                {v === "all" ? "All" : v === "buyer" ? "Buyer Pipeline" : "Listing Pipeline"}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="crm-filter-row">
           <label className="crm-filter-field">
             <span>Source</span>
@@ -568,6 +671,9 @@ export default function DealsBoardClient() {
                     }}
                     onClick={() => openDealDetail(deal.id)}
                     className="crm-card-muted crm-deal-card"
+                    style={!isOffMarketAccount ? {
+                      borderLeft: `3px solid ${deal.deal_type === "buyer" ? "#2563eb" : "#16a34a"}`,
+                    } : undefined}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                       <div className="crm-stack-4" style={{ minWidth: 0 }}>
@@ -689,7 +795,10 @@ export default function DealsBoardClient() {
                     setDraftDirty(true);
                   }}
                 >
-                  {DEAL_STAGE_VALUES.map((stage) => (
+                  {(isOffMarketAccount
+                    ? DEAL_STAGE_VALUES
+                    : selectedDeal?.deal_type === "buyer" ? BUYER_PIPELINE_STAGES : LISTING_PIPELINE_STAGES
+                  ).map((stage) => (
                     <option key={stage} value={stage}>
                       {dealStageLabel(stage)}
                     </option>
@@ -715,7 +824,7 @@ export default function DealsBoardClient() {
             <label className="crm-filter-field">
               <span>Notes</span>
               <textarea
-                rows={6}
+                rows={4}
                 value={draft.notes}
                 onChange={(event) => {
                   setDraft((previous) => (previous ? { ...previous, notes: event.target.value } : previous));
@@ -723,6 +832,218 @@ export default function DealsBoardClient() {
                 }}
               />
             </label>
+
+            {/* Type-specific fields for traditional agents */}
+            {!isOffMarketAccount && selectedDeal?.deal_type === "buyer" && (
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#2563eb", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Buyer Details
+                </div>
+                <div className="crm-two-column-form">
+                  <label className="crm-filter-field">
+                    <span>Pre-approval status</span>
+                    <select
+                      value={draft.buyerDetails?.preapproval_status ?? ""}
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), preapproval_status: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    >
+                      <option value="">Not set</option>
+                      <option value="not_started">Not started</option>
+                      <option value="in_progress">In progress</option>
+                      <option value="pre_approved">Pre-approved</option>
+                      <option value="fully_approved">Fully approved</option>
+                    </select>
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Pre-approval amount</span>
+                    <input
+                      value={draft.buyerDetails?.preapproval_amount ?? ""}
+                      placeholder="650000"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), preapproval_amount: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Lender / mortgage contact</span>
+                    <input
+                      value={draft.buyerDetails?.lender_name ?? ""}
+                      placeholder="First National Bank"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), lender_name: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Financing type</span>
+                    <select
+                      value={draft.buyerDetails?.financing_type ?? ""}
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), financing_type: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    >
+                      <option value="">Not set</option>
+                      <option value="conventional">Conventional</option>
+                      <option value="fha">FHA</option>
+                      <option value="va">VA</option>
+                      <option value="cash">Cash</option>
+                      <option value="usda">USDA</option>
+                      <option value="jumbo">Jumbo</option>
+                    </select>
+                  </label>
+                  <label className="crm-filter-field" style={{ gridColumn: "1 / -1" }}>
+                    <span>Search criteria (beds, baths, area, must-haves)</span>
+                    <input
+                      value={draft.buyerDetails?.search_criteria ?? ""}
+                      placeholder="3bd/2ba, North Austin, min 1500sqft, no HOA"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), search_criteria: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {!isOffMarketAccount && selectedDeal?.deal_type === "listing" && (
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#16a34a", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Listing Details
+                </div>
+                <div className="crm-two-column-form">
+                  <label className="crm-filter-field">
+                    <span>List price</span>
+                    <input
+                      value={draft.listingDetails?.list_price ?? ""}
+                      placeholder="525000"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), list_price: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Sale price (at close)</span>
+                    <input
+                      value={draft.listingDetails?.sale_price ?? ""}
+                      placeholder="510000"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), sale_price: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>MLS number</span>
+                    <input
+                      value={draft.listingDetails?.mls_number ?? ""}
+                      placeholder="MLS-123456"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), mls_number: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Commission rate (%)</span>
+                    <input
+                      value={draft.listingDetails?.commission_rate ?? ""}
+                      placeholder="3.0"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), commission_rate: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Listing expiration date</span>
+                    <input
+                      type="date"
+                      value={draft.listingDetails?.listing_expiration_date ?? ""}
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), listing_expiration_date: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  {selectedDeal?.created_at && (
+                    <div className="crm-filter-field" style={{ alignSelf: "end", paddingBottom: 8 }}>
+                      <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Days on market</span>
+                      <div style={{ fontSize: 20, fontWeight: 700 }}>
+                        {Math.max(0, Math.floor((Date.now() - new Date(selectedDeal.created_at).getTime()) / 86_400_000))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Listing description generator */}
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowDescGenerator((v) => !v)}
+                    style={{ fontSize: 12, color: "#16a34a", background: "none", border: "1px solid #16a34a", borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    ✦ {showDescGenerator ? "Hide" : "Generate listing description"}
+                  </button>
+                  {showDescGenerator && (
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <textarea
+                        rows={3}
+                        value={descFeatures}
+                        onChange={(e) => setDescFeatures(e.target.value)}
+                        placeholder="Optional: list key features to highlight (3bd/2ba, renovated kitchen, large backyard, cul-de-sac, etc.)"
+                        style={{ fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-1)", color: "var(--ink)", resize: "vertical", fontFamily: "inherit" }}
+                      />
+                      <button
+                        type="button"
+                        className="crm-btn crm-btn-primary"
+                        style={{ fontSize: 12, alignSelf: "flex-start", background: "#16a34a" }}
+                        onClick={() => void generateDescription()}
+                        disabled={generatingDesc}
+                      >
+                        {generatingDesc ? "Generating..." : "Generate"}
+                      </button>
+                      {generatedDesc && (
+                        <div style={{ fontSize: 13, background: "var(--surface-2)", borderRadius: 8, padding: "12px 14px", lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--ink-body)" }}>
+                          {generatedDesc}
+                          <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                            <button
+                              type="button"
+                              style={{ fontSize: 11, color: "var(--ink-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                              onClick={() => void navigator.clipboard.writeText(generatedDesc)}
+                            >
+                              Copy
+                            </button>
+                            <button
+                              type="button"
+                              style={{ fontSize: 11, color: "var(--ink-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                              onClick={() => {
+                                setDraft((prev) => prev ? { ...prev, notes: (prev.notes ? prev.notes + "\n\n" : "") + generatedDesc } : prev);
+                                setDraftDirty(true);
+                                setGeneratedDesc("");
+                                setShowDescGenerator(false);
+                              }}
+                            >
+                              Add to notes
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
@@ -805,7 +1126,10 @@ export default function DealsBoardClient() {
               <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 600 }}>
                 Stage
                 <select className="crm-input" value={addDealStage} onChange={(e) => setAddDealStage(e.target.value as DealStage)}>
-                  {DEAL_BOARD_STAGES.map((s) => (
+                  {(isOffMarketAccount
+                    ? DEAL_BOARD_STAGES
+                    : addDealType === "buyer" ? BUYER_PIPELINE_STAGES : LISTING_PIPELINE_STAGES
+                  ).map((s) => (
                     <option key={s} value={s}>{dealStageLabel(s)}</option>
                   ))}
                 </select>
