@@ -1,41 +1,46 @@
 import Link from "next/link";
 import LockboxMark from "@/components/branding/lockbox-mark";
 import { FEATURE_SIGNUP_ENABLED } from "@/lib/features";
+import AnimatedHero from "./_landing/animated-hero";
+import { AnimatedInfoCards, AnimatedFeatureGrid } from "./_landing/animated-cards";
 
 const howItWorks = [
   {
     title: "Share one intake link",
-    body: "Post it on your social profiles, website, or open house QR code. Any inquiry submitted goes straight into the CRM.",
+    body: "Post it on your social profiles, website, or open house QR code. Every inquiry submitted goes straight into your pipeline — no forwarding, no spreadsheet.",
   },
   {
     title: "Every inquiry becomes a deal",
-    body: "Contact details, source, timeframe, and a working deal record are created automatically — no manual entry required.",
+    body: "Contact details, source channel, intent, and timeframe are captured automatically. A deal record is created before you even open the app.",
   },
   {
     title: "Know exactly what to do next",
-    body: "LockboxHQ surfaces your hottest leads and the single most important action so nothing slips through the cracks.",
+    body: "LockboxHQ surfaces your hottest leads and the single most important action so nothing slips through the cracks on a busy day.",
   },
 ] as const;
 
-const overviewCards = [
+const whyAgentsUseIt = [
   {
     title: "It fills itself",
     body: "One intake link captures everything. No more copy-pasting names and numbers into a spreadsheet after every inquiry.",
   },
   {
     title: "Built for solo agents",
-    body: "No complex setup, no team features you don't need. Just a clean workspace that keeps your pipeline organized.",
+    body: "No complex setup, no team features you don't need. A clean workspace that keeps your buyer and listing pipelines organized.",
   },
   {
     title: "Less admin, more selling",
-    body: "Spend your time on clients, not data entry. LockboxHQ handles the paperwork so you can focus on closing.",
+    body: "Spend your time on clients, not data entry. LockboxHQ handles the intake so you can focus on closing.",
   },
 ] as const;
 
-const workflowItems = [
-  { label: "New inquiry", source: "Intake form", detail: "Buyer asks about East Nashville and wants to move within 0-3 months." },
-  { label: "Hot lead", source: "Open house QR", detail: "Seller gave a direct callback number and needs a quick follow-up." },
-  { label: "Next action", source: "Today", detail: "Text Jordan first, then call this afternoon if there is no reply." },
+const features = [
+  { icon: "📥", title: "Smart Inbox", body: "Emails and voice transcripts land in your inbox, analyzed by AI, and linked to the right deal automatically." },
+  { icon: "🏠", title: "Buyer Pipeline", body: "Track every buyer from first inquiry through pre-approval, active search, offer, and close." },
+  { icon: "📋", title: "Listing Pipeline", body: "Manage listings from appointment through MLS, open house, offer, contract, and close." },
+  { icon: "✅", title: "Transaction Checklist", body: "Predefined checklists for buyer and listing transactions so nothing gets missed on the way to close." },
+  { icon: "🤖", title: "AI Secretary", body: "A voice AI that answers calls, qualifies leads, and adds them to your CRM while you're showing a home." },
+  { icon: "📊", title: "Deal Details", body: "Pre-approval status, lender info, MLS numbers, commission rates — all tied to the right deal." },
 ] as const;
 
 export default function HomePage() {
@@ -47,125 +52,65 @@ export default function HomePage() {
       <div className="lockbox-marketing__veil" />
 
       <div className="lockbox-marketing__container lockbox-marketing__container--home">
+        {/* Nav */}
         <header className="lockbox-nav">
           <Link href="/" className="lockbox-nav__brand">
             <LockboxMark variant="full" decorative className="lockbox-nav__logo" />
           </Link>
-
           <div className="lockbox-nav__actions">
             <Link href={signInHref} className="lockbox-button lockbox-button-secondary">
               Sign In
             </Link>
             <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
-              Start Solo workspace
+              Get started free
             </Link>
           </div>
         </header>
 
-        <section className="lockbox-hero lockbox-hero--home">
-          <div className="lockbox-hero__intro">
-            <span className="lockbox-hero__eyebrow">Solo Agent path</span>
-            <h1>The Smart CRM for solo agents handling inbound every day.</h1>
-            <p className="lockbox-hero__body">
-              LockboxHQ captures website, social, QR, and direct inbound inquiries, then turns them into organized
-              deals without manual CRM entry.
-            </p>
+        {/* Animated hero + stats bar */}
+        <AnimatedHero
+          signUpHref={signUpHref}
+          signInHref={signInHref}
+          signupEnabled={FEATURE_SIGNUP_ENABLED}
+        />
 
-            <div className="lockbox-hero__actions lockbox-hero__actions--home">
-              <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
-                Start Solo workspace
-              </Link>
-              <Link href="/auth?mode=sign_up" className="lockbox-button lockbox-button-secondary">
-                See How It Works
-              </Link>
-            </div>
-
-            {!FEATURE_SIGNUP_ENABLED ? (
-              <p className="lockbox-hero__note">
-                New signup is currently limited while workspace setup is finalized. Existing accounts can still
-                sign in.
-              </p>
-            ) : null}
-          </div>
-
-          <aside className="lockbox-hero-frame lockbox-surface" aria-label="LockboxHQ product preview">
-            <div className="lockbox-preview-header">
-              <div>
-                <div className="lockbox-preview-kicker">Inside the workspace</div>
-                <h2>One calm place for intake, deals, and priorities.</h2>
-              </div>
-              <span className="lockbox-preview-chip">Live workflow</span>
-            </div>
-
-            <div className="lockbox-preview-visual">
-              <section className="lockbox-preview-spotlight">
-                <div className="lockbox-preview-spotlight__label">Needs attention now</div>
-                <strong>Jordan Mitchell</strong>
-                <p>Buyer inquiry via intake form. East Nashville. 0-3 month timeframe. Text first.</p>
-                <div className="lockbox-preview-spotlight__meta">
-                  <span>Hot lead</span>
-                  <span>Intake form</span>
-                  <span>Deal created</span>
-                </div>
-              </section>
-
-              <section className="lockbox-preview-stream">
-                {workflowItems.map((item) => (
-                  <article key={item.label} className="lockbox-preview-row">
-                    <div className="lockbox-preview-row__label">{item.label}</div>
-                    <div className="lockbox-preview-row__body">
-                      <strong>{item.source}</strong>
-                      <p>{item.detail}</p>
-                    </div>
-                  </article>
-                ))}
-              </section>
-            </div>
-          </aside>
-        </section>
-
-        <section className="lockbox-section">
+        {/* How it works */}
+        <section className="lockbox-section" id="how-it-works">
           <div className="lockbox-section__header">
             <span className="lockbox-section__eyebrow">How it works</span>
             <h2>Three steps from inquiry to active deal — automatically.</h2>
           </div>
-
-          <div className="lockbox-card-grid lockbox-card-grid--triple">
-            {howItWorks.map((item, index) => (
-              <article key={item.title} className="lockbox-surface lockbox-info-card">
-                <span className="lockbox-info-card__index">0{index + 1}</span>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </article>
-            ))}
-          </div>
+          <AnimatedInfoCards cards={howItWorks} showIndex />
         </section>
 
+        {/* Features grid */}
+        <section className="lockbox-section">
+          <div className="lockbox-section__header">
+            <span className="lockbox-section__eyebrow">What's inside</span>
+            <h2>Everything a solo agent needs. Nothing they don't.</h2>
+          </div>
+          <AnimatedFeatureGrid features={features} />
+        </section>
+
+        {/* Why agents use it */}
         <section className="lockbox-section">
           <div className="lockbox-section__header">
             <span className="lockbox-section__eyebrow">Why solo agents use it</span>
             <h2>Built to save time, not create more work.</h2>
           </div>
-
-          <div className="lockbox-card-grid lockbox-card-grid--triple">
-            {overviewCards.map((item) => (
-              <article key={item.title} className="lockbox-surface lockbox-info-card lockbox-info-card--overview">
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </article>
-            ))}
-          </div>
+          <AnimatedInfoCards cards={whyAgentsUseIt} />
         </section>
 
+        {/* Final CTA */}
         <section className="lockbox-final-cta lockbox-surface">
           <div className="lockbox-final-cta__copy">
             <span className="lockbox-section__eyebrow">Ready to start?</span>
-            <h2>Create your workspace and choose your path after signup.</h2>
-            <p>Start here, create your workspace, and choose the path that fits how you work during setup.</p>
+            <h2>Set up your workspace in minutes.</h2>
+            <p>Share one link, capture every inquiry, and let LockboxHQ build your pipeline for you. No credit card required.</p>
           </div>
           <div className="lockbox-final-cta__actions">
             <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
-              Start Solo workspace
+              Start free workspace
             </Link>
             <Link href={signInHref} className="lockbox-button lockbox-button-secondary">
               Sign In
@@ -173,12 +118,13 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Footer */}
         <footer className="lockbox-footer lockbox-footer--slim">
           <span>LockboxHQ</span>
           <nav className="lockbox-footer__links" aria-label="Legal">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
-            <a href="mailto:lockboxhq1@gmail.com">lockboxhq1@gmail.com</a>
+            <a href="mailto:hello@lockboxhq.com">hello@lockboxhq.com</a>
           </nav>
         </footer>
       </div>

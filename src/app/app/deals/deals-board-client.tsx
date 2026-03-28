@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import EmptyState from "@/components/ui/empty-state";
 import StatusBadge from "@/components/ui/status-badge";
 import { parsePositiveDecimal } from "@/lib/deal-metrics";
@@ -49,6 +50,15 @@ type DealDraft = {
   notes: string;
   buyerDetails?: BuyerDetails;
   listingDetails?: ListingDetails;
+};
+
+type ChecklistItem = {
+  id: string;
+  label: string;
+  completed: boolean;
+  completed_at: string | null;
+  sort_order: number;
+  created_at: string;
 };
 
 type DealLeadRow = {
@@ -189,7 +199,7 @@ export default function DealsBoardClient() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [deals, setDeals] = useState<DealWithLead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(""); // kept for load errors only
   const [agentId, setAgentId] = useState<string | null>(null);
   const [selectedDealId, setSelectedDealId] = useState("");
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -201,6 +211,12 @@ export default function DealsBoardClient() {
   const [typeFilter, setTypeFilter] = useState<"all" | "buyer" | "listing">("all");
   const [pipelineView, setPipelineView] = useState<"all" | "buyer" | "listing">("all");
   const [accountType, setAccountType] = useState<AccountType | null>(null);
+
+  // Checklist
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [checklistLoading, setChecklistLoading] = useState(false);
+  const [newChecklistLabel, setNewChecklistLabel] = useState("");
+  const [checklistSeeding, setChecklistSeeding] = useState(false);
 
   // Add Deal modal
   const [generatingDesc, setGeneratingDesc] = useState(false);
@@ -339,11 +355,10 @@ export default function DealsBoardClient() {
 
     if (error) {
       setDeals(previous);
-      setStatus("Could not save deal updates. Reverted.");
+      toast.error("Could not save deal update. Reverted.");
       return false;
     }
 
-    setStatus("");
     return true;
   }
 
@@ -369,13 +384,13 @@ export default function DealsBoardClient() {
     if (!selectedDeal || !draft) return;
     const propertyAddress = draft.property_address.trim();
     if (!propertyAddress) {
-      setStatus("Property address is required.");
+      toast.error("Property address is required.");
       return;
     }
 
     const parsedPrice = parsePositiveDecimal(draft.price);
     if (draft.price.trim() && parsedPrice === null) {
-      setStatus("Price must be a valid positive number.");
+      toast.error("Price must be a valid positive number.");
       return;
     }
 
@@ -399,7 +414,7 @@ export default function DealsBoardClient() {
     setSavingDraft(false);
     if (ok) {
       setDraftDirty(false);
-      setStatus("Deal saved.");
+      toast.success("Deal saved.");
     }
   }
 
@@ -423,9 +438,85 @@ export default function DealsBoardClient() {
     }
   }
 
+  async function loadChecklist(dealId: string) {
+    setChecklistLoading(true);
+    setChecklist([]);
+    try {
+      const res = await fetch(`/api/deals/${dealId}/checklist`);
+      const data = await res.json() as { items?: ChecklistItem[] };
+      setChecklist(data.items ?? []);
+    } catch {
+      // non-fatal
+    } finally {
+      setChecklistLoading(false);
+    }
+  }
+
+  async function seedChecklist(dealId: string) {
+    setChecklistSeeding(true);
+    try {
+      const res = await fetch(`/api/deals/${dealId}/checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed_template: true }),
+      });
+      const data = await res.json() as { items?: ChecklistItem[]; error?: string };
+      if (data.items) setChecklist(data.items);
+    } catch {
+      // non-fatal
+    } finally {
+      setChecklistSeeding(false);
+    }
+  }
+
+  async function addChecklistItem(dealId: string, label: string) {
+    if (!label.trim()) return;
+    const res = await fetch(`/api/deals/${dealId}/checklist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: label.trim() }),
+    });
+    const data = await res.json() as { item?: ChecklistItem };
+    if (data.item) {
+      setChecklist((prev) => [...prev, data.item!]);
+      setNewChecklistLabel("");
+    }
+  }
+
+  async function toggleChecklistItem(dealId: string, item: ChecklistItem) {
+    const newCompleted = !item.completed;
+    // Optimistic update
+    setChecklist((prev) =>
+      prev.map((c) =>
+        c.id === item.id
+          ? { ...c, completed: newCompleted, completed_at: newCompleted ? new Date().toISOString() : null }
+          : c
+      )
+    );
+    const res = await fetch(`/api/deals/${dealId}/checklist/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: newCompleted }),
+    });
+    if (!res.ok) {
+      // Revert
+      setChecklist((prev) =>
+        prev.map((c) => (c.id === item.id ? item : c))
+      );
+    }
+  }
+
+  async function deleteChecklistItem(dealId: string, itemId: string) {
+    setChecklist((prev) => prev.filter((c) => c.id !== itemId));
+    await fetch(`/api/deals/${dealId}/checklist/${itemId}`, { method: "DELETE" });
+  }
+
   function openDealDetail(dealId: string) {
     setSelectedDealId(dealId);
     setIsDetailOpen(true);
+    setChecklist([]);
+    setNewChecklistLabel("");
+    void loadChecklist(dealId);
   }
 
   async function handleAddDeal() {
@@ -507,6 +598,7 @@ export default function DealsBoardClient() {
       setAddDealPrice("");
       setAddDealStage("new");
       setAddDealType("buyer");
+      toast.success(`${addDealName.trim()} added to the board.`);
     } catch {
       setAddDealError("Something went wrong. Please try again.");
     } finally {
@@ -1020,7 +1112,7 @@ export default function DealsBoardClient() {
                             <button
                               type="button"
                               style={{ fontSize: 11, color: "var(--ink-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                              onClick={() => void navigator.clipboard.writeText(generatedDesc)}
+                              onClick={() => { void navigator.clipboard.writeText(generatedDesc); toast.success("Copied to clipboard."); }}
                             >
                               Copy
                             </button>
@@ -1042,6 +1134,85 @@ export default function DealsBoardClient() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Transaction Checklist — traditional agents only */}
+            {!isOffMarketAccount && (
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Transaction Checklist
+                    {checklist.length > 0 && (
+                      <span style={{ marginLeft: 8, color: "var(--ink-faint)", fontWeight: 400, textTransform: "none" }}>
+                        {checklist.filter((c) => c.completed).length}/{checklist.length} done
+                      </span>
+                    )}
+                  </div>
+                  {checklist.length === 0 && !checklistLoading && (
+                    <button
+                      type="button"
+                      onClick={() => void seedChecklist(selectedDeal.id)}
+                      disabled={checklistSeeding}
+                      style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-muted)", cursor: "pointer" }}
+                    >
+                      {checklistSeeding ? "Loading..." : "Load template"}
+                    </button>
+                  )}
+                </div>
+
+                {checklistLoading ? (
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Loading checklist...</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {checklist.map((item) => (
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
+                        <input
+                          type="checkbox"
+                          checked={item.completed}
+                          onChange={() => void toggleChecklistItem(selectedDeal.id, item)}
+                          style={{ width: 15, height: 15, flexShrink: 0, cursor: "pointer", accentColor: "var(--ink-primary, #2563eb)" }}
+                        />
+                        <span style={{
+                          fontSize: 13,
+                          flex: 1,
+                          color: item.completed ? "var(--ink-faint)" : "var(--ink-body)",
+                          textDecoration: item.completed ? "line-through" : "none",
+                        }}>
+                          {item.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void deleteChecklistItem(selectedDeal.id, item.id)}
+                          style={{ fontSize: 16, lineHeight: 1, color: "var(--ink-faint)", background: "none", border: "none", cursor: "pointer", padding: "0 2px", flexShrink: 0 }}
+                          aria-label="Remove item"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+
+                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                      <input
+                        value={newChecklistLabel}
+                        onChange={(e) => setNewChecklistLabel(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void addChecklistItem(selectedDeal.id, newChecklistLabel);
+                        }}
+                        placeholder="Add a step..."
+                        style={{ flex: 1, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-1)", color: "var(--ink)", fontFamily: "inherit" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void addChecklistItem(selectedDeal.id, newChecklistLabel)}
+                        disabled={!newChecklistLabel.trim()}
+                        style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-muted)", cursor: "pointer" }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

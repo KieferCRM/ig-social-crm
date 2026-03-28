@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { DealType } from "@/lib/deals";
 import { parsePositiveDecimal } from "@/lib/deal-metrics";
@@ -56,13 +57,13 @@ export default function ConvertToDealButton({
     event.preventDefault();
     const address = propertyAddress.trim();
     if (!address) {
-      setStatus("Property address is required.");
+      toast.error("Property address is required.");
       return;
     }
 
     const parsedPrice = parsePositiveDecimal(price);
     if (price.trim() && parsedPrice === null) {
-      setStatus("Price must be a valid positive number.");
+      toast.error("Price must be a valid positive number.");
       return;
     }
 
@@ -76,7 +77,7 @@ export default function ConvertToDealButton({
 
     if (userError || !user) {
       setSaving(false);
-      setStatus("You need to be signed in to create a deal.");
+      toast.error("You need to be signed in to create a deal.");
       return;
     }
 
@@ -99,12 +100,12 @@ export default function ConvertToDealButton({
     setSaving(false);
 
     if (error || !data?.id) {
-      setStatus(error?.message || "Could not create deal.");
+      toast.error(error?.message || "Could not create deal.");
       return;
     }
 
     setCreatedDealId(String(data.id));
-    setStatus("Deal created.");
+    toast.success("Deal created.");
   }
 
   return (
