@@ -310,6 +310,8 @@ export default function DealsBoardClient() {
     });
   }, [deals, sourceFilter, tempFilter, typeFilter]);
 
+  const isOffMarketAccount = accountType === "off_market_agent";
+
   const activeStages = useMemo(() => {
     if (isOffMarketAccount) return DEAL_BOARD_STAGES;
     return getPipelineStages(pipelineView) as readonly DealStage[];
@@ -328,8 +330,6 @@ export default function DealsBoardClient() {
         .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || "")),
     }));
   }, [filteredDeals, activeStages, isOffMarketAccount, pipelineView]);
-
-  const isOffMarketAccount = accountType === "off_market_agent";
 
   const stats = useMemo(() => {
     const active = filteredDeals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost" && deal.stage !== "past_client").length;
