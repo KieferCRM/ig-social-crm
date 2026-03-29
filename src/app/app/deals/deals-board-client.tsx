@@ -573,6 +573,7 @@ export default function DealsBoardClient() {
         stage: normalizeDealStage(dealRow.stage as string),
         expected_close_date: dealRow.expected_close_date as string | null,
         notes: dealRow.notes as string | null,
+        deal_details: null,
         created_at: dealRow.created_at as string | null,
         updated_at: dealRow.updated_at as string | null,
         lead: {
