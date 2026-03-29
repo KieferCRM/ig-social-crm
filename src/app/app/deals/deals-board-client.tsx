@@ -312,13 +312,13 @@ export default function DealsBoardClient() {
   }, [deals, sourceFilter, tempFilter, typeFilter]);
 
   const activeStages = useMemo(() => {
-    if (isOffMarketAccount) return DEAL_BOARD_STAGES;
+    if (accountType === "off_market_agent") return DEAL_BOARD_STAGES;
     return getPipelineStages(pipelineView) as readonly DealStage[];
-  }, [isOffMarketAccount, pipelineView]);
+  }, [accountType, pipelineView]);
 
   const groupedColumns = useMemo(() => {
     // In split view, filter deals to match pipeline type
-    const viewDeals = !isOffMarketAccount && pipelineView !== "all"
+    const viewDeals = accountType !== "off_market_agent" && pipelineView !== "all"
       ? filteredDeals.filter((d) => d.deal_type === pipelineView)
       : filteredDeals;
 
@@ -328,7 +328,7 @@ export default function DealsBoardClient() {
         .filter((deal) => deal.stage === stage)
         .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || "")),
     }));
-  }, [filteredDeals, activeStages, isOffMarketAccount, pipelineView]);
+  }, [filteredDeals, activeStages, accountType, pipelineView]);
 
   const stats = useMemo(() => {
     const active = filteredDeals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost" && deal.stage !== "past_client").length;
