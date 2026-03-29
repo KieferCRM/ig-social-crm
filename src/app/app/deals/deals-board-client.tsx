@@ -211,6 +211,7 @@ export default function DealsBoardClient() {
   const [typeFilter, setTypeFilter] = useState<"all" | "buyer" | "listing">("all");
   const [pipelineView, setPipelineView] = useState<"all" | "buyer" | "listing">("all");
   const [accountType, setAccountType] = useState<AccountType | null>(null);
+  const isOffMarketAccount = accountType === "off_market_agent";
 
   // Checklist
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
@@ -309,8 +310,6 @@ export default function DealsBoardClient() {
       return sourceOk && tempOk && typeOk;
     });
   }, [deals, sourceFilter, tempFilter, typeFilter]);
-
-  const isOffMarketAccount = accountType === "off_market_agent";
 
   const activeStages = useMemo(() => {
     if (isOffMarketAccount) return DEAL_BOARD_STAGES;
