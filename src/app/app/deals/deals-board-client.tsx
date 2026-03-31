@@ -5,7 +5,7 @@ import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import EmptyState from "@/components/ui/empty-state";
 import StatusBadge from "@/components/ui/status-badge";
-import { parsePositiveDecimal } from "@/lib/deal-metrics";
+import { parsePositiveDecimal, asInputDate } from "@/lib/deal-metrics";
 import {
   BUYER_PIPELINE_STAGES,
   DEAL_BOARD_STAGES,
@@ -26,26 +26,72 @@ import { normalizeSourceChannel, sourceChannelLabel, sourceChannelTone } from "@
 import { readOnboardingStateFromAgentSettings, type AccountType } from "@/lib/onboarding";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
+type AgentTag = { name: string; color: string };
+
+const TAG_COLORS = [
+  "#6b7280",
+  "#dc2626",
+  "#ea580c",
+  "#ca8a04",
+  "#16a34a",
+  "#0891b2",
+  "#2563eb",
+  "#7c3aed",
+  "#db2777",
+];
+
+const DEFAULT_AGENT_TAGS: AgentTag[] = [
+  { name: "First-Time Buyer", color: "#2563eb" },
+  { name: "Pre-Approved", color: "#16a34a" },
+  { name: "Cash Buyer", color: "#ca8a04" },
+  { name: "Referral", color: "#7c3aed" },
+  { name: "Relocation", color: "#0891b2" },
+  { name: "Price Reduced", color: "#ea580c" },
+  { name: "Multiple Offers", color: "#dc2626" },
+  { name: "Expired Listing", color: "#6b7280" },
+];
+
+function tagColor(name: string, tags: AgentTag[]): string {
+  return tags.find((t) => t.name === name)?.color ?? "#6b7280";
+}
+
+function toggleTag(current: string[], tag: string): string[] {
+  return current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag];
+}
+
 type BuyerDetails = {
   preapproval_status?: string;
   preapproval_amount?: string;
   lender_name?: string;
   financing_type?: string;
   search_criteria?: string;
+  price_range_min?: string;
+  price_range_max?: string;
+  move_in_timeline?: string;
+  buyer_agreement_signed?: string;
+  referral_source?: string;
 };
 
 type ListingDetails = {
   list_price?: string;
+  original_list_price?: string;
   sale_price?: string;
   mls_number?: string;
   commission_rate?: string;
   listing_expiration_date?: string;
+  seller_motivation?: string;
+  showing_instructions?: string;
+  concessions_offered?: string;
+  earnest_money_amount?: string;
+  referral_source?: string;
 };
 
 type DealDraft = {
   property_address: string;
   price: string;
   stage: DealStage;
+  tags: string[];
+  next_followup_date: string;
   expected_close_date: string;
   notes: string;
   buyerDetails?: BuyerDetails;
@@ -84,6 +130,9 @@ type DealRow = {
   deal_type?: unknown;
   price?: unknown;
   stage?: unknown;
+  tags?: unknown;
+  stage_entered_at?: unknown;
+  next_followup_date?: unknown;
   expected_close_date?: unknown;
   notes?: unknown;
   deal_details?: unknown;
@@ -120,6 +169,19 @@ function formatUpdatedAt(value: string | null): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+function daysInStage(stageEnteredAt: string | null, updatedAt: string | null): number {
+  const ref = stageEnteredAt || updatedAt;
+  if (!ref) return 0;
+  const ts = new Date(ref).getTime();
+  if (Number.isNaN(ts)) return 0;
+  return Math.max(0, Math.floor((Date.now() - ts) / 86_400_000));
+}
+
+function isOverdue(value: string | null): boolean {
+  if (!value) return false;
+  return new Date(value).getTime() < Date.now();
+}
+
 function draftFromDeal(deal: DealWithLead): DealDraft {
   const details = deal.deal_details ?? {};
   const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -127,6 +189,8 @@ function draftFromDeal(deal: DealWithLead): DealDraft {
     property_address: deal.property_address || "",
     price: typeof deal.price === "number" || typeof deal.price === "string" ? String(deal.price) : "",
     stage: deal.stage,
+    tags: deal.tags.slice(),
+    next_followup_date: asInputDate(deal.next_followup_date),
     expected_close_date: deal.expected_close_date?.slice(0, 10) || "",
     notes: deal.notes || "",
     buyerDetails: deal.deal_type === "buyer" ? {
@@ -135,13 +199,24 @@ function draftFromDeal(deal: DealWithLead): DealDraft {
       lender_name: str(details.lender_name),
       financing_type: str(details.financing_type),
       search_criteria: str(details.search_criteria),
+      price_range_min: str(details.price_range_min),
+      price_range_max: str(details.price_range_max),
+      move_in_timeline: str(details.move_in_timeline),
+      buyer_agreement_signed: str(details.buyer_agreement_signed),
+      referral_source: str(details.referral_source),
     } : undefined,
     listingDetails: deal.deal_type === "listing" ? {
       list_price: str(details.list_price),
+      original_list_price: str(details.original_list_price),
       sale_price: str(details.sale_price),
       mls_number: str(details.mls_number),
       commission_rate: str(details.commission_rate),
       listing_expiration_date: str(details.listing_expiration_date),
+      seller_motivation: str(details.seller_motivation),
+      showing_instructions: str(details.showing_instructions),
+      concessions_offered: str(details.concessions_offered),
+      earnest_money_amount: str(details.earnest_money_amount),
+      referral_source: str(details.referral_source),
     } : undefined,
   };
 }
@@ -182,6 +257,9 @@ function mapDealRow(row: DealRow): DealWithLead | null {
     deal_type: normalizeDealType(typeof row.deal_type === "string" ? row.deal_type : null),
     price: typeof row.price === "number" || typeof row.price === "string" ? row.price : null,
     stage: normalizeDealStage(typeof row.stage === "string" ? row.stage : null),
+    tags: Array.isArray(row.tags) ? (row.tags as unknown[]).filter((t): t is string => typeof t === "string") : [],
+    stage_entered_at: typeof row.stage_entered_at === "string" ? row.stage_entered_at : null,
+    next_followup_date: typeof row.next_followup_date === "string" ? row.next_followup_date : null,
     expected_close_date:
       typeof row.expected_close_date === "string" ? row.expected_close_date : null,
     notes: typeof row.notes === "string" ? row.notes : null,
@@ -219,6 +297,15 @@ export default function DealsBoardClient() {
   const [newChecklistLabel, setNewChecklistLabel] = useState("");
   const [checklistSeeding, setChecklistSeeding] = useState(false);
 
+  // Appointments + documents on deal detail
+  const [dealAppts, setDealAppts] = useState<Array<{ id: string; title: string; scheduled_at: string; appointment_type: string; status: string }>>([]);
+  const [dealDocs, setDealDocs] = useState<Array<{ id: string; file_name: string; status: string; file_type: string; signed_url?: string | null }>>([]);
+  const [docUploading, setDocUploading] = useState(false);
+  const [showDocUpload, setShowDocUpload] = useState(false);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docFileType, setDocFileType] = useState("agreement");
+  const [docStatus, setDocStatus] = useState("draft");
+
   // Add Deal modal
   const [generatingDesc, setGeneratingDesc] = useState(false);
   const [descFeatures, setDescFeatures] = useState("");
@@ -234,7 +321,23 @@ export default function DealsBoardClient() {
   const [addDealSaving, setAddDealSaving] = useState(false);
   const [addDealError, setAddDealError] = useState("");
 
+  const [viewMode, setViewMode] = useState<"list" | "kanban">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("deals_view") as "list" | "kanban") ?? "kanban";
+    }
+    return "kanban";
+  });
+
   const draggedDealIdRef = useRef<string | null>(null);
+
+  // Tags
+  const [agentTags, setAgentTags] = useState<AgentTag[]>(DEFAULT_AGENT_TAGS);
+  const [agentSettings, setAgentSettings] = useState<Record<string, unknown>>({});
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]!);
+  const [editingTagColor, setEditingTagColor] = useState<string | null>(null);
+  const tagDragIdxRef = useRef<number | null>(null);
 
   const selectedDeal = useMemo(
     () => deals.find((deal) => deal.id === selectedDealId) || null,
@@ -276,10 +379,24 @@ export default function DealsBoardClient() {
       const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
       setAccountType(onboardingState.account_type);
 
+      if (agentRow?.settings) {
+        const settings = agentRow.settings as Record<string, unknown>;
+        setAgentSettings(settings);
+        const savedTags = settings.deals_tags;
+        if (Array.isArray(savedTags) && savedTags.length > 0) {
+          const parsed = (savedTags as unknown[]).map((t) => {
+            if (typeof t === "string") return { name: t, color: "#6b7280" };
+            if (t && typeof t === "object" && "name" in t) return t as AgentTag;
+            return null;
+          }).filter((t): t is AgentTag => t !== null);
+          if (parsed.length > 0) setAgentTags(parsed);
+        }
+      }
+
       const { data, error } = await supabase
         .from("deals")
         .select(
-          "id,agent_id,lead_id,property_address,deal_type,price,stage,expected_close_date,notes,deal_details,created_at,updated_at,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,source,intent,timeline,location_area)"
+          "id,agent_id,lead_id,property_address,deal_type,price,stage,tags,stage_entered_at,next_followup_date,expected_close_date,notes,deal_details,created_at,updated_at,lead:leads(id,full_name,first_name,last_name,canonical_email,canonical_phone,ig_username,lead_temp,source,intent,timeline,location_area)"
         )
         .eq("agent_id", user.id)
         .order("updated_at", { ascending: false });
@@ -307,9 +424,10 @@ export default function DealsBoardClient() {
         (deal.lead?.source ? normalizeSourceChannel(deal.lead.source) === sourceFilter : false);
       const tempOk = tempFilter === "all" || (deal.lead?.lead_temp || "Warm") === tempFilter;
       const typeOk = typeFilter === "all" || deal.deal_type === typeFilter;
-      return sourceOk && tempOk && typeOk;
+      const tagOk = tagFilters.length === 0 || tagFilters.some((t) => deal.tags.includes(t));
+      return sourceOk && tempOk && typeOk && tagOk;
     });
-  }, [deals, sourceFilter, tempFilter, typeFilter]);
+  }, [deals, sourceFilter, tempFilter, typeFilter, tagFilters]);
 
   const activeStages = useMemo(() => {
     if (accountType === "off_market_agent") return DEAL_BOARD_STAGES;
@@ -341,6 +459,47 @@ export default function DealsBoardClient() {
     return { active, hot, stale };
   }, [filteredDeals]);
 
+  async function saveAgentTags(tags: AgentTag[]) {
+    if (!agentId) return;
+    const newSettings = { ...agentSettings, deals_tags: tags };
+    setAgentSettings(newSettings);
+    await supabase.from("agents").update({ settings: newSettings }).eq("id", agentId);
+  }
+
+  async function handleAddTag() {
+    const name = newTagInput.trim();
+    if (!name || agentTags.some((t) => t.name === name)) { setNewTagInput(""); return; }
+    const next = [...agentTags, { name, color: newTagColor }];
+    setAgentTags(next);
+    setNewTagInput("");
+    await saveAgentTags(next);
+  }
+
+  async function handleDeleteTag(tagName: string) {
+    const next = agentTags.filter((t) => t.name !== tagName);
+    setAgentTags(next);
+    setTagFilters((prev) => prev.filter((t) => t !== tagName));
+    await saveAgentTags(next);
+  }
+
+  async function handleTagDrop(targetIdx: number) {
+    const fromIdx = tagDragIdxRef.current;
+    if (fromIdx === null || fromIdx === targetIdx) { tagDragIdxRef.current = null; return; }
+    const next = [...agentTags];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(targetIdx, 0, moved!);
+    setAgentTags(next);
+    tagDragIdxRef.current = null;
+    await saveAgentTags(next);
+  }
+
+  async function handleRecolorTag(tagName: string, color: string) {
+    const next = agentTags.map((t) => t.name === tagName ? { ...t, color } : t);
+    setAgentTags(next);
+    setEditingTagColor(null);
+    await saveAgentTags(next);
+  }
+
   function patchDealLocal(dealId: string, patch: Partial<DealWithLead>) {
     setDeals((previous) => previous.map((deal) => (deal.id === dealId ? { ...deal, ...patch } : deal)));
   }
@@ -371,11 +530,22 @@ export default function DealsBoardClient() {
     const current = deals.find((deal) => deal.id === dealId);
     if (!current || current.stage === targetStage) return;
 
-    void persistDealPatch(dealId, { stage: targetStage });
+    void persistDealPatch(dealId, { stage: targetStage, stage_entered_at: new Date().toISOString() });
 
     if (selectedDealId === dealId) {
       setDraft((previous) => (previous ? { ...previous, stage: targetStage } : previous));
       setDraftDirty(true);
+    }
+
+    // Auto-seed TC checklist when moving to under_contract (no-op if already seeded)
+    if (!isOffMarketAccount && targetStage === "under_contract") {
+      void fetch(`/api/deals/${dealId}/checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed_template: true }),
+      }).then((res) => {
+        if (res.ok) void loadChecklist(dealId);
+      }).catch(() => {/* non-fatal */});
     }
   }
 
@@ -405,6 +575,8 @@ export default function DealsBoardClient() {
       property_address: propertyAddress,
       price: parsedPrice,
       stage: draft.stage,
+      tags: draft.tags,
+      next_followup_date: draft.next_followup_date.trim() || null,
       expected_close_date: draft.expected_close_date.trim() || null,
       notes: draft.notes.trim() || null,
       ...(dealDetails !== undefined ? { deal_details: dealDetails } : {}),
@@ -414,6 +586,16 @@ export default function DealsBoardClient() {
     if (ok) {
       setDraftDirty(false);
       toast.success("Deal saved.");
+      // Auto-seed TC checklist on manual stage change to under_contract
+      if (!isOffMarketAccount && draft.stage === "under_contract" && selectedDeal.stage !== "under_contract") {
+        void fetch(`/api/deals/${selectedDeal.id}/checklist`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ seed_template: true }),
+        }).then((res) => {
+          if (res.ok) void loadChecklist(selectedDeal.id);
+        }).catch(() => {/* non-fatal */});
+      }
     }
   }
 
@@ -515,7 +697,52 @@ export default function DealsBoardClient() {
     setIsDetailOpen(true);
     setChecklist([]);
     setNewChecklistLabel("");
+    setDealAppts([]);
+    setDealDocs([]);
+    setShowDocUpload(false);
+    setDocFile(null);
     void loadChecklist(dealId);
+
+    // Load upcoming appointments for this deal
+    void supabase
+      .from("appointments")
+      .select("id,title,scheduled_at,appointment_type,status")
+      .eq("deal_id", dealId)
+      .neq("status", "cancelled")
+      .gte("scheduled_at", new Date().toISOString())
+      .order("scheduled_at", { ascending: true })
+      .limit(5)
+      .then(({ data }) => setDealAppts(data ?? []));
+
+    // Load documents for this deal
+    void fetch("/api/documents", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { documents?: Array<{ id: string; file_name: string; status: string; file_type: string; deal_id?: string; signed_url?: string | null }> }) => {
+        setDealDocs((d.documents ?? []).filter((doc) => doc.deal_id === dealId));
+      })
+      .catch(() => {/* non-critical */});
+  }
+
+  async function handleDocUpload() {
+    if (!docFile || !selectedDeal) return;
+    setDocUploading(true);
+    const form = new FormData();
+    form.append("file", docFile);
+    form.append("deal_id", selectedDeal.id);
+    form.append("file_type", docFileType);
+    form.append("status", docStatus);
+    try {
+      const res = await fetch("/api/documents", { method: "POST", body: form });
+      const data = await res.json() as { ok?: boolean; document?: { id: string; file_name: string; status: string; file_type: string; signed_url?: string | null } };
+      if (data.ok && data.document) {
+        setDealDocs((prev) => [...prev, data.document!]);
+        setDocFile(null);
+        setShowDocUpload(false);
+        setDocFileType("agreement");
+        setDocStatus("draft");
+      }
+    } catch {/* non-critical */}
+    setDocUploading(false);
   }
 
   async function handleAddDeal() {
@@ -633,14 +860,34 @@ export default function DealsBoardClient() {
         <div className="crm-page-header">
           <div className="crm-page-header-main">
             <p className="crm-page-kicker">Deals</p>
-            <h1 className="crm-page-title">{isOffMarketAccount ? "Deal command board" : "Deal-first board"}</h1>
+            <h1 className="crm-page-title">{isOffMarketAccount ? "Deal command board" : "Client pipeline"}</h1>
             <p className="crm-page-subtitle">
               {isOffMarketAccount
                 ? "Work acquisition and disposition opportunities from one board with clear stage, contact context, and last activity."
-                : "Scan stage, source, temperature, and last touch quickly so updating the board feels effortless."}
+                : "Buyer and listing pipelines in one board. Track stage, follow-up dates, and deal details without leaving the view."}
             </p>
           </div>
           <div className="crm-page-actions">
+            {!isOffMarketAccount && (
+              <div style={{ display: "flex", gap: 4 }}>
+                {(["kanban", "list"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => { setViewMode(mode); localStorage.setItem("deals_view", mode); }}
+                    style={{
+                      fontSize: 12, padding: "5px 12px", borderRadius: 6, cursor: "pointer",
+                      border: "1px solid var(--border)",
+                      background: viewMode === mode ? "var(--ink)" : "transparent",
+                      color: viewMode === mode ? "#fff" : "var(--ink-muted)",
+                      fontWeight: viewMode === mode ? 600 : 400,
+                    }}
+                  >
+                    {mode === "kanban" ? "Board" : "List"}
+                  </button>
+                ))}
+              </div>
+            )}
             <Link href={isOffMarketAccount ? "/app/documents" : "/app/intake"} className="crm-btn crm-btn-secondary">
               {isOffMarketAccount ? "Open documents" : "Review inquiries"}
             </Link>
@@ -716,6 +963,38 @@ export default function DealsBoardClient() {
             </select>
           </label>
         </div>
+
+        {/* Tag filters — traditional only */}
+        {!isOffMarketAccount && agentTags.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 600 }}>Tags:</span>
+            {agentTags.map((tag) => {
+              const active = tagFilters.includes(tag.name);
+              return (
+                <button
+                  key={tag.name}
+                  type="button"
+                  onClick={() => setTagFilters((prev) => toggleTag(prev, tag.name))}
+                  style={{
+                    fontSize: 12, padding: "3px 10px", borderRadius: 20, cursor: "pointer",
+                    border: `1px solid ${active ? tag.color : "var(--border)"}`,
+                    background: active ? tag.color : "transparent",
+                    color: active ? "#fff" : "var(--ink-muted)",
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: active ? "#fff" : tag.color, flexShrink: 0, display: "inline-block" }} />
+                  {tag.name}
+                </button>
+              );
+            })}
+            {tagFilters.length > 0 && (
+              <button type="button" onClick={() => setTagFilters([])} style={{ fontSize: 11, color: "var(--ink-muted)", background: "none", border: "none", cursor: "pointer", padding: "3px 6px" }}>
+                Clear
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       {status ? (
@@ -736,6 +1015,69 @@ export default function DealsBoardClient() {
             </div>
           }
         />
+      ) : !isOffMarketAccount && viewMode === "list" ? (
+        <section className="crm-card">
+          <div className="crm-table-wrap">
+            <table className="crm-data-table">
+              <thead>
+                <tr>
+                  <th>Client / Property</th>
+                  <th>Type</th>
+                  <th>Stage</th>
+                  <th>Price</th>
+                  <th>Days in Stage</th>
+                  <th>Next Follow-up</th>
+                  <th>Tags</th>
+                  <th>Last Touch</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDeals.map((deal) => {
+                  const overdue = isOverdue(deal.next_followup_date);
+                  return (
+                    <tr key={deal.id} onClick={() => openDealDetail(deal.id)} style={{ cursor: "pointer" }}>
+                      <td style={{ fontWeight: 600 }}>
+                        <div>{deal.property_address || leadDisplayName(deal.lead)}</div>
+                        {deal.property_address && (
+                          <div style={{ fontSize: 12, fontWeight: 400, color: "var(--ink-muted)" }}>{leadDisplayName(deal.lead)}</div>
+                        )}
+                      </td>
+                      <td>
+                        <StatusBadge label={dealTypeLabel(deal.deal_type)} tone="default" />
+                      </td>
+                      <td>
+                        <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
+                      </td>
+                      <td style={{ color: "var(--ink-muted)" }}>
+                        {typeof deal.price === "number" || typeof deal.price === "string" ? `$${Number(deal.price).toLocaleString()}` : "—"}
+                      </td>
+                      <td style={{ color: daysInStage(deal.stage_entered_at, deal.updated_at) > 14 ? "var(--color-warn)" : "var(--ink-muted)", fontWeight: daysInStage(deal.stage_entered_at, deal.updated_at) > 14 ? 600 : undefined }}>
+                        {daysInStage(deal.stage_entered_at, deal.updated_at)}d
+                      </td>
+                      <td style={{ color: overdue ? "var(--color-danger)" : "var(--ink-muted)", fontWeight: overdue ? 600 : undefined }}>
+                        {deal.next_followup_date ? new Date(deal.next_followup_date).toLocaleDateString() : "—"}
+                      </td>
+                      <td>
+                        {deal.tags.length > 0 ? (
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {deal.tags.slice(0, 2).map((tag) => (
+                              <span key={tag} className="crm-chip" style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
+                                {tag}
+                              </span>
+                            ))}
+                            {deal.tags.length > 2 && <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>+{deal.tags.length - 2}</span>}
+                          </div>
+                        ) : "—"}
+                      </td>
+                      <td style={{ color: "var(--ink-faint)", fontSize: 12 }}>{formatUpdatedAt(deal.updated_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : (
         <section className="crm-board-columns">
           {groupedColumns.map((column) => (
@@ -786,6 +1128,15 @@ export default function DealsBoardClient() {
                       {deal.lead?.source ? (
                         <StatusBadge label={sourceChannelLabel(deal.lead.source)} tone={sourceChannelTone(deal.lead.source)} />
                       ) : null}
+                      {!isOffMarketAccount && deal.tags.slice(0, 2).map((tag) => (
+                        <span key={tag} className="crm-chip" style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
+                          {tag}
+                        </span>
+                      ))}
+                      {!isOffMarketAccount && deal.tags.length > 2 && (
+                        <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>+{deal.tags.length - 2}</span>
+                      )}
                     </div>
 
                     <div className="crm-stack-4">
@@ -796,8 +1147,18 @@ export default function DealsBoardClient() {
                             .join(" • ")}
                         </div>
                       ) : null}
-                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                        Last touch {formatUpdatedAt(deal.updated_at)}
+                      <div style={{ fontSize: 12, color: "var(--ink-faint)", display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <span>Last touch {formatUpdatedAt(deal.updated_at)}</span>
+                        {!isOffMarketAccount && (
+                          <span style={{ color: daysInStage(deal.stage_entered_at, deal.updated_at) > 14 ? "var(--color-warn)" : "var(--ink-faint)" }}>
+                            {daysInStage(deal.stage_entered_at, deal.updated_at)}d in stage
+                          </span>
+                        )}
+                        {!isOffMarketAccount && deal.next_followup_date && (
+                          <span style={{ color: isOverdue(deal.next_followup_date) ? "var(--color-danger)" : "var(--ink-faint)" }}>
+                            {isOverdue(deal.next_followup_date) ? "Follow-up overdue" : `Follow-up ${new Date(deal.next_followup_date).toLocaleDateString()}`}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -899,6 +1260,21 @@ export default function DealsBoardClient() {
               </label>
 
               <label className="crm-filter-field">
+                <span>Next follow-up</span>
+                <input
+                  type="date"
+                  value={draft.next_followup_date}
+                  style={draft.next_followup_date && isOverdue(draft.next_followup_date) ? { borderColor: "var(--color-danger)" } : undefined}
+                  onChange={(event) => {
+                    setDraft((previous) =>
+                      previous ? { ...previous, next_followup_date: event.target.value } : previous
+                    );
+                    setDraftDirty(true);
+                  }}
+                />
+              </label>
+
+              <label className="crm-filter-field">
                 <span>Expected close date</span>
                 <input
                   type="date"
@@ -912,6 +1288,59 @@ export default function DealsBoardClient() {
                 />
               </label>
             </div>
+
+            {/* Tags — traditional only */}
+            {!isOffMarketAccount && (
+              <div>
+                <div style={{ fontSize: 12, color: "var(--ink-muted)", marginBottom: 6 }}>Tags</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {agentTags.map((tag) => {
+                    const active = draft.tags.includes(tag.name);
+                    return (
+                      <button
+                        key={tag.name}
+                        type="button"
+                        onClick={() => {
+                          setDraft((prev) => prev ? { ...prev, tags: toggleTag(prev.tags, tag.name) } : prev);
+                          setDraftDirty(true);
+                        }}
+                        style={{
+                          fontSize: 12, padding: "3px 10px", borderRadius: 20, cursor: "pointer",
+                          border: `1px solid ${active ? tag.color : "var(--border)"}`,
+                          background: active ? tag.color : "transparent",
+                          color: active ? "#fff" : "var(--ink-muted)",
+                          display: "inline-flex", alignItems: "center", gap: 5,
+                        }}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: active ? "#fff" : tag.color, flexShrink: 0, display: "inline-block" }} />
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Add new tag inline */}
+                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  {TAG_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewTagColor(c)}
+                      style={{ width: 14, height: 14, borderRadius: "50%", background: c, border: newTagColor === c ? "2px solid var(--foreground)" : "2px solid transparent", cursor: "pointer", padding: 0, flexShrink: 0 }}
+                    />
+                  ))}
+                  <input
+                    value={newTagInput}
+                    placeholder="New tag..."
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleAddTag(); } }}
+                    style={{ fontSize: 12, padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)", flex: 1, minWidth: 100 }}
+                  />
+                  <button type="button" onClick={() => void handleAddTag()} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", cursor: "pointer", color: "var(--foreground)" }}>
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
 
             <label className="crm-filter-field">
               <span>Notes</span>
@@ -1000,6 +1429,73 @@ export default function DealsBoardClient() {
                       }}
                     />
                   </label>
+                  <label className="crm-filter-field">
+                    <span>Budget min</span>
+                    <input
+                      value={draft.buyerDetails?.price_range_min ?? ""}
+                      placeholder="300000"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), price_range_min: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Budget max</span>
+                    <input
+                      value={draft.buyerDetails?.price_range_max ?? ""}
+                      placeholder="500000"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), price_range_max: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Move-in timeline</span>
+                    <select
+                      value={draft.buyerDetails?.move_in_timeline ?? ""}
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), move_in_timeline: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    >
+                      <option value="">Not set</option>
+                      <option value="asap">ASAP</option>
+                      <option value="1_3_months">1–3 months</option>
+                      <option value="3_6_months">3–6 months</option>
+                      <option value="6_12_months">6–12 months</option>
+                      <option value="no_rush">No rush</option>
+                    </select>
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Buyer agreement signed</span>
+                    <select
+                      value={draft.buyerDetails?.buyer_agreement_signed ?? ""}
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), buyer_agreement_signed: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    >
+                      <option value="">Not set</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                      <option value="sent">Sent — awaiting signature</option>
+                    </select>
+                  </label>
+                  <label className="crm-filter-field" style={{ gridColumn: "1 / -1" }}>
+                    <span>Referral source</span>
+                    <input
+                      value={draft.buyerDetails?.referral_source ?? ""}
+                      placeholder="Referred by John Smith"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, buyerDetails: { ...(prev.buyerDetails ?? {}), referral_source: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
                 </div>
               </div>
             )}
@@ -1011,7 +1507,19 @@ export default function DealsBoardClient() {
                 </div>
                 <div className="crm-two-column-form">
                   <label className="crm-filter-field">
-                    <span>List price</span>
+                    <span>Original list price</span>
+                    <input
+                      value={draft.listingDetails?.original_list_price ?? ""}
+                      placeholder="550000"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), original_list_price: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Current list price</span>
                     <input
                       value={draft.listingDetails?.list_price ?? ""}
                       placeholder="525000"
@@ -1064,6 +1572,72 @@ export default function DealsBoardClient() {
                       value={draft.listingDetails?.listing_expiration_date ?? ""}
                       onChange={(e) => {
                         setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), listing_expiration_date: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Seller motivation</span>
+                    <select
+                      value={draft.listingDetails?.seller_motivation ?? ""}
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), seller_motivation: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    >
+                      <option value="">Not set</option>
+                      <option value="relocation">Relocation</option>
+                      <option value="downsizing">Downsizing</option>
+                      <option value="upsizing">Upsizing</option>
+                      <option value="retirement">Retirement</option>
+                      <option value="divorce">Divorce</option>
+                      <option value="financial">Financial</option>
+                      <option value="estate_sale">Estate sale</option>
+                      <option value="investment">Investment / 1031</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+                  <label className="crm-filter-field">
+                    <span>Earnest money amount</span>
+                    <input
+                      value={draft.listingDetails?.earnest_money_amount ?? ""}
+                      placeholder="5000"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), earnest_money_amount: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field" style={{ gridColumn: "1 / -1" }}>
+                    <span>Showing instructions</span>
+                    <input
+                      value={draft.listingDetails?.showing_instructions ?? ""}
+                      placeholder="Lockbox on front door, call 30 min ahead, dog on premises"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), showing_instructions: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field" style={{ gridColumn: "1 / -1" }}>
+                    <span>Concessions offered</span>
+                    <input
+                      value={draft.listingDetails?.concessions_offered ?? ""}
+                      placeholder="$5,000 closing cost credit, home warranty included"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), concessions_offered: e.target.value } } : prev);
+                        setDraftDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="crm-filter-field" style={{ gridColumn: "1 / -1" }}>
+                    <span>Referral source</span>
+                    <input
+                      value={draft.listingDetails?.referral_source ?? ""}
+                      placeholder="Referred by Jane Doe"
+                      onChange={(e) => {
+                        setDraft((prev) => prev ? { ...prev, listingDetails: { ...(prev.listingDetails ?? {}), referral_source: e.target.value } } : prev);
                         setDraftDirty(true);
                       }}
                     />
@@ -1134,6 +1708,104 @@ export default function DealsBoardClient() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Upcoming appointments */}
+            {!isOffMarketAccount && dealAppts.length > 0 && (
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Upcoming Appointments</div>
+                <div style={{ display: "grid", gap: 4 }}>
+                  {dealAppts.map((appt) => (
+                    <div key={appt.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, background: "#eff6ff", borderRadius: 6, padding: "6px 10px" }}>
+                      <span style={{ color: "#2563eb", fontWeight: 600, flexShrink: 0 }}>
+                        {new Date(appt.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {" "}
+                        {new Date(appt.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </span>
+                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{appt.title}</span>
+                      <span style={{ fontSize: 11, color: "var(--ink-faint)", textTransform: "capitalize", flexShrink: 0 }}>{appt.appointment_type}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Documents */}
+            {!isOffMarketAccount && (
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Documents ({dealDocs.length})
+                  </div>
+                  <button
+                    type="button"
+                    className="crm-btn crm-btn-secondary"
+                    style={{ fontSize: 12, padding: "4px 10px" }}
+                    onClick={() => setShowDocUpload((v) => !v)}
+                  >
+                    {showDocUpload ? "Cancel" : "+ Add"}
+                  </button>
+                </div>
+
+                {showDocUpload && (
+                  <div style={{ background: "var(--surface-2, var(--line))", borderRadius: 8, padding: 12, marginBottom: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <input type="file" style={{ fontSize: 13 }} onChange={(e) => setDocFile(e.target.files?.[0] ?? null)} />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select value={docFileType} onChange={(e) => setDocFileType(e.target.value)} style={{ flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                        <option value="agreement">Agreement</option>
+                        <option value="purchase_contract">Purchase Contract</option>
+                        <option value="inspection_report">Inspection Report</option>
+                        <option value="appraisal">Appraisal</option>
+                        <option value="title_commitment">Title Commitment</option>
+                        <option value="disclosure">Disclosure</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <select value={docStatus} onChange={(e) => setDocStatus(e.target.value)} style={{ flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                        <option value="draft">Draft</option>
+                        <option value="sent">Sent</option>
+                        <option value="signed">Signed</option>
+                        <option value="final">Final</option>
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      className="crm-btn crm-btn-primary"
+                      style={{ fontSize: 13, alignSelf: "flex-end" }}
+                      disabled={!docFile || docUploading}
+                      onClick={() => void handleDocUpload()}
+                    >
+                      {docUploading ? "Uploading..." : "Upload"}
+                    </button>
+                  </div>
+                )}
+
+                {dealDocs.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "var(--ink-faint)", fontStyle: "italic" }}>No documents yet.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {dealDocs.map((doc) => {
+                      const statusColors: Record<string, { bg: string; color: string }> = {
+                        draft:  { bg: "#f3f4f6", color: "#6b7280" },
+                        sent:   { bg: "#dbeafe", color: "#1d4ed8" },
+                        signed: { bg: "#dcfce7", color: "#15803d" },
+                        final:  { bg: "#fef9c3", color: "#a16207" },
+                      };
+                      const sc = statusColors[doc.status] ?? statusColors.draft!;
+                      return (
+                        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--line)", borderRadius: 8 }}>
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.file_name}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 4, padding: "2px 7px", background: sc.bg, color: sc.color, flexShrink: 0 }}>
+                            {doc.status.toUpperCase()}
+                          </span>
+                          {doc.signed_url && (
+                            <a href={doc.signed_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--brand)", flexShrink: 0 }}>View</a>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

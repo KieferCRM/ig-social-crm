@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { Inbox, Home, ClipboardList, ListChecks, Bot, FileText } from "lucide-react";
 import LockboxMark from "@/components/branding/lockbox-mark";
 import { FEATURE_SIGNUP_ENABLED } from "@/lib/features";
 import AnimatedHero from "./_landing/animated-hero";
 import { AnimatedInfoCards, AnimatedFeatureGrid } from "./_landing/animated-cards";
+import ComparisonTable from "./_landing/comparison-table";
+import Testimonials from "./_landing/testimonials";
+import PricingAnchor from "./_landing/pricing-anchor";
+import SceneBackgroundLazy from "./_landing/scene-background-lazy";
 
 const howItWorks = [
   {
@@ -19,28 +24,13 @@ const howItWorks = [
   },
 ] as const;
 
-const whyAgentsUseIt = [
-  {
-    title: "It fills itself",
-    body: "One intake link captures everything. No more copy-pasting names and numbers into a spreadsheet after every inquiry.",
-  },
-  {
-    title: "Built for solo agents",
-    body: "No complex setup, no team features you don't need. A clean workspace that keeps your buyer and listing pipelines organized.",
-  },
-  {
-    title: "Less admin, more selling",
-    body: "Spend your time on clients, not data entry. LockboxHQ handles the intake so you can focus on closing.",
-  },
-] as const;
-
 const features = [
-  { icon: "📥", title: "Smart Inbox", body: "Emails and voice transcripts land in your inbox, analyzed by AI, and linked to the right deal automatically." },
-  { icon: "🏠", title: "Buyer Pipeline", body: "Track every buyer from first inquiry through pre-approval, active search, offer, and close." },
-  { icon: "📋", title: "Listing Pipeline", body: "Manage listings from appointment through MLS, open house, offer, contract, and close." },
-  { icon: "✅", title: "Transaction Checklist", body: "Predefined checklists for buyer and listing transactions so nothing gets missed on the way to close." },
-  { icon: "🤖", title: "AI Secretary", body: "A voice AI that answers calls, qualifies leads, and adds them to your CRM while you're showing a home." },
-  { icon: "📊", title: "Deal Details", body: "Pre-approval status, lender info, MLS numbers, commission rates — all tied to the right deal." },
+  { icon: Inbox, title: "Smart Inbox", body: "Emails and voice transcripts land in your inbox, analyzed by AI, and linked to the right deal automatically." },
+  { icon: Home, title: "Buyer Pipeline", body: "Track every buyer from first inquiry through pre-approval, active search, offer, and close." },
+  { icon: ClipboardList, title: "Listing Pipeline", body: "Manage listings from appointment through MLS, open house, offer, contract, and close." },
+  { icon: ListChecks, title: "Transaction Checklist", body: "Predefined checklists for buyer and listing transactions so nothing gets missed on the way to close." },
+  { icon: Bot, title: "AI Secretary", body: "A voice AI that answers calls, qualifies leads, and adds them to your CRM while you're showing a home." },
+  { icon: FileText, title: "Deal Details", body: "Pre-approval status, lender info, MLS numbers, commission rates — all tied to the right deal." },
 ] as const;
 
 export default function HomePage() {
@@ -49,6 +39,7 @@ export default function HomePage() {
 
   return (
     <main className="lockbox-marketing lockbox-marketing--home">
+      <SceneBackgroundLazy />
       <div className="lockbox-marketing__veil" />
 
       <div className="lockbox-marketing__container lockbox-marketing__container--home">
@@ -86,27 +77,41 @@ export default function HomePage() {
         {/* Features grid */}
         <section className="lockbox-section">
           <div className="lockbox-section__header">
-            <span className="lockbox-section__eyebrow">What's inside</span>
-            <h2>Everything a solo agent needs. Nothing they don't.</h2>
+            <span className="lockbox-section__eyebrow">What&apos;s inside</span>
+            <h2>Everything a solo agent needs. Nothing they don&apos;t.</h2>
           </div>
           <AnimatedFeatureGrid features={features} />
         </section>
 
-        {/* Why agents use it */}
+        {/* Testimonials */}
         <section className="lockbox-section">
           <div className="lockbox-section__header">
-            <span className="lockbox-section__eyebrow">Why solo agents use it</span>
-            <h2>Built to save time, not create more work.</h2>
+            <span className="lockbox-section__eyebrow">What agents say</span>
+            <h2>Solo agents who made the switch.</h2>
           </div>
-          <AnimatedInfoCards cards={whyAgentsUseIt} />
+          <Testimonials />
+        </section>
+
+        {/* Comparison table */}
+        <section className="lockbox-section">
+          <div className="lockbox-section__header">
+            <span className="lockbox-section__eyebrow">Why LockboxHQ</span>
+            <h2>Built for real estate. Not repurposed from something else.</h2>
+          </div>
+          <ComparisonTable />
+        </section>
+
+        {/* Pricing anchor */}
+        <section className="lockbox-section" id="pricing">
+          <PricingAnchor signUpHref={signUpHref} />
         </section>
 
         {/* Final CTA */}
         <section className="lockbox-final-cta lockbox-surface">
           <div className="lockbox-final-cta__copy">
             <span className="lockbox-section__eyebrow">Ready to start?</span>
-            <h2>Set up your workspace in minutes.</h2>
-            <p>Share one link, capture every inquiry, and let LockboxHQ build your pipeline for you. No credit card required.</p>
+            <h2>Your pipeline should build itself. Start today.</h2>
+            <p>Share one link, capture every inquiry, and let LockboxHQ handle the intake while you focus on closing.</p>
           </div>
           <div className="lockbox-final-cta__actions">
             <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
@@ -121,7 +126,9 @@ export default function HomePage() {
         {/* Footer */}
         <footer className="lockbox-footer lockbox-footer--slim">
           <span>LockboxHQ</span>
-          <nav className="lockbox-footer__links" aria-label="Legal">
+          <nav className="lockbox-footer__links" aria-label="Footer">
+            <Link href="/#how-it-works">How it works</Link>
+            <Link href="/#pricing">Pricing</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
             <a href="mailto:hello@lockboxhq.com">hello@lockboxhq.com</a>

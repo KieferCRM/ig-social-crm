@@ -147,6 +147,11 @@ async function seedSoloSampleWorkspaceForAgent(admin: AdminClient, agentId: stri
     tags: ["investor", "referral"],
   });
 
+  const now = new Date().toISOString();
+  const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString();
+  const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000).toISOString();
+  const followupSoon = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+
   const dealRows = [
     {
       agent_id: agentId,
@@ -154,17 +159,64 @@ async function seedSoloSampleWorkspaceForAgent(admin: AdminClient, agentId: stri
       property_address: "[Sample] East Nashville buyer search",
       deal_type: "buyer",
       price: 625000,
-      stage: "new",
-      notes: "Sample deal created to show an active buyer opportunity.",
+      stage: "active_search",
+      tags: ["Pre-Approved", "First-Time Buyer"],
+      stage_entered_at: threeDaysAgo,
+      next_followup_date: followupSoon,
+      notes: "Sample deal. Buyer is pre-approved at $650k. Looking for 3bd/2ba in East Nashville or Inglewood. No HOA preferred.",
+      deal_details: {
+        preapproval_status: "pre_approved",
+        preapproval_amount: "650000",
+        lender_name: "First National Mortgage",
+        financing_type: "conventional",
+        search_criteria: "3bd/2ba, East Nashville or Inglewood, min 1400sqft, no HOA",
+        price_range_min: "450000",
+        price_range_max: "650000",
+        move_in_timeline: "1_3_months",
+        buyer_agreement_signed: "yes",
+        referral_source: "Instagram DM",
+      },
     },
     {
       agent_id: agentId,
       lead_id: warmLead.id,
-      property_address: "[Sample] Green Hills listing prep",
+      property_address: "[Sample] 4812 Hillsboro Pike, Nashville TN",
       deal_type: "listing",
       price: 995000,
-      stage: "new",
-      notes: "Sample deal created to show a seller opportunity entering the board.",
+      stage: "active_listing",
+      tags: ["Price Reduced"],
+      stage_entered_at: tenDaysAgo,
+      next_followup_date: followupSoon,
+      notes: "Sample deal. Listed 10 days ago. One price reduction already. Two showings scheduled this week.",
+      deal_details: {
+        original_list_price: "1050000",
+        list_price: "995000",
+        mls_number: "MLS-2024-8841",
+        commission_rate: "3.0",
+        listing_expiration_date: new Date(Date.now() + 80 * 86_400_000).toISOString().slice(0, 10),
+        seller_motivation: "relocation",
+        showing_instructions: "Lockbox on front door. Call 30 min ahead. Dog is secured in backyard.",
+        referral_source: "Past client referral",
+      },
+    },
+    {
+      agent_id: agentId,
+      lead_id: coldLead.id,
+      property_address: "[Sample] Franklin buyer search",
+      deal_type: "buyer",
+      price: 875000,
+      stage: "lost",
+      tags: ["Referral"],
+      stage_entered_at: now,
+      notes: "Sample deal showing a lost opportunity. Buyer went with another agent after a slow follow-up.",
+      deal_details: {
+        preapproval_status: "pre_approved",
+        preapproval_amount: "900000",
+        financing_type: "conventional",
+        search_criteria: "4bd/3ba, Franklin or Brentwood, good schools",
+        move_in_timeline: "3_6_months",
+        referral_source: "Referral from John Torres",
+      },
     },
   ];
 

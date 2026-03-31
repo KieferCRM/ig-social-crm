@@ -5305,6 +5305,208 @@ input:focus, textarea:focus, select:focus {
   color: var(--lockbox-text-primary);
 }
 
+/* =========================================================
+   Testimonials
+   ========================================================= */
+
+.lockbox-testimonial {
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+  align-content: space-between;
+}
+
+.lockbox-testimonial__quote {
+  margin: 0;
+  color: var(--lockbox-text-primary);
+  font-size: 0.97rem;
+  line-height: 1.65;
+}
+
+.lockbox-testimonial__author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lockbox-testimonial__avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--lockbox-accent-soft);
+  border: 1px solid var(--lockbox-border);
+  color: var(--lockbox-accent-bright);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lockbox-testimonial__name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--lockbox-text-primary);
+}
+
+.lockbox-testimonial__role {
+  font-size: 12px;
+  color: var(--lockbox-text-muted);
+  margin-top: 2px;
+}
+
+/* =========================================================
+   Comparison table
+   ========================================================= */
+
+.lockbox-comparison {
+  overflow: hidden;
+  padding: 0;
+}
+
+.lockbox-comparison__table {
+  display: grid;
+}
+
+.lockbox-comparison__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 140px 140px;
+  border-bottom: 1px solid var(--lockbox-border);
+}
+
+.lockbox-comparison__row:last-child {
+  border-bottom: none;
+}
+
+.lockbox-comparison__row--header {
+  background: var(--lockbox-accent-soft);
+}
+
+.lockbox-comparison__cell {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--lockbox-text-secondary);
+  border-right: 1px solid var(--lockbox-border);
+}
+
+.lockbox-comparison__cell:last-child {
+  border-right: none;
+}
+
+.lockbox-comparison__cell--feature {
+  font-size: 0.92rem;
+  color: var(--lockbox-text-primary);
+}
+
+.lockbox-comparison__cell--highlight {
+  background: rgba(47, 111, 237, 0.04);
+  justify-content: center;
+}
+
+.lockbox-comparison__col-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lockbox-accent-bright);
+}
+
+.lockbox-comparison__col-label--muted {
+  color: var(--lockbox-text-muted);
+}
+
+.lockbox-comparison__check {
+  color: var(--lockbox-accent-bright);
+  flex-shrink: 0;
+}
+
+.lockbox-comparison__x {
+  color: var(--lockbox-text-muted);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.lockbox-comparison__cell:not(.lockbox-comparison__cell--feature) {
+  justify-content: center;
+}
+
+/* =========================================================
+   Pricing anchor
+   ========================================================= */
+
+.lockbox-pricing-anchor {
+  padding: 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 40px;
+  align-items: center;
+}
+
+.lockbox-pricing-anchor__left {
+  display: grid;
+  gap: 16px;
+}
+
+.lockbox-pricing-anchor__headline {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  color: var(--lockbox-text-primary);
+}
+
+.lockbox-pricing-anchor__body {
+  margin: 0;
+  color: var(--lockbox-text-secondary);
+  font-size: 0.97rem;
+  line-height: 1.65;
+  max-width: 44ch;
+}
+
+.lockbox-pricing-anchor__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  min-width: 240px;
+}
+
+.lockbox-pricing-anchor__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--lockbox-text-primary);
+}
+
+.lockbox-pricing-anchor__check {
+  color: var(--lockbox-accent-bright);
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .lockbox-comparison__row {
+    grid-template-columns: minmax(0, 1fr) 80px 80px 80px;
+  }
+
+  .lockbox-comparison__cell {
+    padding: 12px 10px;
+    font-size: 0.82rem;
+  }
+
+  .lockbox-pricing-anchor {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 24px;
+  }
+}
+
 .crm-onboarding-page {
   min-height: 100vh;
   background:

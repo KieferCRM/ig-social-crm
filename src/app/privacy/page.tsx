@@ -34,6 +34,33 @@ export default function PrivacyPage() {
         <li>Troubleshoot incidents and maintain service quality.</li>
       </ul>
 
+      <h2>SMS and Text Messaging</h2>
+      <p>
+        {PRODUCT_NAME} enables real estate agents to send SMS messages to leads who have provided their phone number
+        and consented to receive communications through an intake form or other opt-in mechanism.
+      </p>
+      <ul>
+        <li>
+          <strong>How we collect phone numbers:</strong> Phone numbers are collected through agent-controlled intake
+          forms. Submission of the form constitutes consent to receive follow-up SMS communications from the agent.
+        </li>
+        <li>
+          <strong>Types of messages sent:</strong> Transactional and relationship-based messages related to real estate
+          inquiries, lead follow-up, appointment reminders, and CRM workflow notifications.
+        </li>
+        <li>
+          <strong>Message frequency:</strong> Message frequency varies based on agent activity and lead engagement.
+        </li>
+        <li>
+          <strong>Opting out:</strong> Recipients can reply <strong>STOP</strong> at any time to unsubscribe from SMS
+          communications. Reply <strong>HELP</strong> for assistance. Standard message and data rates may apply.
+        </li>
+        <li>
+          <strong>No third-party marketing sharing:</strong> Phone numbers and SMS consent are never sold or shared with
+          third parties for marketing purposes.
+        </li>
+      </ul>
+
       <h2>Your Compliance Responsibilities</h2>
       <p>
         If you store or message consumer leads, you are responsible for lawful collection and outreach practices,

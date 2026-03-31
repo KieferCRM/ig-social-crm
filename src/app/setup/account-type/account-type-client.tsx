@@ -25,11 +25,11 @@ const OPTIONS: Option[] = [
   {
     value: "solo_agent",
     title: "Traditional",
-    body: "Broad inbound CRM for agents who want a clean daily workspace for intake, deals, and follow-up.",
+    body: "Full inbound CRM for agents running a traditional real estate practice with buyers and listings.",
     bullets: [
-      "Buyer and seller inbound",
-      "General deal-first workflow",
-      "Simple daily Today view",
+      "Separate buyer and listing pipelines",
+      "TC checklist, docs, and follow-up built in",
+      "Intake forms, lead board, and daily Today view",
     ],
     badge: "Recommended",
   },

@@ -1,24 +1,28 @@
 export const DEAL_STAGE_VALUES = [
-  // shared / traditional general
+  // shared
   "new",
-  "showing",
-  "offer_made",
   "under_contract",
-  "inspection",
-  "appraisal",
-  "closing",
   "closed",
   "lost",
   "past_client",
   // buyer-specific
   "contacted",
-  "qualified",
   "buyer_consultation",
   "active_search",
+  "offer_submitted",
   // listing-specific
   "listing_appointment",
   "agreement_signed",
   "active_listing",
+  "expired",
+  "withdrawn",
+  // legacy (kept for backward compat with existing deals)
+  "showing",
+  "offer_made",
+  "qualified",
+  "inspection",
+  "appraisal",
+  "closing",
   // off-market stages
   "prospecting",
   "offer_sent",
@@ -42,14 +46,13 @@ export const DEAL_BOARD_STAGES = [
 export const BUYER_PIPELINE_STAGES = [
   "new",
   "contacted",
-  "qualified",
   "buyer_consultation",
   "active_search",
-  "showing",
-  "offer_made",
+  "offer_submitted",
   "under_contract",
   "closed",
   "past_client",
+  "lost",
 ] as const;
 
 // Listing/seller pipeline stages
@@ -61,6 +64,8 @@ export const LISTING_PIPELINE_STAGES = [
   "under_contract",
   "closed",
   "past_client",
+  "expired",
+  "withdrawn",
 ] as const;
 
 export type BuyerPipelineStage = (typeof BUYER_PIPELINE_STAGES)[number];
@@ -105,6 +110,9 @@ export type DealRow = {
   deal_type: DealType;
   price: number | string | null;
   stage: DealStage;
+  tags: string[];
+  stage_entered_at: string | null;
+  next_followup_date: string | null;
   expected_close_date: string | null;
   notes: string | null;
   deal_details: Record<string, unknown> | null;
@@ -118,22 +126,27 @@ export type DealWithLead = DealRow & {
 
 const STAGE_LABELS: Record<DealStage, string> = {
   new: "New",
-  showing: "Showing",
-  offer_made: "Offer Made",
   under_contract: "Under Contract",
-  inspection: "Inspection",
-  appraisal: "Appraisal",
-  closing: "Closing",
   closed: "Closed",
   lost: "Lost",
   past_client: "Past Client",
   contacted: "Contacted",
-  qualified: "Qualified",
   buyer_consultation: "Buyer Consultation",
   active_search: "Active Search",
+  offer_submitted: "Offer Submitted",
   listing_appointment: "Listing Appointment",
   agreement_signed: "Agreement Signed",
   active_listing: "Active Listing",
+  expired: "Expired",
+  withdrawn: "Withdrawn",
+  // legacy
+  showing: "Showing",
+  offer_made: "Offer Made",
+  qualified: "Qualified",
+  inspection: "Inspection",
+  appraisal: "Appraisal",
+  closing: "Closing",
+  // off-market
   prospecting: "Prospecting",
   offer_sent: "Offer Sent",
   negotiating: "Negotiating",
@@ -151,21 +164,26 @@ const DEAL_STAGE_TONES: Record<
 > = {
   new: "stage-new",
   contacted: "stage-new",
-  qualified: "stage-qualified",
   buyer_consultation: "stage-qualified",
   active_search: "stage-active",
-  showing: "stage-active",
+  offer_submitted: "stage-qualified",
   listing_appointment: "stage-new",
   agreement_signed: "stage-qualified",
   active_listing: "stage-active",
-  offer_made: "stage-qualified",
   under_contract: "stage-contract",
-  inspection: "stage-contract",
-  appraisal: "stage-contract",
-  closing: "stage-contract",
   closed: "stage-closed",
   past_client: "stage-closed",
   lost: "stage-lost",
+  expired: "stage-lost",
+  withdrawn: "stage-lost",
+  // legacy
+  showing: "stage-active",
+  offer_made: "stage-qualified",
+  qualified: "stage-qualified",
+  inspection: "stage-contract",
+  appraisal: "stage-contract",
+  closing: "stage-contract",
+  // off-market
   prospecting: "stage-new",
   offer_sent: "stage-qualified",
   negotiating: "stage-active",

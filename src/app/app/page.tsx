@@ -442,11 +442,10 @@ export default async function AppHome() {
     );
   }
 
-  // ── SOCIAL AGENT BRANCH ────────────────────────────────────────────────────
+  // ── SOLO AGENT (TRADITIONAL) BRANCH ─────────────────────────────────────────
   const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
-  const recentDocuments = workspaceSettings.documents.slice(0, 4);
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: formAlertData }] =
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: formAlertData }, { data: checklistData }] =
     await Promise.all([
       supabase
         .from("leads")
@@ -468,6 +467,7 @@ export default async function AppHome() {
         .select("id,lead_id,title,description,priority,due_at,created_at,metadata")
         .or(recommendationOwnerFilter)
         .eq("status", "open")
+        .order("priority", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(12),
       supabase
@@ -478,6 +478,10 @@ export default async function AppHome() {
         .eq("status", "open")
         .order("created_at", { ascending: false })
         .limit(10),
+      supabase
+        .from("deal_checklist_items")
+        .select("id,deal_id,label,completed")
+        .eq("agent_id", user.id),
     ]);
 
   const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
@@ -486,54 +490,82 @@ export default async function AppHome() {
     .filter((deal): deal is TodayDeal => Boolean(deal));
   const recommendations = (recommendationData || []) as RecommendationRow[];
   const formAlerts = (formAlertData || []) as Array<{ id: string; title: string; message: string; severity: string; created_at: string }>;
+  const allChecklistItems = (checklistData || []) as Array<{ id: string; deal_id: string; label: string; completed: boolean }>;
 
-  const activeDeals = deals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost" && deal.stage !== "dead");
+  const activeDeals = deals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost" && deal.stage !== "dead" && deal.stage !== "past_client");
   const hotLeads = leads.filter((lead) => String(lead.lead_temp || "").toLowerCase() === "hot");
   const staleDeals = activeDeals.filter((deal) => isStale(deal.updatedAt, 7));
   const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
   const trueEmptyWorkspace = leads.length === 0 && deals.length === 0 && recommendations.length === 0;
 
-  const socialReminders = recommendations.filter((item) => {
-    const source = typeof item.metadata?.source_channel === "string" ? item.metadata.source_channel : "";
-    const normalized = source.toLowerCase();
-    return normalized === "instagram" || normalized === "facebook" || normalized === "tiktok";
-  });
+  // Pipeline health columns — 4 groups agents actually think in
+  const PIPELINE_GROUPS = [
+    { key: "new_leads",      label: "New Leads",      stages: ["new", "contacted", "attempted_contact"] },
+    { key: "showings",       label: "Showings",        stages: ["qualified", "buyer_consultation", "active_search", "showing", "engaging", "listing_appointment", "agreement_signed", "active_listing"] },
+    { key: "offers",         label: "Offers",          stages: ["offer_made", "offer_received"] },
+    { key: "under_contract", label: "Under Contract",  stages: ["under_contract", "inspection", "appraisal", "closing", "closing_scheduled"] },
+  ] as const;
 
-  const attentionRows = recommendations.slice(0, 5).map((item) => {
+  const pipelineColumns = PIPELINE_GROUPS.map((group) => ({
+    ...group,
+    deals: activeDeals.filter((d) => (group.stages as readonly string[]).includes(d.stage ?? "")),
+  }));
+
+  // Active transactions — under contract deals with checklist progress
+  const underContractDeals = activeDeals.filter((d) =>
+    (["under_contract", "inspection", "appraisal", "closing", "closing_scheduled"] as string[]).includes(d.stage ?? "")
+  );
+
+  const checklistByDeal = new Map<string, { total: number; completed: number }>();
+  for (const item of allChecklistItems) {
+    const existing = checklistByDeal.get(item.deal_id) ?? { total: 0, completed: 0 };
+    checklistByDeal.set(item.deal_id, {
+      total: existing.total + 1,
+      completed: existing.completed + (item.completed ? 1 : 0),
+    });
+  }
+
+  // "Who to contact today" — recommendations ranked by urgency, plus hot leads not already listed
+  const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+  const sortedRecs = [...recommendations].sort(
+    (a, b) => (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3)
+  );
+  const attentionRows = sortedRecs.slice(0, 6).map((item) => {
     const leadMap = new Map(leads.map((lead) => [lead.id, lead]));
     const lead = item.lead_id ? leadMap.get(item.lead_id) || null : null;
     return { id: item.id, title: item.title, description: item.description, dueAt: item.due_at, priority: item.priority, lead };
   });
-
   const hotNow = hotLeads
     .filter((lead) => !attentionRows.some((item) => item.lead?.id === lead.id))
-    .slice(0, 3);
+    .slice(0, 2);
+
+  // Buyer vs listing deal counts for KPIs
+  const activeBuyers = activeDeals.filter((d) => d.dealType === "buyer");
+  const activeListings = activeDeals.filter((d) => d.dealType === "listing");
 
   return (
     <main className="crm-page crm-page-wide crm-stack-12">
       <FormAlertsSection initialAlerts={formAlerts} />
 
+      {/* KPI row */}
       <section className="crm-kpi-grid crm-dashboard-kpi-grid">
-        <KpiCard label="Active Deals" value={activeDeals.length} tone="ok" href="/app/deals" compact />
         <KpiCard
-          label="Needs Contact Today"
-          value={contactToday.length}
-          tone={contactToday.length > 0 ? "warn" : "default"}
-          href="/app/priorities"
-          compact
-        />
-        <KpiCard
-          label="Hot Inbound"
-          value={hotLeads.length}
-          tone={hotLeads.length > 0 ? "danger" : "default"}
+          label="New Leads"
+          value={leads.filter((l) => {
+            const ts = l.time_last_updated ? new Date(l.time_last_updated).getTime() : 0;
+            return ts > Date.now() - 7 * 24 * 3600_000;
+          }).length}
+          tone="info"
           href="/app/intake"
           compact
         />
+        <KpiCard label="Active Buyers" value={activeBuyers.length} tone="ok" href="/app/deals" compact />
+        <KpiCard label="Active Listings" value={activeListings.length} tone="ok" href="/app/deals" compact />
         <KpiCard
-          label="Stale Deals"
-          value={staleDeals.length}
-          tone={staleDeals.length > 0 ? "warn" : "default"}
-          href="/app/priorities"
+          label="Under Contract"
+          value={underContractDeals.length}
+          tone={underContractDeals.length > 0 ? "warn" : "default"}
+          href="/app/deals"
           compact
         />
       </section>
@@ -541,34 +573,34 @@ export default async function AppHome() {
       {trueEmptyWorkspace ? (
         <section className="crm-card crm-section-card">
           <EmptyState
-            eyebrow="First workspace view"
-            title="Your workspace is ready."
-            body="No deals, contacts, or follow-up items yet. Start by opening intake or sharing a buyer or seller form."
+            eyebrow="Traditional agent workspace"
+            title="Your pipeline is ready."
+            body="No deals or leads yet. Share your intake link to start capturing buyers and sellers automatically."
             action={
               <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                 <Link href="/app/intake" className="crm-btn crm-btn-primary">Open intake</Link>
-                <Link href="/buyer" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Buyer form</Link>
-                <Link href="/seller" className="crm-btn crm-btn-secondary" target="_blank" rel="noreferrer">Seller form</Link>
+                <Link href="/app/deals" className="crm-btn crm-btn-secondary">Open pipeline</Link>
               </div>
             }
           />
         </section>
       ) : null}
 
+      {/* Main two-column layout */}
       <section className="crm-today-grid">
+
+        {/* LEFT — Who to Contact Today */}
         <article className="crm-card crm-section-card crm-stack-10">
           <div className="crm-section-head">
-            <div>
-              <h2 className="crm-section-title">Needs Attention Now</h2>
-            </div>
-            <Link href="/app/priorities" className="crm-btn crm-btn-secondary">Open priorities</Link>
+            <h2 className="crm-section-title">Who to Contact Today</h2>
+            <Link href="/app/priorities" className="crm-btn crm-btn-secondary">All priorities</Link>
           </div>
           <div className="crm-stack-8">
             {attentionRows.length === 0 && hotNow.length === 0 ? (
               <div className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
                 <div style={{ fontWeight: 700 }}>You&apos;re caught up</div>
                 <div style={{ color: "var(--ink-muted)" }}>
-                  New intake and follow-up recommendations will show here as the workspace updates.
+                  Follow-up recommendations surface here as leads come in and deals move forward.
                 </div>
               </div>
             ) : null}
@@ -577,11 +609,11 @@ export default async function AppHome() {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                   <div className="crm-stack-4">
                     <div style={{ fontWeight: 700 }}>{item.title}</div>
-                    {item.description ? <div style={{ color: "var(--ink-muted)" }}>{item.description}</div> : null}
+                    {item.description ? <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{item.description}</div> : null}
                   </div>
                   <StatusBadge
-                    label={item.priority === "urgent" ? "Contact now" : "Today"}
-                    tone={item.priority === "urgent" ? "danger" : "warn"}
+                    label={item.priority === "urgent" ? "Contact now" : item.priority === "high" ? "Today" : "Soon"}
+                    tone={item.priority === "urgent" ? "danger" : item.priority === "high" ? "warn" : "default"}
                   />
                 </div>
                 {item.lead ? (
@@ -589,7 +621,7 @@ export default async function AppHome() {
                     <StatusBadge label={sourceChannelLabel(item.lead.source)} tone={sourceChannelTone(item.lead.source)} />
                     <StatusBadge label={item.lead.lead_temp || "Warm"} tone={leadTempTone(item.lead.lead_temp)} />
                     <span style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-                      {leadDisplayName(item.lead)}{item.lead.timeline ? ` • ${item.lead.timeline}` : ""}
+                      {leadDisplayName(item.lead)}{item.lead.timeline ? ` · ${item.lead.timeline}` : ""}
                     </span>
                   </div>
                 ) : null}
@@ -597,115 +629,145 @@ export default async function AppHome() {
               </div>
             ))}
             {hotNow.map((lead) => (
-              <div key={lead.id} className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{firstNonEmpty(lead.full_name, lead.ig_username) || "Hot inquiry"}</div>
-                    <div style={{ color: "var(--ink-muted)" }}>
-                      Hot inbound from {sourceChannelLabel(lead.source)}. Enough detail to reach out right away.
+              <Link key={lead.id} href="/app/intake" style={{ textDecoration: "none", color: "inherit" }}>
+                <div className="crm-card-muted crm-stack-8" style={{ padding: 14, cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{firstNonEmpty(lead.full_name, lead.ig_username) || "Hot inquiry"}</div>
+                      <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Hot inbound — enough detail to reach out now.</div>
                     </div>
+                    <StatusBadge label="Hot" tone="danger" />
                   </div>
-                  <StatusBadge label="Hot" tone="danger" />
+                  <div className="crm-inline-actions" style={{ gap: 8 }}>
+                    {lead.intent ? <StatusBadge label={lead.intent} tone="default" /> : null}
+                    {lead.timeline ? <StatusBadge label={lead.timeline} tone="warn" /> : null}
+                    {lead.location_area ? <StatusBadge label={lead.location_area} tone="info" /> : null}
+                  </div>
                 </div>
-                <div className="crm-inline-actions" style={{ gap: 8 }}>
-                  <StatusBadge label={lead.intent || "Inquiry"} tone="default" />
-                  {lead.timeline ? <StatusBadge label={lead.timeline} tone="warn" /> : null}
-                  {lead.location_area ? <StatusBadge label={lead.location_area} tone="info" /> : null}
+              </Link>
+            ))}
+          </div>
+        </article>
+
+        {/* RIGHT — Pipeline Health */}
+        <article className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Pipeline</h2>
+            <Link href="/app/deals" className="crm-btn crm-btn-secondary">Open board</Link>
+          </div>
+          <div className="crm-pipeline-health-grid">
+            {pipelineColumns.map((col) => (
+              <div key={col.key} className="crm-pipeline-health-col">
+                <div className="crm-pipeline-health-col__header">
+                  <span className="crm-pipeline-health-col__label">{col.label}</span>
+                  <span className="crm-pipeline-health-col__count">{col.deals.length}</span>
+                </div>
+                <div className="crm-stack-6">
+                  {col.deals.length === 0 ? (
+                    <div style={{ color: "var(--ink-faint)", fontSize: 12 }}>None</div>
+                  ) : col.deals.slice(0, 3).map((deal) => (
+                    <div key={deal.id} className="crm-pipeline-health-deal">
+                      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--ink)" }}>
+                        {firstNonEmpty(deal.propertyAddress, leadDisplayName(deal.lead)) || "Deal"}
+                      </div>
+                      {deal.lead?.timeline ? (
+                        <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>{deal.lead.timeline}</div>
+                      ) : null}
+                    </div>
+                  ))}
+                  {col.deals.length > 3 ? (
+                    <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>+{col.deals.length - 3} more</div>
+                  ) : null}
                 </div>
               </div>
             ))}
           </div>
         </article>
 
-        <div className="crm-stack-12">
-          <article className="crm-card crm-section-card crm-stack-10">
-            <div className="crm-section-head">
-              <h2 className="crm-section-title">Active Deals Snapshot</h2>
-            </div>
-            <div className="crm-stack-8">
-              {activeDeals.slice(0, 5).map((deal) => (
-                <div key={deal.id} className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
+      </section>
+
+      {/* Active Transactions — under contract with checklist progress */}
+      {underContractDeals.length > 0 ? (
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Active Transactions</h2>
+            <Link href="/app/deals" className="crm-btn crm-btn-secondary">Open board</Link>
+          </div>
+          <div className="crm-stack-8">
+            {underContractDeals.map((deal) => {
+              const checklist = checklistByDeal.get(deal.id);
+              const total = checklist?.total ?? 0;
+              const completed = checklist?.completed ?? 0;
+              const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+              return (
+                <div key={deal.id} className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                     <div>
-                      <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead)}</div>
-                      <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-                        {leadDisplayName(deal.lead)}{deal.lead?.timeline ? ` • ${deal.lead.timeline}` : ""}
-                      </div>
+                      <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</div>
+                      {deal.lead ? (
+                        <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
+                          {leadDisplayName(deal.lead)}{deal.expectedCloseDate ? ` · Close ${formatDate(deal.expectedCloseDate)}` : ""}
+                        </div>
+                      ) : null}
                     </div>
                     <StatusBadge label={dealStageLabel(deal.stage)} tone={dealStageTone(deal.stage)} />
                   </div>
-                  <div className="crm-inline-actions" style={{ gap: 8 }}>
-                    <StatusBadge label={dealTypeLabel(deal.dealType)} tone="default" />
-                    {deal.lead?.source ? <StatusBadge label={sourceChannelLabel(deal.lead.source)} tone={sourceChannelTone(deal.lead.source)} /> : null}
-                    {deal.lead?.lead_temp ? <StatusBadge label={deal.lead.lead_temp} tone={leadTempTone(deal.lead.lead_temp)} /> : null}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, color: "var(--ink-faint)" }}>
-                    <span>Last touch {formatTimeAgo(deal.updatedAt)}</span>
-                    <span>{deal.expectedCloseDate ? `Target ${formatDate(deal.expectedCloseDate)}` : "No close date"}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="crm-card crm-section-card crm-stack-10">
-            <div className="crm-section-head">
-              <h2 className="crm-section-title">Hot / Stale / Due</h2>
-            </div>
-            <div className="crm-stack-8">
-              <div className="crm-inline-actions" style={{ gap: 8 }}>
-                <span className="crm-chip crm-chip-danger">Hot inbound: {hotLeads.length}</span>
-                <span className="crm-chip crm-chip-warn">Due today: {contactToday.length}</span>
-                <span className="crm-chip">Stale deals: {staleDeals.length}</span>
-              </div>
-              {staleDeals.slice(0, 3).map((deal) => (
-                <div key={deal.id} className="crm-card-muted" style={{ padding: 12 }}>
-                  <div style={{ fontWeight: 700 }}>{deal.propertyAddress || leadDisplayName(deal.lead)}</div>
-                  <div style={{ marginTop: 4, color: "var(--ink-muted)", fontSize: 13 }}>
-                    No movement since {formatTimeAgo(deal.updatedAt)}. It likely needs a quick update or follow-up.
-                  </div>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="crm-card crm-section-card crm-stack-10">
-            <div className="crm-section-head">
-              <h2 className="crm-section-title">Documents and social</h2>
-            </div>
-            <div className="crm-stack-8">
-              <div className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
-                <div style={{ fontWeight: 700 }}>Recent document activity</div>
-                {recentDocuments.length === 0 ? (
-                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>No documents uploaded yet.</div>
-                ) : (
-                  recentDocuments.map((document) => (
-                    <div key={document.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
-                      <span>{document.file_name}</span>
-                      <span style={{ color: "var(--ink-faint)" }}>{formatDate(document.uploaded_at)}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="crm-card-muted crm-stack-6" style={{ padding: 14 }}>
-                <div style={{ fontWeight: 700 }}>Social reminders</div>
-                {socialReminders.length === 0 ? (
-                  <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>No social follow-up items right now.</div>
-                ) : (
-                  socialReminders.slice(0, 3).map((item) => (
-                    <div key={item.id} className="crm-stack-4">
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{item.title}</div>
-                      <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
-                        {item.description || "Follow up through the source platform or move the deal forward."}
+                  {total > 0 ? (
+                    <div className="crm-stack-4">
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--ink-muted)" }}>
+                        <span>Checklist</span>
+                        <span style={{ fontWeight: 600, color: pct === 100 ? "var(--ok)" : "var(--ink)" }}>{completed}/{total} done</span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden" }}>
+                        <div style={{
+                          height: "100%",
+                          borderRadius: 3,
+                          width: `${pct}%`,
+                          background: pct === 100 ? "var(--ok)" : "var(--accent)",
+                          transition: "width 400ms ease",
+                        }} />
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                      No checklist yet — open the deal to load the transaction template.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Stale deals */}
+      {staleDeals.length > 0 ? (
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Needs a Nudge</h2>
+            <div className="crm-inline-actions" style={{ gap: 8 }}>
+              <span className="crm-chip crm-chip-warn">{staleDeals.length} stale</span>
             </div>
-          </article>
-        </div>
-      </section>
+          </div>
+          <div className="crm-stack-8">
+            {staleDeals.slice(0, 4).map((deal) => (
+              <Link key={deal.id} href="/app/deals" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                <div className="crm-card-muted" style={{ padding: 12, cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
+                    <StatusBadge label={dealStageLabel(deal.stage)} tone="default" />
+                  </div>
+                  <div style={{ marginTop: 4, color: "var(--ink-muted)", fontSize: 13 }}>
+                    No movement in {formatTimeAgo(deal.updatedAt)}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <WelcomeChecklist />
     </main>
   );
 }
