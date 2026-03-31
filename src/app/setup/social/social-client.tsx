@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import LockboxMark from "@/components/branding/lockbox-mark";
+import { getOnboardingStepKicker } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-telemetry";
 
 type Props = {
   initialInstagram: string;
@@ -28,6 +30,14 @@ export default function SocialClient({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    void recordOnboardingEvent({
+      event_name: "step_view",
+      step: "social",
+      surface: "setup/social",
+    });
+  }, []);
+
   async function finish(skip = false) {
     setSaving(true);
     setError("");
@@ -48,9 +58,22 @@ export default function SocialClient({
       }
 
       // Complete onboarding
-      await fetch("/api/onboarding/complete", {
+      const completeResponse = await fetch("/api/onboarding/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+      });
+      const completeData = (await completeResponse.json()) as { ok?: boolean; error?: string };
+      if (!completeResponse.ok || !completeData.ok) {
+        setError(completeData.error ?? "Could not complete onboarding.");
+        setSaving(false);
+        return;
+      }
+
+      void recordOnboardingEvent({
+        event_name: "step_complete",
+        step: "social",
+        status: "completed",
+        surface: "setup/social",
       });
 
       router.replace("/setup/complete");
@@ -66,7 +89,7 @@ export default function SocialClient({
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 4 of 5 — Social profiles</div>
+            <div className="crm-auth-kicker">{getOnboardingStepKicker("social")}</div>
           </div>
 
           <div className="crm-auth-copy">

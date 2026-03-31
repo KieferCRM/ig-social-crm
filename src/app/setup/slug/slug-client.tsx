@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LockboxMark from "@/components/branding/lockbox-mark";
+import { getOnboardingStepKicker } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-telemetry";
 
 type CheckState = "idle" | "checking" | "available" | "taken" | "invalid";
 
@@ -21,6 +23,14 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
   const [saveError, setSaveError] = useState("");
   const [skipping, setSkipping] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    void recordOnboardingEvent({
+      event_name: "step_view",
+      step: "slug",
+      surface: "setup/slug",
+    });
+  }, []);
 
   // Live availability check
   useEffect(() => {
@@ -80,6 +90,13 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
         return;
       }
 
+      void recordOnboardingEvent({
+        event_name: "step_complete",
+        step: "slug",
+        status: "saved",
+        surface: "setup/slug",
+      });
+
       router.replace("/setup/social");
     } catch {
       setSaveError("Something went wrong. Please try again.");
@@ -89,6 +106,12 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
 
   async function handleSkip() {
     setSkipping(true);
+    void recordOnboardingEvent({
+      event_name: "step_complete",
+      step: "slug",
+      status: "skipped",
+      surface: "setup/slug",
+    });
     router.replace("/setup/social");
   }
 
@@ -116,7 +139,7 @@ export default function SlugClient({ suggestedSlug }: { suggestedSlug: string })
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 3 of 5 — Your slug</div>
+            <div className="crm-auth-kicker">{getOnboardingStepKicker("slug")}</div>
           </div>
 
           <div className="crm-auth-copy">

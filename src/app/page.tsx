@@ -26,6 +26,7 @@ const howItWorks = [
 export default function HomePage() {
   const signInHref = "/auth?track=solo_agent";
   const signUpHref = "/auth?mode=sign_up&track=solo_agent";
+  const offMarketSignUpHref = "/auth?mode=sign_up&track=off_market_agent";
 
   return (
     <main className="lockbox-marketing lockbox-marketing--home">
@@ -106,6 +107,9 @@ export default function HomePage() {
           <div className="lockbox-final-cta__actions">
             <Link href={signUpHref} className="lockbox-button lockbox-button-primary">
               Start free workspace
+            </Link>
+            <Link href={offMarketSignUpHref} className="lockbox-button lockbox-button-secondary">
+              Off-market path
             </Link>
             <Link href={signInHref} className="lockbox-button lockbox-button-secondary">
               Sign In

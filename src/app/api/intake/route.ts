@@ -68,7 +68,6 @@ type IntakeBody = {
   form_variant?: string | null;
   questionnaire_answers?: Record<string, unknown> | null;
   custom_fields?: Record<string, unknown> | null;
-  link_slug?: string | null;
 };
 
 type ExistingLead = {
@@ -836,12 +835,6 @@ export async function POST(request: Request) {
       },
     });
     recommendationCreated = !recommendationError;
-  }
-
-  // Increment submission_count on the intake_link if this came from one
-  const linkSlug = optionalString(body.link_slug);
-  if (linkSlug) {
-    void Promise.resolve(admin.rpc("increment_intake_link_count", { p_slug: linkSlug })).catch(() => {});
   }
 
   return NextResponse.json({

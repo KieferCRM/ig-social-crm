@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash, randomUUID } from "crypto";
 import { loadAccessContext } from "@/lib/access-context";
 import {
   type AccountType,
@@ -60,6 +61,30 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const telemetryPayload = {
+    event_name: "step_complete",
+    step: "account_type",
+    account_type: accountType,
+    status: "saved",
+    surface: "api/onboarding/account-type",
+    occurred_at: new Date().toISOString(),
+  };
+
+  const { error: telemetryError } = await supabase.from("ingestion_events").insert({
+    agent_id: auth.context.user.id,
+    source: "onboarding",
+    external_event_id: `account_type:${auth.context.user.id}:${randomUUID()}`,
+    payload_hash: createHash("sha256").update(JSON.stringify(telemetryPayload)).digest("hex"),
+    status: "processed",
+    attempt_count: 0,
+    raw_payload: telemetryPayload,
+    processed_at: new Date().toISOString(),
+  });
+
+  if (telemetryError) {
+    console.warn("[onboarding.account-type] telemetry insert failed", { error: telemetryError.message });
   }
 
   return NextResponse.json({

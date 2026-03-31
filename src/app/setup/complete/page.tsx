@@ -2,6 +2,12 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import Link from "next/link";
 import LockboxMark from "@/components/branding/lockbox-mark";
+import {
+  getOnboardingCompletionGuardRedirectPath,
+  getOnboardingStepKicker,
+  readOnboardingStateFromAgentSettings,
+} from "@/lib/onboarding";
+import CompleteAnalytics from "./complete-analytics";
 
 export default async function CompletePage() {
   const supabase = await supabaseServer();
@@ -14,8 +20,14 @@ export default async function CompletePage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const firstName = ((agent?.full_name as string | null) ?? "").split(" ")[0] || "there";
   const settings = (agent?.settings ?? {}) as Record<string, unknown>;
+  const onboarding = readOnboardingStateFromAgentSettings(settings);
+  const guardRedirect = getOnboardingCompletionGuardRedirectPath(onboarding);
+  if (guardRedirect) redirect(guardRedirect);
+
+  const firstName = ((agent?.full_name as string | null) ?? "").split(" ")[0] || "there";
+  const accountType = onboarding.account_type;
+  const isOffMarketAccount = accountType === "off_market_agent";
   const brokerage = (settings.brokerage as string | null) ?? "";
   const receptionistSettings = (settings.receptionist_settings as Record<string, unknown> | null) ?? {};
   const voiceName = (receptionistSettings.voice_name as string | null) ?? "";
@@ -24,22 +36,49 @@ export default async function CompletePage() {
   const vanitySlug = (agent?.vanity_slug as string | null) ?? "";
   const inboxEmail = vanitySlug ? `${vanitySlug}@drop.lockboxhq.com` : null;
 
+  const completionCopy = isOffMarketAccount
+    ? {
+        kicker: "Off-market workspace ready",
+        title: "Your off-market workspace is ready.",
+        subtitle:
+          "We set up your workspace for acquisition, disposition, and deal-focused follow-up.",
+        nextSteps: [
+          "Open your pipeline to review current opportunities.",
+          "Use the Forms page to share seller and buyer capture links.",
+          "Check Today each morning for deal work that needs attention.",
+        ],
+      }
+    : {
+        kicker: "Traditional workspace ready",
+        title: "Your traditional workspace is ready.",
+        subtitle:
+          "We set up your workspace for buyers, listings, intake, and daily follow-up.",
+        nextSteps: [
+          "Share your intake form to start collecting buyers and sellers.",
+          "Open Today every morning to see hot follow-up first.",
+          "Use your inbox to capture transcripts and signed documents automatically.",
+        ],
+      };
+
   return (
     <main className="crm-auth-shell">
+      <CompleteAnalytics accountType={accountType} />
       <div className="crm-auth-layout">
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 5 of 5 — You&apos;re all set</div>
+            <div className="crm-auth-kicker">{getOnboardingStepKicker("complete")}</div>
           </div>
 
           <div className="crm-auth-copy">
             <h1 className="crm-auth-title">
               Welcome{firstName && firstName !== "there" ? `, ${firstName}` : ""}!
             </h1>
-            <p className="crm-auth-subtitle">
-              Your workspace is ready. Here&apos;s what we set up for you.
-            </p>
+            <p className="crm-auth-subtitle">{completionCopy.subtitle}</p>
+            <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
+              <span className="crm-chip crm-chip-ok">{completionCopy.kicker}</span>
+              <span className="crm-chip">{accountType === "off_market_agent" ? "Off-market path" : "Traditional path"}</span>
+            </div>
           </div>
 
           <div className="crm-stack-10">
@@ -55,6 +94,11 @@ export default async function CompletePage() {
                 gap: 10,
               }}
             >
+              <SummaryRow
+                done={!!accountType}
+                label={accountType === "off_market_agent" ? "Path — Off-market agent" : "Path — Traditional agent"}
+                hint={accountType === "off_market_agent" ? "Seeded for acquisition and disposition workflows." : "Seeded for buyer and listing workflows."}
+              />
               <SummaryRow
                 done={!!agent?.full_name}
                 label={agent?.full_name ? `Name saved — ${agent.full_name as string}` : "Name not set yet"}
@@ -90,27 +134,19 @@ export default async function CompletePage() {
 
         <aside className="crm-card crm-auth-trust-panel">
           <div className="crm-auth-panel-kicker">What&apos;s next</div>
-          <h2 className="crm-auth-panel-title">Start capturing leads immediately.</h2>
+          <h2 className="crm-auth-panel-title">{completionCopy.title}</h2>
           <p className="crm-auth-panel-body">
-            Your CRM is ready. Share your intake form, forward transcripts and documents to your inbox, and let Lockbox handle the rest.
+            {isOffMarketAccount
+              ? "Your workspace is ready for acquisition, disposition, and active deal follow-up."
+              : "Your CRM is ready. Share your intake form, forward transcripts and documents to your inbox, and let Lockbox handle the rest."}
           </p>
           <div className="crm-auth-value-list">
-            <div className="crm-auth-value-item">
-              <span className="crm-auth-value-dot" aria-hidden />
-              <span>Share your form link from the Forms page</span>
-            </div>
-            <div className="crm-auth-value-item">
-              <span className="crm-auth-value-dot" aria-hidden />
-              <span>Set your Plaud device to email transcripts to your inbox address</span>
-            </div>
-            <div className="crm-auth-value-item">
-              <span className="crm-auth-value-dot" aria-hidden />
-              <span>Forward signed contracts to your inbox — stored to Documents automatically</span>
-            </div>
-            <div className="crm-auth-value-item">
-              <span className="crm-auth-value-dot" aria-hidden />
-              <span>Review your Home view every morning to stay on top of follow-ups</span>
-            </div>
+            {completionCopy.nextSteps.map((step) => (
+              <div key={step} className="crm-auth-value-item">
+                <span className="crm-auth-value-dot" aria-hidden />
+                <span>{step}</span>
+              </div>
+            ))}
           </div>
         </aside>
       </div>

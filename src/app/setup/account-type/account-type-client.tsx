@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import LockboxMark from "@/components/branding/lockbox-mark";
-import type { AccountType } from "@/lib/onboarding";
+import { getOnboardingStepKicker, type AccountType } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-telemetry";
 
 type EnabledAccountType = Extract<AccountType, "solo_agent" | "off_market_agent">;
 
@@ -63,6 +64,15 @@ export default function AccountTypeClient({ recommendedType }: Props) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    void recordOnboardingEvent({
+      event_name: "step_view",
+      step: "account_type",
+      account_type: recommendedType,
+      surface: "setup/account-type",
+    });
+  }, [recommendedType]);
+
   const selectedOption = useMemo(
     () => OPTIONS.find((option) => option.value === selected) || OPTIONS[0],
     [selected]
@@ -85,6 +95,14 @@ export default function AccountTypeClient({ recommendedType }: Props) {
         return;
       }
 
+      void recordOnboardingEvent({
+        event_name: "step_complete",
+        step: "account_type",
+        account_type: selected,
+        status: "saved",
+        surface: "setup/account-type",
+      });
+
       // Proceed to profile setup
       router.replace("/setup/profile");
     } catch {
@@ -99,7 +117,7 @@ export default function AccountTypeClient({ recommendedType }: Props) {
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 1 of 6 — Workspace type</div>
+            <div className="crm-auth-kicker">{getOnboardingStepKicker("account_type")}</div>
           </div>
 
           <div className="crm-auth-copy">

@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
+import {
+  getOnboardingGuardRedirectPath,
+  readOnboardingStateFromAgentSettings,
+} from "@/lib/onboarding";
 import SlugClient from "./slug-client";
 
 export default async function SlugSetupPage() {
@@ -18,9 +21,8 @@ export default async function SlugSetupPage() {
     .maybeSingle();
 
   const onboarding = readOnboardingStateFromAgentSettings(agentRow?.settings ?? null);
-
-  // Already fully onboarded — skip
-  if (onboarding.has_completed_onboarding) redirect("/app");
+  const guardRedirect = getOnboardingGuardRedirectPath(onboarding, "slug");
+  if (guardRedirect) redirect(guardRedirect);
 
   // Already has a slug — skip
   if (agentRow?.vanity_slug) redirect("/app");

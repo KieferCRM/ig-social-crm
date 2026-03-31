@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getOnboardingGuardRedirectPath, readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
 import ProfileClient from "./profile-client";
 
@@ -14,6 +15,9 @@ export default async function ProfilePage() {
     .maybeSingle();
 
   const settings = (agent?.settings ?? {}) as Record<string, unknown>;
+  const onboardingState = readOnboardingStateFromAgentSettings(settings);
+  const guardRedirect = getOnboardingGuardRedirectPath(onboardingState, "profile");
+  if (guardRedirect) redirect(guardRedirect);
 
   return (
     <ProfileClient

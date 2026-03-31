@@ -1,5 +1,8 @@
 import { redirect } from "next/navigation";
-import { needsAccountTypeSetup, readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
+import {
+  getOnboardingGuardRedirectPath,
+  readOnboardingStateFromAgentSettings,
+} from "@/lib/onboarding";
 import { supabaseServer } from "@/lib/supabase/server";
 import AccountTypeClient from "./account-type-client";
 
@@ -25,8 +28,9 @@ export default async function AccountTypeSetupPage({ searchParams }: PageProps) 
 
   const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings || null);
 
-  if (!needsAccountTypeSetup(onboardingState)) {
-    redirect("/app");
+  const guardRedirect = getOnboardingGuardRedirectPath(onboardingState, "account_type");
+  if (guardRedirect) {
+    redirect(guardRedirect);
   }
 
   const [{ data: leadRow }, { data: dealRow }] = await Promise.all([

@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import LockboxMark from "@/components/branding/lockbox-mark";
+import { getOnboardingStepKicker } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-telemetry";
 
 type Props = {
   initialFullName: string;
@@ -17,6 +19,14 @@ export default function ProfileClient({ initialFullName, initialBrokerage, initi
   const [phone, setPhone] = useState(initialPhone);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    void recordOnboardingEvent({
+      event_name: "step_view",
+      step: "profile",
+      surface: "setup/profile",
+    });
+  }, []);
 
   async function handleContinue() {
     if (!fullName.trim()) {
@@ -44,6 +54,13 @@ export default function ProfileClient({ initialFullName, initialBrokerage, initi
         setSaving(false);
         return;
       }
+
+      void recordOnboardingEvent({
+        event_name: "step_complete",
+        step: "profile",
+        status: "saved",
+        surface: "setup/profile",
+      });
       router.replace("/setup/slug");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -60,6 +77,12 @@ export default function ProfileClient({ initialFullName, initialBrokerage, initi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ timezone: detectedTimezone }),
       });
+      void recordOnboardingEvent({
+        event_name: "step_complete",
+        step: "profile",
+        status: "skipped",
+        surface: "setup/profile",
+      });
     } catch { /* non-critical */ }
     router.replace("/setup/slug");
   }
@@ -70,7 +93,7 @@ export default function ProfileClient({ initialFullName, initialBrokerage, initi
         <section className="crm-card crm-auth-card">
           <div className="crm-auth-brand">
             <LockboxMark className="crm-auth-logo" variant="full" decorative />
-            <div className="crm-auth-kicker">Step 2 of 6 — Your profile</div>
+            <div className="crm-auth-kicker">{getOnboardingStepKicker("profile")}</div>
           </div>
 
           <div className="crm-auth-copy">

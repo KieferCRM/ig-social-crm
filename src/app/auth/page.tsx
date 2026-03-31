@@ -63,6 +63,9 @@ export default function AuthPage() {
 
   const createAccountLabel = FEATURE_SIGNUP_ENABLED ? "Create Account" : "Request Early Access";
   const isBusy = busyAction !== null;
+  const alternateTrack = track === "off_market_agent" ? "solo_agent" : "off_market_agent";
+  const alternateTrackLabel =
+    track === "off_market_agent" ? "Switch to Solo Agent path" : "Switch to Off-Market path";
 
   const enterWorkspace = useEffectEvent(async () => {
     if (isEnteringWorkspaceRef.current) return;
@@ -341,6 +344,12 @@ export default function AuthPage() {
             {mode === "sign_up" ? (
               <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
                 <span className="crm-chip crm-chip-ok">{trackLabel}</span>
+                <Link
+                  href={`/auth?mode=sign_up&track=${alternateTrack}`}
+                  className="crm-auth-link"
+                >
+                  {alternateTrackLabel}
+                </Link>
                 <Link href="/" className="crm-auth-link">
                   Back to home
                 </Link>

@@ -22,6 +22,22 @@ export type OnboardingState = {
   account_type_selected_at: string;
 };
 
+export type OnboardingStep = "account_type" | "profile" | "slug" | "social" | "complete";
+
+type OnboardingStepMeta = {
+  step: number;
+  total: number;
+  label: string;
+};
+
+const ONBOARDING_STEPS: Record<OnboardingStep, OnboardingStepMeta> = {
+  account_type: { step: 1, total: 5, label: "Workspace type" },
+  profile: { step: 2, total: 5, label: "Your profile" },
+  slug: { step: 3, total: 5, label: "Your slug" },
+  social: { step: 4, total: 5, label: "Social profiles" },
+  complete: { step: 5, total: 5, label: "You're all set" },
+};
+
 function slugify(value: string): string {
   return value
     .trim()
@@ -78,6 +94,27 @@ export function readOnboardingStateFromAgentSettings(settings: unknown): Onboard
 
 export function needsAccountTypeSetup(state: OnboardingState): boolean {
   return !state.account_type && !state.has_completed_onboarding;
+}
+
+export function getOnboardingGuardRedirectPath(
+  state: OnboardingState,
+  step: Exclude<OnboardingStep, "complete">
+): string | null {
+  if (state.has_completed_onboarding) return "/app";
+  if (step === "account_type") return null;
+  if (!state.account_type) return "/setup/account-type";
+  return null;
+}
+
+export function getOnboardingCompletionGuardRedirectPath(state: OnboardingState): string | null {
+  if (state.has_completed_onboarding) return null;
+  if (!state.account_type) return "/setup/account-type";
+  return "/setup/social";
+}
+
+export function getOnboardingStepKicker(step: OnboardingStep): string {
+  const meta = ONBOARDING_STEPS[step];
+  return `Step ${meta.step} of ${meta.total} — ${meta.label}`;
 }
 
 export function mergeOnboardingIntoAgentSettings(
