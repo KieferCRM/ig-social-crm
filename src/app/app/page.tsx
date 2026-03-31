@@ -555,7 +555,7 @@ export default async function AppHome() {
             const ts = l.time_last_updated ? new Date(l.time_last_updated).getTime() : 0;
             return ts > Date.now() - 7 * 24 * 3600_000;
           }).length}
-          tone="info"
+          tone="default"
           href="/app/intake"
           compact
         />
