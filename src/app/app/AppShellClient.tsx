@@ -148,8 +148,7 @@ export default function AppShellClient({
           count: 0,
         },
         { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
-        { href: "/app/social", label: "Social Leads", active: pathname.startsWith("/app/social"), count: 0 },
-        { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
+{ href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
         { href: "/app/secretary", label: "Assistant", active: pathname.startsWith("/app/secretary"), count: alertCount },
         {
@@ -211,14 +210,7 @@ export default function AppShellClient({
           : "Keep agreements, contracts, checklists, and deal files tied to the right record instead of scattered notes.",
       };
     }
-    if (pathname.startsWith("/app/social")) {
-      return {
-        title: "Social Leads",
-        subtitle:
-          "See leads that came from Instagram, Facebook, and TikTok. Follow up before they go cold.",
-      };
-    }
-    if (pathname.startsWith("/app/forms")) {
+if (pathname.startsWith("/app/forms")) {
       return {
         title: "Forms",
         subtitle:
