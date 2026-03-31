@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { WORKSPACE_DOCUMENT_BUCKET } from "@/lib/workspace-settings";
+import { writeDealEvent, writeLeadRecommendation } from "@/lib/crm-events";
 
 export const dynamic = "force-dynamic";
 
@@ -125,11 +126,28 @@ async function applyAnalysis(
   analysis: EmailAnalysis,
   agentId: string,
   admin: ReturnType<typeof supabaseAdmin>,
+  fromEmail: string | null,
 ): Promise<{ linked_deal_id: string | null; linked_lead_id: string | null }> {
   let linkedDealId: string | null = null;
   let linkedLeadId: string | null = null;
 
-  // Try to find a matching deal
+  // Priority 1: match sender email against leads.canonical_email — most reliable signal
+  if (fromEmail) {
+    const cleanFrom = fromEmail.trim().toLowerCase().replace(/^.*<(.+)>$/, "$1");
+    const { data: emailMatchedLead } = await admin
+      .from("leads")
+      .select("id")
+      .eq("agent_id", agentId)
+      .eq("canonical_email", cleanFrom)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    if (emailMatchedLead?.id) {
+      linkedLeadId = emailMatchedLead.id as string;
+    }
+  }
+
+  // Priority 2: match deal by address hint from Claude
   if (analysis.deal_address_hint) {
     const { data: deal } = await admin
       .from("deals")
@@ -141,8 +159,8 @@ async function applyAnalysis(
     linkedDealId = deal?.id ?? null;
   }
 
-  // Try to find a matching lead
-  if (analysis.lead_name_hint) {
+  // Priority 3: match lead by name hint if email match didn't find one
+  if (!linkedLeadId && analysis.lead_name_hint) {
     const { data: lead } = await admin
       .from("leads")
       .select("id")
@@ -151,6 +169,21 @@ async function applyAnalysis(
       .limit(1)
       .maybeSingle();
     linkedLeadId = lead?.id ?? null;
+  }
+
+  // If we have a lead but no deal yet, look up their active deal
+  if (linkedLeadId && !linkedDealId) {
+    const { data: leadDeal } = await admin
+      .from("deals")
+      .select("id")
+      .eq("agent_id", agentId)
+      .eq("lead_id", linkedLeadId)
+      .neq("stage", "closed")
+      .neq("stage", "lost")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    linkedDealId = leadDeal?.id ?? null;
   }
 
   // Create a lead if Claude says so and we found a name
@@ -313,8 +346,8 @@ export async function POST(req: Request) {
     analysis = await analyzeEmail(subject, bodyText, attachmentNames, apiKey);
   }
 
-  // Apply CRM actions
-  const { linked_deal_id, linked_lead_id } = await applyAnalysis(analysis, agentId, admin);
+  // Apply CRM actions (pass fromEmail for email-first lead matching)
+  const { linked_deal_id, linked_lead_id } = await applyAnalysis(analysis, agentId, admin, fromEmail);
 
   // Store attachments
   if (hasAttachments) {
@@ -339,6 +372,50 @@ export async function POST(req: Request) {
     attachment_names: attachmentNames.length > 0 ? attachmentNames : null,
     read: false,
   });
+
+  // ── Unified recommendation + deal event ────────────────────────────────
+  if (linked_lead_id) {
+    const recTitle = hasAttachments
+      ? `Document received from ${fromName || fromEmail || "contact"} — review and file`
+      : `Email received from ${fromName || fromEmail || "contact"} — follow up`;
+    const recDesc = analysis.summary ?? subject;
+
+    void writeLeadRecommendation({
+      admin,
+      agentId,
+      leadId: linked_lead_id,
+      dealId: linked_deal_id,
+      title: recTitle,
+      description: recDesc,
+      priority: hasAttachments ? "high" : "medium",
+      reasonCode: hasAttachments ? "document_received" : "email_received",
+      metadata: {
+        source_channel: "email",
+        subject,
+        has_attachments: hasAttachments,
+        ai_action: analysis.action,
+      },
+    }).catch(() => {});
+  }
+
+  if (linked_deal_id) {
+    void writeDealEvent({
+      admin,
+      agentId,
+      dealId: linked_deal_id,
+      eventType: hasAttachments ? "document_received" : "email_received",
+      sourceChannel: "email",
+      summary: analysis.summary ?? subject,
+      metadata: {
+        from_email: fromEmail,
+        from_name: fromName,
+        subject,
+        has_attachments: hasAttachments,
+        attachment_names: attachmentNames.length > 0 ? attachmentNames : null,
+        ai_action: analysis.action,
+      },
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
+import { writeDealEvent, writeLeadRecommendation } from "@/lib/crm-events";
 import { interpretLeadReply } from "@/lib/receptionist/pa-interpreter";
 import {
   buildMissedCallStarterText,
@@ -189,6 +190,72 @@ async function upsertOffMarketDealForReceptionistLead(
     });
   } catch (err) {
     console.warn("[receptionist] off-market deal upsert failed", err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * For traditional agents: creates a deal at stage "new" for a receptionist lead.
+ * Mirrors upsertOffMarketDealForReceptionistLead but uses the traditional pipeline.
+ * Returns the deal id (new or existing) so callers can write a deal event.
+ */
+async function upsertTraditionalDealForReceptionistLead(
+  admin: AdminClient,
+  agentId: string,
+  lead: ReceptionistLeadRow,
+  sourceLabel: string
+): Promise<string | null> {
+  try {
+    const { data: existingDeal } = await admin
+      .from("deals")
+      .select("id")
+      .eq("agent_id", agentId)
+      .eq("lead_id", lead.id)
+      .neq("stage", "closed")
+      .neq("stage", "lost")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingDeal?.id) {
+      await admin
+        .from("deals")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", existingDeal.id);
+      return existingDeal.id as string;
+    }
+
+    const intentLower = (lead.intent || "").trim().toLowerCase();
+    const dealType = intentLower.includes("sell") ? "listing" : "buyer";
+
+    const noteParts: string[] = [`Secretary lead via ${sourceLabel}.`];
+    if (lead.timeline) noteParts.push(`Timeline: ${lead.timeline}.`);
+    if (lead.lead_temp) noteParts.push(`Temp: ${lead.lead_temp}.`);
+
+    const { data: inserted } = await admin
+      .from("deals")
+      .insert({
+        agent_id: agentId,
+        lead_id: lead.id,
+        stage: "new",
+        stage_entered_at: new Date().toISOString(),
+        deal_type: dealType,
+        property_address: optionalString(lead.location_area),
+        price: null,
+        expected_close_date: null,
+        tags: [],
+        notes: noteParts.join(" "),
+        updated_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    return (inserted?.id as string) ?? null;
+  } catch (err) {
+    console.warn(
+      "[receptionist] traditional deal upsert failed",
+      err instanceof Error ? err.message : err
+    );
+    return null;
   }
 }
 
@@ -501,9 +568,12 @@ export async function processInboundSms(input: {
 
   const lead = upsertResult.lead;
 
-  // Off-market pipeline: auto-create/update deal for this lead
+  // Pipeline: auto-create/update deal for this lead (both account types)
+  let smsDealId: string | null = null;
   if (context.isOffMarketAccount) {
     await upsertOffMarketDealForReceptionistLead(input.admin, input.agentId, lead, "inbound SMS");
+  } else {
+    smsDealId = await upsertTraditionalDealForReceptionistLead(input.admin, input.agentId, lead, "inbound SMS");
   }
 
   await insertLeadInteraction({
@@ -629,6 +699,33 @@ export async function processInboundSms(input: {
   }).catch((err) =>
     console.warn("[pa-interpreter] reply processing failed", err instanceof Error ? err.message : err)
   );
+
+  // ── Unified recommendation + deal event ─────────────────────────────────
+  void writeLeadRecommendation({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: lead.id,
+    dealId: smsDealId,
+    title: upsertResult.created
+      ? `Call back new SMS lead${lead.full_name ? ` — ${lead.full_name}` : ""}`
+      : `Follow up with${lead.full_name ? ` ${lead.full_name}` : " lead"} (SMS)`,
+    description: compactText(body, 200),
+    priority: urgency.isHigh ? "urgent" : "high",
+    reasonCode: "sms_inbound",
+    metadata: { source_channel: "sms", lead_created: upsertResult.created },
+  }).catch(() => {});
+
+  if (smsDealId) {
+    void writeDealEvent({
+      admin: input.admin,
+      agentId: input.agentId,
+      dealId: smsDealId,
+      eventType: "sms_inbound",
+      sourceChannel: "sms",
+      summary: compactText(body, 180) ?? "Inbound SMS received.",
+      metadata: { from_phone: input.fromPhone, urgency_score: urgency.score },
+    }).catch(() => {});
+  }
 
   return {
     leadId: lead.id,
@@ -843,9 +940,12 @@ export async function processMissedCall(input: {
 
   const lead = upsertResult.lead;
 
-  // Off-market pipeline: auto-create/update deal for this lead
+  // Pipeline: auto-create/update deal for this lead (both account types)
+  let missedCallDealId: string | null = null;
   if (context.isOffMarketAccount) {
     await upsertOffMarketDealForReceptionistLead(input.admin, input.agentId, lead, "missed call");
+  } else {
+    missedCallDealId = await upsertTraditionalDealForReceptionistLead(input.admin, input.agentId, lead, "missed call");
   }
 
   await insertLeadInteraction({
@@ -910,6 +1010,31 @@ export async function processMissedCall(input: {
       message: sms.error || "Could not send missed-call text-back.",
       metadata: {},
     });
+  }
+
+  // ── Unified recommendation + deal event ─────────────────────────────────
+  void writeLeadRecommendation({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: lead.id,
+    dealId: missedCallDealId,
+    title: `Call back${lead.full_name ? ` ${lead.full_name}` : " missed caller"}`,
+    description: `Missed call from ${lead.canonical_phone || input.fromPhone}. Text-back ${sms.ok ? "sent" : "failed"}.`,
+    priority: "high",
+    reasonCode: "missed_call",
+    metadata: { source_channel: "phone", from_phone: input.fromPhone },
+  }).catch(() => {});
+
+  if (missedCallDealId) {
+    void writeDealEvent({
+      admin: input.admin,
+      agentId: input.agentId,
+      dealId: missedCallDealId,
+      eventType: "call_missed",
+      sourceChannel: "phone",
+      summary: `Missed call from ${lead.canonical_phone || input.fromPhone}.`,
+      metadata: { from_phone: input.fromPhone, textback_sent: sms.ok },
+    }).catch(() => {});
   }
 
   return { leadId: lead.id, textbackSent: sms.ok };
@@ -1107,9 +1232,12 @@ export async function processInboundCallLog(input: {
 
   const lead = upsertResult.lead;
 
-  // Off-market pipeline: auto-create/update deal for this lead
+  // Pipeline: auto-create/update deal for this lead (both account types)
+  let callDealId: string | null = null;
   if (context.isOffMarketAccount) {
     await upsertOffMarketDealForReceptionistLead(input.admin, input.agentId, lead, "inbound call");
+  } else {
+    callDealId = await upsertTraditionalDealForReceptionistLead(input.admin, input.agentId, lead, "inbound call");
   }
 
   const status = normalizeInboundCallStatus(input.callStatus);
@@ -1150,6 +1278,32 @@ export async function processInboundCallLog(input: {
         urgency_score: urgency.score,
       },
     });
+  }
+
+  // ── Unified recommendation + deal event ─────────────────────────────────
+  void writeLeadRecommendation({
+    admin: input.admin,
+    agentId: input.agentId,
+    leadId: lead.id,
+    dealId: callDealId,
+    title: `Follow up with${lead.full_name ? ` ${lead.full_name}` : " caller"}`,
+    description: transcript ? compactText(transcript, 200) : `Inbound call — ${status}.`,
+    priority: urgency.isHigh ? "urgent" : "high",
+    reasonCode: "call_inbound",
+    metadata: { source_channel: "phone", from_phone: input.fromPhone, urgency_score: urgency.score },
+  }).catch(() => {});
+
+  if (callDealId) {
+    void writeDealEvent({
+      admin: input.admin,
+      agentId: input.agentId,
+      dealId: callDealId,
+      eventType: "call_inbound",
+      sourceChannel: "phone",
+      summary: transcript ? compactText(transcript, 180) ?? `Inbound call — ${status}.` : `Inbound call — ${status}.`,
+      metadata: { from_phone: input.fromPhone, call_status: status, urgency_score: urgency.score },
+      createdAt: occurredAt,
+    }).catch(() => {});
   }
 
   return { leadId: lead.id, urgent: urgency.isHigh };
