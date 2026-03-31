@@ -186,13 +186,15 @@ function LinkCard({
 
 function DefaultLinkCard({
   label,
+  description,
   path,
   tone,
   baseUrl,
 }: {
   label: string;
+  description?: string;
   path: string;
-  tone: "ok" | "warn";
+  tone: "ok" | "warn" | "default";
   baseUrl: string;
 }) {
   const [msg, setMsg] = useState("");
@@ -214,7 +216,9 @@ function DefaultLinkCard({
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div className="crm-stack-4">
           <div style={{ fontWeight: 700, fontSize: 15 }}>{label}</div>
-          <StatusBadge label="Default" tone={tone} />
+          {description ? (
+            <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{description}</div>
+          ) : null}
         </div>
         <div className="crm-inline-actions" style={{ gap: 8, flexShrink: 0 }}>
           <button type="button" className="crm-btn crm-btn-primary" onClick={handleCopy} style={{ fontSize: 13 }}>
@@ -466,15 +470,7 @@ export default function IntakeWorkspacePage() {
                   </button>
                 ) : null}
               </>
-            ) : (
-              <button
-                type="button"
-                className="crm-btn crm-btn-primary"
-                onClick={() => setShowCreateForm((v) => !v)}
-              >
-                {showCreateForm ? "Cancel" : "New link"}
-              </button>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -649,50 +645,71 @@ export default function IntakeWorkspacePage() {
 
       {/* ── Forms tab ────────────────────────────────────────────────────────── */}
       {tab === "forms" ? (
-        <section className="crm-card crm-section-card crm-stack-10">
-          <div className="crm-section-head">
-            <div>
-              <h2 className="crm-section-title">Shareable form links</h2>
-              <p className="crm-section-subtitle">
-                Each link has its own URL and QR code. Create one per placement — open house, Instagram, Facebook post, business card — so you know exactly where each lead came from.
-              </p>
+        <>
+          {/* 3 base forms — always available */}
+          <section className="crm-card crm-section-card crm-stack-8">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">Your forms</h2>
+                <p className="crm-section-subtitle">
+                  Three permanent forms ready to share anywhere — social bio, open house table, business card. Copy the link or download a QR code.
+                </p>
+              </div>
             </div>
-          </div>
-
-          {/* Create form */}
-          {showCreateForm ? (
-            <CreateLinkForm onCreated={handleLinkCreated} />
-          ) : null}
-
-          {/* Default links */}
-          <div className="crm-stack-4">
-            <div className="crm-detail-label">Default forms</div>
-            <div className="crm-stack-8">
-              <DefaultLinkCard label="Buyer form" path="/buyer" tone="ok" baseUrl={baseUrl} />
-              <DefaultLinkCard label="Seller form" path="/seller" tone="warn" baseUrl={baseUrl} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+              <DefaultLinkCard
+                label="Buyer form"
+                description="Looking to buy — area, budget, timeline."
+                path="/buyer"
+                tone="ok"
+                baseUrl={baseUrl}
+              />
+              <DefaultLinkCard
+                label="Seller form"
+                description="Ready to sell — address, condition, timing."
+                path="/seller"
+                tone="warn"
+                baseUrl={baseUrl}
+              />
+              <DefaultLinkCard
+                label="Generic form"
+                description="Just a contact — name, phone, quick note."
+                path="/contact"
+                tone="default"
+                baseUrl={baseUrl}
+              />
             </div>
-          </div>
+          </section>
 
-          {/* Custom links */}
-          <div className="crm-stack-4">
-            <div className="crm-detail-label" style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Your links</span>
+          {/* Campaign links */}
+          <section className="crm-card crm-section-card crm-stack-8">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">Campaign links</h2>
+                <p className="crm-section-subtitle">
+                  Create a named link for each specific placement — "Open House – 123 Main", "Instagram Bio", "Facebook Seller Post". Each gets its own QR code and tracks submissions separately so you know exactly where leads came from.
+                </p>
+              </div>
               {!showCreateForm ? (
                 <button
                   type="button"
-                  className="crm-btn crm-btn-secondary"
-                  style={{ fontSize: 12, padding: "2px 10px" }}
+                  className="crm-btn crm-btn-primary"
                   onClick={() => setShowCreateForm(true)}
                 >
-                  + New link
+                  New campaign link
                 </button>
               ) : null}
             </div>
+
+            {showCreateForm ? (
+              <CreateLinkForm onCreated={handleLinkCreated} />
+            ) : null}
+
             {loadingLinks ? (
-              <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading links…</div>
+              <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading…</div>
             ) : links.length === 0 ? (
-              <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
-                No custom links yet. Create one for an open house, a specific campaign, or any placement where you want to track the source separately.
+              <div className="crm-card-muted" style={{ padding: 20, color: "var(--ink-muted)" }}>
+                No campaign links yet. Create one for an open house, a social post, or any placement where you want to track the source separately from your default forms.
               </div>
             ) : (
               <div className="crm-stack-8">
@@ -701,8 +718,8 @@ export default function IntakeWorkspacePage() {
                 ))}
               </div>
             )}
-          </div>
-        </section>
+          </section>
+        </>
       ) : null}
     </main>
   );
