@@ -359,6 +359,13 @@ export const FORM_TEMPLATES: Record<string, FormTemplate> = {
   },
 };
 
+// Router options shown on the /intake/[agentSlug] landing page
+export const FORM_ROUTER_OPTIONS = [
+  { label: "I want to buy a home", form_type: "generic_buyer" },
+  { label: "I want to sell my home", form_type: "generic_seller" },
+  { label: "Just getting in touch", form_type: "contact" },
+] as const;
+
 // Form types available for intake_links (traditional agent side)
 export const INTAKE_LINK_FORM_TYPES = [
   { value: "buyer", label: "Buyer form", formKey: "generic_buyer" },
