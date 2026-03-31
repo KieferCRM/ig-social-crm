@@ -119,8 +119,7 @@ export default function AppShellClient({
         { href: "/app/pipeline", label: "Pipeline", active: pathname.startsWith("/app/pipeline"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
-        { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
-        { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox"), count: inboxUnreadCount },
+        { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents"), count: inboxUnreadCount },
         { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
@@ -147,8 +146,8 @@ export default function AppShellClient({
             pathname.startsWith("/app/import"),
           count: 0,
         },
-        { href: "/app/documents", label: "Documents", active: pathname.startsWith("/app/documents"), count: 0 },
-{ href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
+        { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents"), count: inboxUnreadCount },
+        { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
         { href: "/app/secretary", label: "Assistant", active: pathname.startsWith("/app/secretary"), count: alertCount },
         {
@@ -196,18 +195,10 @@ export default function AppShellClient({
           : "Review new inquiries, confirm contact details, and get each lead into the right stage quickly.",
       };
     }
-    if (pathname.startsWith("/app/inbox")) {
+    if (pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents")) {
       return {
         title: "Inbox",
-        subtitle: "Emails sent to your inbox address land here — transcripts, signed contracts, and client messages processed automatically.",
-      };
-    }
-    if (pathname.startsWith("/app/documents")) {
-      return {
-        title: "Documents",
-        subtitle: isOffMarketAccount
-          ? "Store agreements, seller notes, photos, and supporting files inside the right deal instead of scattered folders."
-          : "Keep agreements, contracts, checklists, and deal files tied to the right record instead of scattered notes.",
+        subtitle: "Emails, documents, and client correspondence — all processed automatically and tied to the right deal.",
       };
     }
 if (pathname.startsWith("/app/forms")) {
