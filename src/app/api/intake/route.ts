@@ -841,7 +841,7 @@ export async function POST(request: Request) {
   // Increment submission_count on the intake_link if this came from one
   const linkSlug = optionalString(body.link_slug);
   if (linkSlug) {
-    void admin.rpc("increment_intake_link_count", { p_slug: linkSlug }).catch(() => {});
+    void admin.rpc("increment_intake_link_count", { p_slug: linkSlug }).then(() => {}).catch(() => {});
   }
 
   return NextResponse.json({
