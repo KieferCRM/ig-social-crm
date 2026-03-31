@@ -111,9 +111,13 @@ function FieldInput({
 export default function FormRenderer({
   formType,
   agentSlug,
+  source,
+  linkSlug,
 }: {
   formType: string;
   agentSlug: string;
+  source?: string;
+  linkSlug?: string;
 }) {
   const template = FORM_TEMPLATES[formType];
   const [answers, setAnswers] = useState<Record<string, string>>(() =>
@@ -155,9 +159,10 @@ export default function FormRenderer({
     const custom_fields_input: Record<string, string> = {};
     const payload: Record<string, unknown> = {
       agent_id: agentSlug,
-      source: `web_form_${agentSlug}`,
+      source: source ?? `web_form_${agentSlug}`,
       form_variant: formType,
       questionnaire_answers,
+      ...(linkSlug ? { link_slug: linkSlug } : {}),
     };
 
     // Set default intent from template
