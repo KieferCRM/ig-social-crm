@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Inbox, Home, ClipboardList, ListChecks, Bot, FileText } from "lucide-react";
 import LockboxMark from "@/components/branding/lockbox-mark";
 import { FEATURE_SIGNUP_ENABLED } from "@/lib/features";
 import AnimatedHero from "./_landing/animated-hero";
@@ -22,15 +21,6 @@ const howItWorks = [
     title: "Know exactly what to do next",
     body: "LockboxHQ surfaces your hottest leads and the single most important action so nothing slips through the cracks on a busy day.",
   },
-] as const;
-
-const features = [
-  { icon: Inbox, title: "Smart Inbox", body: "Emails and voice transcripts land in your inbox, analyzed by AI, and linked to the right deal automatically." },
-  { icon: Home, title: "Buyer Pipeline", body: "Track every buyer from first inquiry through pre-approval, active search, offer, and close." },
-  { icon: ClipboardList, title: "Listing Pipeline", body: "Manage listings from appointment through MLS, open house, offer, contract, and close." },
-  { icon: ListChecks, title: "Transaction Checklist", body: "Predefined checklists for buyer and listing transactions so nothing gets missed on the way to close." },
-  { icon: Bot, title: "AI Secretary", body: "A voice AI that answers calls, qualifies leads, and adds them to your CRM while you're showing a home." },
-  { icon: FileText, title: "Deal Details", body: "Pre-approval status, lender info, MLS numbers, commission rates — all tied to the right deal." },
 ] as const;
 
 export default function HomePage() {
@@ -80,7 +70,7 @@ export default function HomePage() {
             <span className="lockbox-section__eyebrow">What&apos;s inside</span>
             <h2>Everything a solo agent needs. Nothing they don&apos;t.</h2>
           </div>
-          <AnimatedFeatureGrid features={features} />
+          <AnimatedFeatureGrid />
         </section>
 
         {/* Testimonials */}

@@ -2,7 +2,17 @@
 
 import { motion, useInView } from "motion/react";
 import { useRef } from "react";
+import { Inbox, Home, ClipboardList, ListChecks, Bot, FileText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+
+const FEATURE_GRID_ITEMS = [
+  { icon: Inbox, title: "Smart Inbox", body: "Emails and voice transcripts land in your inbox, analyzed by AI, and linked to the right deal automatically." },
+  { icon: Home, title: "Buyer Pipeline", body: "Track every buyer from first inquiry through pre-approval, active search, offer, and close." },
+  { icon: ClipboardList, title: "Listing Pipeline", body: "Manage listings from appointment through MLS, open house, offer, contract, and close." },
+  { icon: ListChecks, title: "Transaction Checklist", body: "Predefined checklists for buyer and listing transactions so nothing gets missed on the way to close." },
+  { icon: Bot, title: "AI Secretary", body: "A voice AI that answers calls, qualifies leads, and adds them to your CRM while you're showing a home." },
+  { icon: FileText, title: "Deal Details", body: "Pre-approval status, lender info, MLS numbers, commission rates — all tied to the right deal." },
+] as const;
 
 type Card = {
   title: string;
@@ -35,7 +45,8 @@ export function AnimatedInfoCards({ cards, showIndex = false }: { cards: readonl
   );
 }
 
-export function AnimatedFeatureGrid({ features }: { features: readonly { icon: LucideIcon; title: string; body: string }[] }) {
+export function AnimatedFeatureGrid() {
+  const features: readonly { icon: LucideIcon; title: string; body: string }[] = FEATURE_GRID_ITEMS;
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
 
