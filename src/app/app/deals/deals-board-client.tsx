@@ -800,6 +800,9 @@ export default function DealsBoardClient() {
         expected_close_date: dealRow.expected_close_date as string | null,
         notes: dealRow.notes as string | null,
         deal_details: null,
+        tags: [],
+        stage_entered_at: null,
+        next_followup_date: null,
         created_at: dealRow.created_at as string | null,
         updated_at: dealRow.updated_at as string | null,
         lead: {
