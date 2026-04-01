@@ -445,7 +445,7 @@ export default async function AppHome() {
   // ── SOLO AGENT (TRADITIONAL) BRANCH ─────────────────────────────────────────
   const recommendationOwnerFilter = `owner_user_id.eq.${user.id},agent_id.eq.${user.id}`;
 
-  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: formAlertData }, { data: checklistData }] =
+  const [{ data: leadData }, { data: dealData }, { data: recommendationData }, { data: formAlertData }, { data: checklistData }, { data: appointmentData }, { data: taskData }] =
     await Promise.all([
       supabase
         .from("leads")
@@ -482,6 +482,21 @@ export default async function AppHome() {
         .from("deal_checklist_items")
         .select("id,deal_id,label,completed")
         .eq("agent_id", user.id),
+      supabase
+        .from("appointments")
+        .select("id,title,scheduled_at,duration_minutes,location,lead:leads(full_name),deal:deals(property_address)")
+        .eq("agent_id", user.id)
+        .neq("status", "cancelled")
+        .gte("scheduled_at", todayStart)
+        .lte("scheduled_at", new Date(Date.now() + 56 * 24 * 3600_000).toISOString())
+        .order("scheduled_at", { ascending: true }),
+      supabase
+        .from("lead_recommendations")
+        .select("id,due_at")
+        .or(recommendationOwnerFilter)
+        .eq("status", "open")
+        .not("due_at", "is", null)
+        .lte("due_at", new Date(Date.now() + 56 * 24 * 3600_000).toISOString()),
     ]);
 
   const leads = ((leadData || []) as LeadRow[]).filter((lead) => lead.id);
@@ -494,6 +509,16 @@ export default async function AppHome() {
 
   const activeDeals = deals.filter((deal) => deal.stage !== "closed" && deal.stage !== "lost" && deal.stage !== "dead" && deal.stage !== "past_client");
   const hotLeads = leads.filter((lead) => String(lead.lead_temp || "").toLowerCase() === "hot");
+  const allAppointments = (appointmentData ?? []) as unknown as TodayAppointment[];
+  const appointmentDateStrings = allAppointments.map((a) =>
+    new Date(a.scheduled_at).toLocaleDateString("en-CA", { timeZone: agentTimezone })
+  );
+  const followupDateStrings = activeDeals
+    .filter((d) => d.nextFollowupDate)
+    .map((d) => d.nextFollowupDate!);
+  const taskDateStrings = ((taskData ?? []) as Array<{ id: string; due_at: string | null }>)
+    .filter((t) => t.due_at)
+    .map((t) => new Date(t.due_at!).toLocaleDateString("en-CA", { timeZone: agentTimezone }));
   const staleDeals = activeDeals.filter((deal) => isStale(deal.updatedAt, 7));
   const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
   const trueEmptyWorkspace = leads.length === 0 && deals.length === 0 && recommendations.length === 0;
@@ -546,6 +571,15 @@ export default async function AppHome() {
   return (
     <main className="crm-page crm-page-wide crm-stack-12">
       <FormAlertsSection initialAlerts={formAlerts} />
+
+      {/* Rolling 7-day week strip */}
+      <WeekStrip
+        startDate={todayStr}
+        appointmentDates={appointmentDateStrings}
+        followupDates={followupDateStrings}
+        taskDates={taskDateStrings}
+        appointments={allAppointments}
+      />
 
       {/* KPI row */}
       <section className="crm-kpi-grid crm-dashboard-kpi-grid">

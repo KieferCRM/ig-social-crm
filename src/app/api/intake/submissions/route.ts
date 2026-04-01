@@ -18,8 +18,7 @@ type SubmissionLeadRow = {
   budget_range: string | null;
   notes: string | null;
   time_last_updated: string | null;
-  updated_at: string | null;
-  created_at: string | null;
+  timestamp: string | null;
   source_detail: Record<string, unknown> | null;
 };
 
@@ -80,7 +79,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("leads")
     .select(
-      "id,full_name,ig_username,canonical_email,canonical_phone,intent,timeline,lead_temp,stage,source,location_area,budget_range,notes,time_last_updated,updated_at,created_at,source_detail"
+      "id,full_name,ig_username,canonical_email,canonical_phone,intent,timeline,lead_temp,stage,source,location_area,budget_range,notes,time_last_updated,timestamp,source_detail"
     )
     .or(ownerFilter(auth.context, "agent_id"))
     .order("time_last_updated", { ascending: false })
@@ -152,7 +151,7 @@ export async function GET() {
       next_action_detail: firstNonEmpty(recommendation?.description) || null,
       next_action_priority: firstNonEmpty(recommendation?.priority) || null,
       next_action_due_at: recommendation?.due_at || null,
-      timestamp: lead.time_last_updated || lead.updated_at || lead.created_at || null,
+      timestamp: lead.time_last_updated || lead.timestamp || null,
     };
   });
 
