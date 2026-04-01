@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "@/components/ui/status-badge";
 import ManualLeadForm from "@/app/app/list/manual-lead-form";
 import { sourceChannelTone } from "@/lib/inbound";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Submission = {
   id: string;
@@ -109,9 +110,22 @@ function FormCard({ label, description, path, baseUrl }: {
 export default function IntakeWorkspacePage() {
   const [tab, setTab] = useState<"submissions" | "forms">("submissions");
   const [baseUrl, setBaseUrl] = useState("https://lockboxhq.com");
+  const [agentId, setAgentId] = useState<string | null>(null);
+  const [vanitySlug, setVanitySlug] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    const supabase = supabaseBrowser();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      setAgentId(user.id);
+      supabase.from("agents").select("vanity_slug").eq("id", user.id).maybeSingle().then(({ data }) => {
+        setVanitySlug((data?.vanity_slug as string | null) ?? null);
+      });
+    });
   }, []);
 
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -399,19 +413,19 @@ export default function IntakeWorkspacePage() {
             <FormCard
               label="Buyer form"
               description="Looking to buy — area, budget, timeline."
-              path="/buyer"
+              path={`/forms/buyer/${vanitySlug ?? agentId ?? ""}`}
               baseUrl={baseUrl}
             />
             <FormCard
               label="Seller form"
               description="Ready to sell — address, condition, timing."
-              path="/seller"
+              path={`/forms/seller/${vanitySlug ?? agentId ?? ""}`}
               baseUrl={baseUrl}
             />
             <FormCard
               label="Generic form"
               description="Just a contact — name, phone, quick note."
-              path="/contact"
+              path={`/forms/contact/${vanitySlug ?? agentId ?? ""}`}
               baseUrl={baseUrl}
             />
           </div>
