@@ -6,7 +6,6 @@ import { AnimatedInfoCards, AnimatedFeatureGrid } from "./_landing/animated-card
 import ComparisonTable from "./_landing/comparison-table";
 import Testimonials from "./_landing/testimonials";
 import PricingAnchor from "./_landing/pricing-anchor";
-import SceneBackgroundLazy from "./_landing/scene-background-lazy";
 
 const howItWorks = [
   {
@@ -30,10 +29,7 @@ export default function HomePage() {
 
   return (
     <main className="lockbox-marketing lockbox-marketing--home">
-      <SceneBackgroundLazy />
-      <div className="lockbox-marketing__veil" />
-
-      <div className="lockbox-marketing__container lockbox-marketing__container--home">
+<div className="lockbox-marketing__container lockbox-marketing__container--home">
         {/* Nav */}
         <header className="lockbox-nav">
           <Link href="/" className="lockbox-nav__brand">

@@ -639,10 +639,7 @@ td {
   position: relative;
   min-height: 100%;
   color: var(--lockbox-text-primary);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(47, 111, 237, 0.05), transparent 30%),
-    radial-gradient(circle at 88% 12%, rgba(30, 58, 95, 0.06), transparent 24%),
-    linear-gradient(180deg, var(--lockbox-bg-900) 0%, var(--lockbox-bg-800) 52%, var(--lockbox-bg-700) 100%);
+  background: var(--lockbox-bg-900);
   overflow: hidden;
 }
 
@@ -652,22 +649,6 @@ td {
   overflow: clip;
 }
 
-.lockbox-marketing__veil {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 55% 22%, rgba(255, 255, 255, 0.4), transparent 22%),
-    linear-gradient(140deg, rgba(47, 111, 237, 0.03), transparent 24%),
-    linear-gradient(320deg, rgba(30, 58, 95, 0.02), transparent 30%),
-    repeating-linear-gradient(
-      115deg,
-      rgba(15, 23, 42, 0.016) 0px,
-      rgba(15, 23, 42, 0.016) 1px,
-      transparent 1px,
-      transparent 24px
-    );
-  pointer-events: none;
-}
 
 .lockbox-marketing__container {
   position: relative;
