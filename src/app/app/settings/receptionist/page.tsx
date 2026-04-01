@@ -1,0 +1,1312 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  DEFAULT_RECEPTIONIST_SETTINGS,
+  type ReceptionistPhoneSetupPath,
+  type ReceptionistPhoneSetupStatus,
+  type ReceptionistSettings,
+  type CallHandlingMode,
+  type AfterHoursVoiceMode,
+  type VoiceCloneStatus,
+} from "@/lib/receptionist/settings";
+
+type SettingsResponse = {
+  settings?: ReceptionistSettings;
+  error?: string;
+};
+
+type NumberAssignResponse = {
+  ok?: boolean;
+  settings?: ReceptionistSettings;
+  assignment?: {
+    provider?: "mock" | "twilio";
+    mode?: "real" | "mock";
+    status?: "assigned" | "manual_review_required" | "failed";
+    businessPhoneNumber?: string | null;
+    error?: string | null;
+  };
+  error?: string;
+};
+
+type ToggleCardProps = {
+  title: string;
+  description: string;
+  helper?: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+};
+
+type FieldProps = {
+  label: string;
+  helper: string;
+  children: ReactNode;
+};
+
+type StatusMeta = {
+  label: string;
+  toneClass: string;
+  helper: string;
+};
+
+type TimeOption = {
+  value: string;
+  label: string;
+};
+
+const EXISTING_NUMBER_LIVE_STATUSES = new Set<ReceptionistPhoneSetupStatus>([
+  "existing_manual_review",
+  "existing_ready",
+  "porting_requested",
+  "ported",
+]);
+
+const TIMEZONE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "America/Chicago", label: "Central Time (Chicago)" },
+  { value: "America/New_York", label: "Eastern Time (New York)" },
+  { value: "America/Denver", label: "Mountain Time (Denver)" },
+  { value: "America/Phoenix", label: "Arizona Time (Phoenix)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (Los Angeles)" },
+  { value: "America/Anchorage", label: "Alaska Time (Anchorage)" },
+  { value: "Pacific/Honolulu", label: "Hawaii Time (Honolulu)" },
+];
+
+function format12HourLabel(hour: number, minute: number): string {
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+function buildOfficeTimeOptions(): TimeOption[] {
+  const options: TimeOption[] = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (const minute of [0, 30]) {
+      const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+      options.push({ value, label: format12HourLabel(hour, minute) });
+    }
+  }
+  return options;
+}
+
+const OFFICE_TIME_OPTIONS = buildOfficeTimeOptions();
+
+function customTimeLabel(value: string): string {
+  const [hourText, minuteText] = value.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return `${value} (Custom)`;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return `${value} (Custom)`;
+  return `${format12HourLabel(hour, minute)} (Custom)`;
+}
+
+function keywordsToText(keywords: string[]): string {
+  return keywords.join(", ");
+}
+
+function textToKeywords(value: string): string[] {
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+
+  for (const raw of value.split(/[\n,;]+/)) {
+    const keyword = raw.trim().toLowerCase();
+    if (!keyword || seen.has(keyword)) continue;
+    seen.add(keyword);
+    keywords.push(keyword);
+  }
+
+  return keywords;
+}
+
+function phoneSetupStatusMeta(status: ReceptionistPhoneSetupStatus): StatusMeta {
+  if (status === "assigned") {
+    return {
+      label: "LockboxHQ number assigned",
+      toneClass: "crm-chip crm-chip-ok",
+      helper: "Your public business number is active in LockboxHQ.",
+    };
+  }
+
+  if (status === "existing_submitted") {
+    return {
+      label: "Existing number submitted",
+      toneClass: "crm-chip crm-chip-info",
+      helper: "Your existing number request is captured and ready for setup-assisted review.",
+    };
+  }
+
+  if (status === "existing_manual_review") {
+    return {
+      label: "Review required",
+      toneClass: "crm-chip crm-chip-warn",
+      helper: "A manual review step is required before this number can be fully active.",
+    };
+  }
+
+  if (status === "existing_ready") {
+    return {
+      label: "Ready for manual setup",
+      toneClass: "crm-chip crm-chip-ok",
+      helper: "Core setup checks are complete and this number can be routed through manual steps.",
+    };
+  }
+
+  if (status === "porting_requested") {
+    return {
+      label: "Porting requested",
+      toneClass: "crm-chip crm-chip-info",
+      helper: "Porting has been requested and is pending provider completion.",
+    };
+  }
+
+  if (status === "ported") {
+    return {
+      label: "Ported",
+      toneClass: "crm-chip crm-chip-ok",
+      helper: "Your existing number has been ported and is ready to use in LockboxHQ.",
+    };
+  }
+
+  return {
+    label: "Not configured",
+    toneClass: "crm-chip crm-chip-warn",
+    helper: "Choose a phone setup path to unlock Secretary calling and texting.",
+  };
+}
+
+function ToggleCard({ title, description, helper, checked, onChange }: ToggleCardProps) {
+  return (
+    <label className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>{title}</span>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          style={{ width: 18, height: 18 }}
+        />
+      </div>
+      <span style={{ fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>{description}</span>
+      {helper ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{helper}</span> : null}
+    </label>
+  );
+}
+
+function Field({ label, helper, children }: FieldProps) {
+  return (
+    <label style={{ display: "grid", gap: 6 }}>
+      <span style={{ fontSize: 13, fontWeight: 700 }}>{label}</span>
+      <span style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.4 }}>{helper}</span>
+      {children}
+    </label>
+  );
+}
+
+export default function ReceptionistSettingsPage() {
+  const [settings, setSettings] = useState<ReceptionistSettings>(DEFAULT_RECEPTIONIST_SETTINGS);
+  const [keywordsText, setKeywordsText] = useState(
+    keywordsToText(DEFAULT_RECEPTIONIST_SETTINGS.escalation_keywords)
+  );
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [assigningNumber, setAssigningNumber] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+  const [cloningVoice, setCloningVoice] = useState(false);
+  const [cloneFile, setCloneFile] = useState<File | null>(null);
+  const [voiceMessage, setVoiceMessage] = useState("");
+  const [voiceMessageType, setVoiceMessageType] = useState<"success" | "error">("success");
+
+  const communicationsActive = useMemo(
+    () => settings.receptionist_enabled && settings.communications_enabled,
+    [settings.communications_enabled, settings.receptionist_enabled]
+  );
+
+  const parsedKeywords = useMemo(() => textToKeywords(keywordsText), [keywordsText]);
+  const phoneSetupMeta = useMemo(
+    () => phoneSetupStatusMeta(settings.phone_setup_status),
+    [settings.phone_setup_status]
+  );
+  const officeTimeOptions = useMemo(() => {
+    const options = [...OFFICE_TIME_OPTIONS];
+    const seen = new Set(options.map((item) => item.value));
+
+    for (const value of [settings.office_hours_start, settings.office_hours_end]) {
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      options.push({ value, label: customTimeLabel(value) });
+    }
+
+    return options;
+  }, [settings.office_hours_end, settings.office_hours_start]);
+  const timezoneOptions = useMemo(() => {
+    if (TIMEZONE_OPTIONS.some((option) => option.value === settings.office_hours_timezone)) {
+      return TIMEZONE_OPTIONS;
+    }
+    if (!settings.office_hours_timezone) return TIMEZONE_OPTIONS;
+    return [
+      ...TIMEZONE_OPTIONS,
+      { value: settings.office_hours_timezone, label: `${settings.office_hours_timezone} (Custom)` },
+    ];
+  }, [settings.office_hours_timezone]);
+
+  const isLockboxPath = settings.phone_setup_path !== "existing_number";
+  const businessPhone = settings.business_phone_number.trim();
+  const forwardingPhone = settings.forwarding_phone_number.trim();
+  const hasBusinessPhone = businessPhone.length > 0;
+  const hasForwardingPhone = forwardingPhone.length > 0;
+  const activationReady = hasBusinessPhone && hasForwardingPhone;
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/receptionist/settings", { cache: "no-store" });
+        const payload = (await response.json()) as SettingsResponse;
+
+        if (!response.ok || !payload.settings) {
+          if (!canceled) setMessage(payload.error || "Could not load Secretary settings.");
+          return;
+        }
+
+        if (!canceled) {
+          setSettings(payload.settings);
+          setKeywordsText(keywordsToText(payload.settings.escalation_keywords));
+        }
+      } catch {
+        if (!canceled) setMessage("Could not load Secretary settings.");
+      } finally {
+        if (!canceled) setLoading(false);
+      }
+    }
+
+    void loadSettings();
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  function selectPhoneSetupPath(nextPath: ReceptionistPhoneSetupPath) {
+    setSettings((previous) => {
+      const next: ReceptionistSettings = {
+        ...previous,
+        phone_setup_path: nextPath,
+      };
+
+      if (nextPath === "lockbox_number") {
+        next.phone_setup_status = previous.business_phone_number.trim() ? "assigned" : "unassigned";
+        if (!next.business_number_provider) {
+          next.business_number_provider = "";
+        }
+        return next;
+      }
+
+      if (!previous.business_number_provider) {
+        next.business_number_provider = "manual";
+      }
+
+      if (!previous.business_phone_number.trim()) {
+        next.phone_setup_status = "unassigned";
+      } else if (!EXISTING_NUMBER_LIVE_STATUSES.has(previous.phone_setup_status)) {
+        next.phone_setup_status = "existing_submitted";
+      }
+
+      return next;
+    });
+  }
+
+  function validateSettings(): string | null {
+    const fwdPhone = settings.forwarding_phone_number.trim();
+    const notifPhone = settings.notification_phone_number.trim();
+    const bizPhone = settings.business_phone_number.trim();
+    const phonePattern = /^\+?[1-9]\d{6,14}$/;
+
+    if (bizPhone && !phonePattern.test(bizPhone)) {
+      return "Business phone number looks invalid. Use E.164 format like +16155550100.";
+    }
+    if (fwdPhone && !phonePattern.test(fwdPhone)) {
+      return "Forwarding phone number looks invalid. Use E.164 format like +16155550100.";
+    }
+    if (notifPhone && !phonePattern.test(notifPhone)) {
+      return "Notification phone number looks invalid. Use E.164 format like +16155550100.";
+    }
+
+    if (settings.after_hours_enabled && settings.office_hours_start >= settings.office_hours_end) {
+      return "Office hours end time must be after start time.";
+    }
+
+    return null;
+  }
+
+  async function assignLockboxNumber() {
+    setAssigningNumber(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/receptionist/number/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice_preset: settings.voice_preset ?? "female" }),
+      });
+
+      const data = (await response.json()) as NumberAssignResponse;
+      if (!response.ok || !data.ok || !data.settings) {
+        setMessageType("error");
+        setMessage(data.error || data.assignment?.error || "Could not assign a LockboxHQ number.");
+        return;
+      }
+
+      setSettings(data.settings);
+      const mode = data.assignment?.mode === "mock" ? " (mock provider mode)" : "";
+      setMessageType("success");
+      setMessage(`LockboxHQ business number assigned${mode}.`);
+    } catch {
+      setMessageType("error");
+      setMessage("Could not assign a LockboxHQ number.");
+    } finally {
+      setAssigningNumber(false);
+    }
+  }
+
+  async function saveSettings() {
+    const validationError = validateSettings();
+    if (validationError) {
+      setMessageType("error");
+      setMessage(validationError);
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const nextKeywords = textToKeywords(keywordsText);
+      const nowIso = new Date().toISOString();
+      const trimmedBusinessPhone = settings.business_phone_number.trim();
+
+      let nextStatus = settings.phone_setup_status;
+      let nextSubmittedAt = settings.existing_number_submitted_at;
+      let nextProvider = settings.business_number_provider;
+
+      if (settings.phone_setup_path === "lockbox_number") {
+        nextStatus = trimmedBusinessPhone ? "assigned" : "unassigned";
+        nextSubmittedAt = "";
+      } else {
+        nextProvider = nextProvider || "manual";
+        if (!trimmedBusinessPhone) {
+          nextStatus = "unassigned";
+          nextSubmittedAt = "";
+        } else if (!EXISTING_NUMBER_LIVE_STATUSES.has(nextStatus)) {
+          nextStatus = "existing_submitted";
+          nextSubmittedAt = nextSubmittedAt || nowIso;
+        }
+      }
+
+      const payload: ReceptionistSettings = {
+        ...settings,
+        business_phone_number: trimmedBusinessPhone,
+        business_number_provider: nextProvider,
+        escalation_keywords: nextKeywords,
+        phone_setup_status: nextStatus,
+        existing_number_submitted_at: nextSubmittedAt,
+      };
+
+      const response = await fetch("/api/receptionist/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await response.json()) as SettingsResponse;
+      if (!response.ok || !data.settings) {
+        setMessageType("error");
+        setMessage(data.error || "Could not save Secretary settings.");
+        return;
+      }
+
+      setSettings(data.settings);
+      setKeywordsText(keywordsToText(data.settings.escalation_keywords));
+      setMessageType("success");
+      setMessage("Secretary settings saved.");
+    } catch {
+      setMessageType("error");
+      setMessage("Could not save Secretary settings.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+
+  async function submitVoiceClone() {
+    if (!cloneFile) return;
+    setCloningVoice(true);
+    setVoiceMessage("");
+    try {
+      const formData = new FormData();
+      formData.append("audio", cloneFile);
+      formData.append("name", "My Voice Clone");
+      const response = await fetch("/api/receptionist/voice/clone", { method: "POST", body: formData });
+      const data = (await response.json()) as { ok?: boolean; voice_id?: string; error?: string };
+      if (!response.ok || !data.ok) {
+        setVoiceMessageType("error");
+        setVoiceMessage(data.error || "Voice cloning failed.");
+        return;
+      }
+      setSettings((previous) => ({
+        ...previous,
+        voice_clone_status: "ready" as VoiceCloneStatus,
+        voice_clone_voice_id: data.voice_id || "",
+      }));
+      setVoiceMessageType("success");
+      setVoiceMessage("Voice cloned successfully! Your cloned voice is now active.");
+    } catch {
+      setVoiceMessageType("error");
+      setVoiceMessage("Voice cloning request failed.");
+    } finally {
+      setCloningVoice(false);
+    }
+  }
+
+
+  if (loading) {
+    return (
+      <main className="crm-page">
+        <section className="crm-card crm-section-card">
+          <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading Secretary settings...</div>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="crm-page crm-stack-12" style={{ maxWidth: 980 }}>
+      <section className="crm-card crm-section-card crm-stack-10">
+        <div className="crm-page-header">
+          <div className="crm-page-header-main">
+            <h1 className="crm-page-title">Secretary</h1>
+            <p className="crm-page-subtitle">
+              Secretary is the premium upgrade for missed-call follow-up, direct calling and texting, and faster response on serious inbound inquiries.
+            </p>
+          </div>
+          <div className="crm-page-actions">
+            <Link href="/app/settings" className="crm-btn crm-btn-secondary">
+              Back to Settings
+            </Link>
+          </div>
+        </div>
+
+        {/* Business phone prominent display */}
+        {hasBusinessPhone && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px" }}>
+            <span style={{ fontSize: 13, color: "var(--ink-muted)" }}>Your Secretary number:</span>
+            <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: "0.04em", color: "#15803d" }}>{businessPhone}</span>
+            <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>— share this with leads</span>
+          </div>
+        )}
+
+      </section>
+
+      <div className="crm-secretary-locked-shell">
+
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Activation</h2>
+            <span className={communicationsActive ? "crm-chip crm-chip-ok" : "crm-chip crm-chip-warn"}>
+              {communicationsActive ? "Messaging Active" : "Messaging Paused"}
+            </span>
+          </div>
+
+          <div className="crm-grid-cards-3">
+            <ToggleCard
+              title="Secretary Active"
+              description="Master switch for the Secretary upgrade. Turn this on to unlock LockboxHQ communication workflows."
+              checked={settings.receptionist_enabled}
+              onChange={(next) =>
+                setSettings((previous) => ({ ...previous, receptionist_enabled: next }))
+              }
+            />
+            <ToggleCard
+              title="Messaging Active"
+              description="Allows SMS send and receive inside LockboxHQ after Secretary is enabled."
+              helper="Tip: Secretary Active and Messaging Active both need to be on for automatic responses."
+              checked={settings.communications_enabled}
+              onChange={(next) =>
+                setSettings((previous) => ({ ...previous, communications_enabled: next }))
+              }
+            />
+            <ToggleCard
+              title="Missed Call Auto-Reply"
+              description="When enabled, Secretary can send your starter SMS after a missed call based on your after-hours rules."
+              checked={settings.missed_call_textback_enabled}
+              onChange={(next) =>
+                setSettings((previous) => ({ ...previous, missed_call_textback_enabled: next }))
+              }
+            />
+          </div>
+        </section>
+
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Phone Setup</h2>
+            <span className={phoneSetupMeta.toneClass}>{phoneSetupMeta.label}</span>
+          </div>
+
+          <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+            Choose how Secretary should handle your public-facing business number. A new LockboxHQ number is the fastest path to activation.
+          </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+            <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0, fontSize: 14 }}>Get a New LockboxHQ Number</h3>
+                <span className="crm-chip crm-chip-ok">Recommended</span>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
+                Fastest upgrade setup. LockboxHQ assigns a business number so Secretary can start handling calls and texts quickly.
+              </p>
+              <button
+                type="button"
+                className={isLockboxPath ? "crm-btn crm-btn-primary" : "crm-btn crm-btn-secondary"}
+                onClick={() => selectPhoneSetupPath("lockbox_number")}
+                style={{ width: "fit-content" }}
+              >
+                {isLockboxPath ? "Selected" : "Choose This Path"}
+              </button>
+            </div>
+
+            <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0, fontSize: 14 }}>Use My Existing Business Number</h3>
+                <span className="crm-chip">Setup-Assisted</span>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
+                Keep your current number. Some Secretary setups require manual review, forwarding configuration, or porting support.
+              </p>
+              <button
+                type="button"
+                className={!isLockboxPath ? "crm-btn crm-btn-primary" : "crm-btn crm-btn-secondary"}
+                onClick={() => selectPhoneSetupPath("existing_number")}
+                style={{ width: "fit-content" }}
+              >
+                {!isLockboxPath ? "Selected" : "Choose This Path"}
+              </button>
+            </div>
+          </div>
+
+          {isLockboxPath ? (
+            <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
+                This path does not require manually typing a business number.
+              </p>
+
+              {hasBusinessPhone ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <Field
+                    label="LockboxHQ Business Number"
+                    helper="This is your public-facing number for lead calls and texts."
+                  >
+                    <input value={businessPhone} readOnly />
+                  </Field>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <span className="crm-chip crm-chip-ok">Assigned</span>
+                    {settings.business_number_provider ? (
+                      <span className="crm-chip">Provider: {settings.business_number_provider}</span>
+                    ) : null}
+                    <span className="crm-chip">Read-only in V1</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <span className="crm-chip crm-chip-warn">No LockboxHQ number assigned yet</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="crm-btn crm-btn-primary"
+                    onClick={() => void assignLockboxNumber()}
+                    disabled={assigningNumber}
+                    style={{ width: "fit-content" }}
+                  >
+                    {assigningNumber ? "Assigning..." : "Get My LockboxHQ Number"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.45 }}>
+                Already using a business number? Keep it. LockboxHQ supports existing-number onboarding, and some cases may
+                require porting or manual configuration.
+              </p>
+              <Field
+                label="Existing Business Number"
+                helper="This is the public-facing number you already use in marketing and client communication."
+              >
+                <input
+                  value={settings.business_phone_number}
+                  onChange={(event) =>
+                    setSettings((previous) => ({
+                      ...previous,
+                      business_phone_number: event.target.value,
+                    }))
+                  }
+                  placeholder="+1..."
+                />
+              </Field>
+              <Field
+                label="Setup Notes (Optional)"
+                helper="Add context for setup-assisted review, forwarding, or porting details."
+              >
+                <textarea
+                  rows={3}
+                  value={settings.existing_number_setup_notes}
+                  onChange={(event) =>
+                    setSettings((previous) => ({
+                      ...previous,
+                      existing_number_setup_notes: event.target.value,
+                    }))
+                  }
+                  placeholder="Example: Number is currently in another platform. Need guidance on forwarding or porting timeline."
+                />
+              </Field>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <span className={phoneSetupMeta.toneClass}>{phoneSetupMeta.label}</span>
+                {settings.existing_number_submitted_at ? (
+                  <span className="crm-chip">
+                    Submitted: {new Date(settings.existing_number_submitted_at).toLocaleDateString()}
+                  </span>
+                ) : null}
+              </div>
+              {settings.phone_setup_status === "existing_submitted" || settings.phone_setup_status === "existing_manual_review" ? (
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: "var(--color-info-bg, #eff6ff)",
+                    color: "var(--color-info-text, #1e40af)",
+                    border: "1px solid var(--color-info-border, #93c5fd)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Your porting request has been received. Our team will reach out within 1–2 business days to complete setup.
+                </div>
+              ) : null}
+              <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)" }}>{phoneSetupMeta.helper}</p>
+            </div>
+          )}
+
+          <div className="crm-grid-cards-3">
+            <Field
+              label="Forwarding Phone"
+              helper="This is your real phone that rings when LockboxHQ bridges inbound and outbound calls."
+            >
+              <input
+                value={settings.forwarding_phone_number}
+                onChange={(event) =>
+                  setSettings((previous) => ({ ...previous, forwarding_phone_number: event.target.value }))
+                }
+                placeholder="+1..."
+              />
+            </Field>
+
+            <Field
+              label="Notification Phone"
+              helper="Urgent lead alerts can be sent here. Leave blank if you only want in-app alerts."
+            >
+              <input
+                value={settings.notification_phone_number}
+                onChange={(event) =>
+                  setSettings((previous) => ({ ...previous, notification_phone_number: event.target.value }))
+                }
+                placeholder="+1..."
+              />
+            </Field>
+
+            <div className="crm-card-muted" style={{ padding: 10, display: "grid", gap: 8, alignContent: "start" }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Routing Readiness</span>
+              <span className={hasBusinessPhone ? "crm-chip crm-chip-ok" : "crm-chip crm-chip-warn"}>
+                {hasBusinessPhone ? "Business number configured" : "Business number missing"}
+              </span>
+              <span className={hasForwardingPhone ? "crm-chip crm-chip-ok" : "crm-chip crm-chip-warn"}>
+                {hasForwardingPhone ? "Forwarding phone configured" : "Forwarding phone missing"}
+              </span>
+              <span className={activationReady ? "crm-chip crm-chip-ok" : "crm-chip"}>
+                {activationReady ? "Call routing ready" : "Complete both numbers"}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">After-Hours Behavior</h2>
+          </div>
+
+          <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+              When After-Hours Mode is on, missed-call text-back runs only outside your office hours. When it is off,
+              missed-call text-back can run anytime.
+            </p>
+            <ToggleCard
+              title="After-Hours Mode"
+              description="Limit missed-call auto-replies to outside your working hours."
+              checked={settings.after_hours_enabled}
+              onChange={(next) =>
+                setSettings((previous) => ({ ...previous, after_hours_enabled: next }))
+              }
+            />
+          </div>
+
+          <div className="crm-grid-cards-3">
+            <Field label="Office Hours Start" helper="Select when your day starts. Times are shown in standard AM/PM format.">
+              <select
+                value={settings.office_hours_start}
+                onChange={(event) =>
+                  setSettings((previous) => ({ ...previous, office_hours_start: event.target.value }))
+                }
+              >
+                {officeTimeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Office Hours End" helper="Select when your day ends. Times are shown in standard AM/PM format.">
+              <select
+                value={settings.office_hours_end}
+                onChange={(event) =>
+                  setSettings((previous) => ({ ...previous, office_hours_end: event.target.value }))
+                }
+              >
+                {officeTimeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Timezone" helper="Central Time is default. Choose your local timezone for after-hours logic.">
+              <select
+                value={settings.office_hours_timezone}
+                onChange={(event) =>
+                  setSettings((previous) => ({ ...previous, office_hours_timezone: event.target.value }))
+                }
+              >
+                {timezoneOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </section>
+
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Urgency / Escalation</h2>
+          </div>
+
+          <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+            If a lead uses phrases like "asap", "tour", or "ready now", LockboxHQ can flag that conversation as urgent
+            and surface alerts faster.
+          </p>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Escalation Keywords</span>
+            <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+              Separate with commas, new lines, or semicolons.
+            </span>
+            <textarea
+              rows={3}
+              value={keywordsText}
+              onChange={(event) => setKeywordsText(event.target.value)}
+              placeholder="today, asap, ready now, call me, tour, offer"
+            />
+          </label>
+
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {parsedKeywords.length > 0 ? (
+              parsedKeywords.slice(0, 10).map((keyword) => (
+                <span key={keyword} className="crm-chip" style={{ textTransform: "none" }}>
+                  {keyword}
+                </span>
+              ))
+            ) : (
+              <span className="crm-chip crm-chip-warn">No keywords configured</span>
+            )}
+          </div>
+        </section>
+
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Starter Message</h2>
+          </div>
+
+          <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+            This is the first automatic SMS sent after a missed call. Keep it professional and concise. This is not a
+            live voice greeting.
+          </p>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Missed-Call Starter Text</span>
+            <textarea
+              rows={4}
+              value={settings.custom_greeting}
+              onChange={(event) =>
+                setSettings((previous) => ({ ...previous, custom_greeting: event.target.value }))
+              }
+              placeholder="Hi, this is the assistant for [Agent Name]. Sorry we missed your call. Are you looking to buy, sell, or invest?"
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>SMS Conversation Tone</span>
+            <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+              Describe how Secretary should come across in text conversations. This shapes the AI&apos;s personality when responding to leads.
+            </span>
+            <input
+              value={settings.sms_tone}
+              onChange={(event) =>
+                setSettings((previous) => ({ ...previous, sms_tone: event.target.value }))
+              }
+              placeholder="e.g. Professional and concise, friendly but not casual, direct and confident"
+            />
+          </label>
+        </section>
+
+        {/* Voice AI sections */}
+        <>
+
+            {/* Call Handling Mode */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Call Handling Mode</h2>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                Choose how the AI handles each inbound call. This applies during your office hours.
+              </p>
+              <div style={{ display: "grid", gap: 8 }}>
+                {(
+                  [
+                    {
+                      value: "qualify_callback" as CallHandlingMode,
+                      label: "Smart Voicemail",
+                      description: "AI answers, lets them talk, gets their name, and confirms you'll call back within 24 hours. Simple and reliable.",
+                      badge: null,
+                    },
+                    {
+                      value: "message_book" as CallHandlingMode,
+                      label: "Smart Voicemail + Booking",
+                      description: "Same as above, but before hanging up the AI asks if they'd like to schedule a call, showing, or FaceTime with you.",
+                      badge: "Recommended",
+                    },
+                    {
+                      value: "always_ai" as CallHandlingMode,
+                      label: "Full AI Assistant",
+                      description: "AI qualifies the lead, answers general questions, and tries to handle the full call. Best once you've dialed in your setup.",
+                      badge: "Advanced",
+                    },
+                  ] as Array<{ value: CallHandlingMode; label: string; description: string; badge: string | null }>
+                ).map((option) => {
+                  const isSelected = settings.call_handling_mode === option.value ||
+                    // map legacy values to smart voicemail
+                    (option.value === "qualify_callback" && (settings.call_handling_mode === "qualify_transfer" || settings.call_handling_mode === "always_transfer"));
+                  return (
+                    <label
+                      key={option.value}
+                      className="crm-card-muted"
+                      style={{
+                        padding: 12,
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr",
+                        gap: "8px 12px",
+                        cursor: "pointer",
+                        border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                        borderRadius: 6,
+                        alignItems: "start",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="call_handling_mode"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() =>
+                          setSettings((previous) => ({ ...previous, call_handling_mode: option.value }))
+                        }
+                        style={{ marginTop: 2 }}
+                      />
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</span>
+                          {option.badge && (
+                            <span style={{ fontSize: 10, fontWeight: 700, background: option.badge === "Recommended" ? "#dcfce7" : "#f3f4f6", color: option.badge === "Recommended" ? "#15803d" : "#6b7280", borderRadius: 4, padding: "1px 6px" }}>
+                              {option.badge}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
+                          {option.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* After Hours Voice Behavior */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">After-Hours Voice Behavior</h2>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                How should the AI handle calls received outside your office hours?
+              </p>
+              <div style={{ display: "grid", gap: 8 }}>
+                {(
+                  [
+                    {
+                      value: "ai_take_message" as AfterHoursVoiceMode,
+                      label: "AI answers and takes a message",
+                      description: "The AI answers, explains you're unavailable, and collects the caller's details and message.",
+                    },
+                    {
+                      value: "ai_offer_callback" as AfterHoursVoiceMode,
+                      label: "AI answers and offers a callback",
+                      description: "The AI answers and offers to schedule a callback during business hours.",
+                    },
+                    {
+                      value: "voicemail" as AfterHoursVoiceMode,
+                      label: "Play voicemail greeting",
+                      description: "Plays a professional voicemail greeting and notifies you of missed calls.",
+                    },
+                  ] as Array<{ value: AfterHoursVoiceMode; label: string; description: string }>
+                ).map((option) => {
+                  const isSelected = settings.after_hours_voice_mode === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className="crm-card-muted"
+                      style={{
+                        padding: 12,
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr",
+                        gap: "8px 12px",
+                        cursor: "pointer",
+                        border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                        borderRadius: 6,
+                        alignItems: "start",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="after_hours_voice_mode"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() =>
+                          setSettings((previous) => ({ ...previous, after_hours_voice_mode: option.value }))
+                        }
+                        style={{ marginTop: 2 }}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
+                          {option.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Voice selection */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">AI Voice</h2>
+                {(settings.voice_preset ?? "female") === "custom" && (
+                  <span className={settings.voice_clone_status === "ready" ? "crm-chip crm-chip-ok" : "crm-chip"}>
+                    {settings.voice_clone_status === "ready"
+                      ? "Voice Ready"
+                      : settings.voice_clone_status === "pending" || settings.voice_clone_status === "processing"
+                        ? "Processing..."
+                        : settings.voice_clone_status === "failed"
+                          ? "Failed"
+                          : "Not Set Up"}
+                  </span>
+                )}
+              </div>
+              <Field label="AI name" helper="The name callers hear when the AI introduces itself — keep it short and natural.">
+                <input
+                  value={settings.voice_name}
+                  onChange={(event) =>
+                    setSettings((previous) => ({ ...previous, voice_name: event.target.value }))
+                  }
+                  placeholder="e.g. Natalee, Jake, Alex..."
+                  maxLength={40}
+                />
+              </Field>
+
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>Voice</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {(
+                  [
+                    { value: "female", label: "Female", description: "Professional female voice" },
+                    { value: "male", label: "Male", description: "Professional male voice" },
+                    { value: "custom", label: "My Voice", description: "Clone your own voice — callers will hear you" },
+                  ] as Array<{ value: "female" | "male" | "custom"; label: string; description: string }>
+                ).map((option) => {
+                  const isSelected = (settings.voice_preset ?? "female") === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className="crm-card-muted"
+                      style={{
+                        padding: 12,
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr",
+                        gap: "8px 12px",
+                        cursor: "pointer",
+                        border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                        borderRadius: 6,
+                        alignItems: "start",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="voice_preset"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() => setSettings((prev) => ({ ...prev, voice_preset: option.value }))}
+                        style={{ marginTop: 2 }}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
+                          {option.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {(settings.voice_preset ?? "female") === "custom" && (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {/* Recording instructions */}
+                  <div className="crm-card-muted" style={{ padding: 14, display: "grid", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>How to record your voice</span>
+                    <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.7 }}>
+                      <li>Find a quiet room — no background noise, TV, or echo.</li>
+                      <li>Open the <strong>Voice Memos</strong> app on iPhone or <strong>Voice Recorder</strong> on Android.</li>
+                      <li>Talk naturally for at least <strong>1–2 minutes</strong>. Introduce yourself, describe a property, answer a buyer question. Variety helps.</li>
+                      <li>Export as <strong>MP3 or WAV</strong> and upload below.</li>
+                    </ol>
+                    <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.4 }}>
+                      Tip: Don&apos;t read a script word-for-word. Natural, conversational speech produces the most realistic clone.
+                    </p>
+                  </div>
+
+                  {/* Upload */}
+                  <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 10 }}>
+                    <Field label="Upload your recording" helper="MP3 or WAV. At least 60 seconds, max 20MB.">
+                      <input
+                        type="file"
+                        accept="audio/mpeg,audio/mp3,audio/wav,audio/webm,audio/*"
+                        onChange={(event) => setCloneFile(event.target.files?.[0] ?? null)}
+                      />
+                    </Field>
+                    {cloneFile ? (
+                      <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                        Selected: {cloneFile.name} ({(cloneFile.size / 1024 / 1024).toFixed(1)} MB)
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="crm-btn crm-btn-primary"
+                      onClick={() => void submitVoiceClone()}
+                      disabled={!cloneFile || cloningVoice}
+                      style={{ width: "fit-content" }}
+                    >
+                      {cloningVoice ? "Cloning voice..." : "Submit Voice for Cloning"}
+                    </button>
+                    {voiceMessage ? (
+                      <div
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: 6,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          background: voiceMessageType === "success" ? "var(--color-ok-bg, #d1fae5)" : "var(--color-error-bg, #fee2e2)",
+                          color: voiceMessageType === "success" ? "var(--color-ok-text, #065f46)" : "var(--color-error-text, #991b1b)",
+                          border: `1px solid ${voiceMessageType === "success" ? "var(--color-ok-border, #6ee7b7)" : "var(--color-error-border, #fca5a5)"}`,
+                        }}
+                      >
+                        {voiceMessage}
+                      </div>
+                    ) : null}
+                    {settings.voice_clone_status === "ready" && settings.voice_clone_voice_id ? (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <span className="crm-chip crm-chip-ok">Your voice is active</span>
+                        <button
+                          type="button"
+                          className="crm-btn crm-btn-secondary"
+                          style={{ fontSize: 12, padding: "4px 10px" }}
+                          onClick={() =>
+                            setSettings((previous) => ({
+                              ...previous,
+                              voice_clone_status: "none" as VoiceCloneStatus,
+                              voice_clone_voice_id: "",
+                            }))
+                          }
+                        >
+                          Remove and switch to Female voice
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Test Call */}
+            <section className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <h2 className="crm-section-title">Test Your Voice Setup</h2>
+              </div>
+              <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                  To test your voice AI, call your business number from any phone. The AI will greet you,
+                  ask the qualification questions, and you can experience the full call flow.
+                </p>
+                {settings.business_phone_number ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span className="crm-chip crm-chip-ok">Business number</span>
+                    <strong style={{ fontSize: 14 }}>{settings.business_phone_number}</strong>
+                    <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Call this number to test</span>
+                  </div>
+                ) : (
+                  <span className="crm-chip crm-chip-warn">Set up your business number first</span>
+                )}
+              </div>
+            </section>
+        </>
+
+        {/* Secretary Autonomy Mode */}
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-section-head">
+            <h2 className="crm-section-title">Secretary Autonomy Mode</h2>
+            <span className={settings.pa_mode === "autopilot" ? "crm-chip crm-chip-ok" : "crm-chip"}>
+              {settings.pa_mode === "autopilot" ? "Autopilot" : "Co-pilot"}
+            </span>
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+            When a lead replies to your Secretary's SMS, the Secretary interprets their intent and decides what to do next.
+            Choose how much autonomy you give it.
+          </p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(
+              [
+                {
+                  value: "copilot" as const,
+                  label: "Co-pilot (Recommended)",
+                  description: "The PA drafts a reply and suggested CRM action for your review. You approve or edit before anything is sent.",
+                },
+                {
+                  value: "autopilot" as const,
+                  label: "Autopilot",
+                  description: "The PA acts immediately — sends the reply and updates the CRM without waiting for your approval. You see what happened in the Activity feed.",
+                },
+              ]
+            ).map((option) => {
+              const isSelected = settings.pa_mode === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className="crm-card-muted"
+                  style={{
+                    padding: 12,
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr",
+                    gap: "8px 12px",
+                    cursor: "pointer",
+                    border: isSelected ? "2px solid var(--brand-green, #16a34a)" : "1px solid var(--border)",
+                    borderRadius: 6,
+                    alignItems: "start",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="pa_mode"
+                    value={option.value}
+                    checked={isSelected}
+                    onChange={() => setSettings((prev) => ({ ...prev, pa_mode: option.value }))}
+                    style={{ marginTop: 2 }}
+                  />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{option.label}</div>
+                    <div style={{ fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.45, marginTop: 2 }}>
+                      {option.description}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="crm-card crm-section-card crm-stack-10">
+          <div className="crm-card-muted" style={{ padding: 12, display: "grid", gap: 8 }}>
+            {!activationReady ? (
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>
+                Complete Business Number and Forwarding Phone to fully activate call and text routing.
+              </p>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>
+                Phone setup looks good. Save to apply any changes.
+              </p>
+            )}
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="crm-btn crm-btn-primary"
+                onClick={saveSettings}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Secretary Settings"}
+              </button>
+              <Link href="/app/list" className="crm-btn crm-btn-secondary">
+                Open Leads Workspace
+              </Link>
+            </div>
+
+            {message ? (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: messageType === "success" ? "var(--color-ok-bg, #d1fae5)" : "var(--color-error-bg, #fee2e2)",
+                  color: messageType === "success" ? "var(--color-ok-text, #065f46)" : "var(--color-error-text, #991b1b)",
+                  border: `1px solid ${messageType === "success" ? "var(--color-ok-border, #6ee7b7)" : "var(--color-error-border, #fca5a5)"}`,
+                }}
+              >
+                {message}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
