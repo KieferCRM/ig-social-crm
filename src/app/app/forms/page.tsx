@@ -384,10 +384,8 @@ export default function FormsPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [vanitySlug, setVanitySlug] = useState<string | null>(null);
-  const [contactCount, setContactCount] = useState(0);
+  const [smartFormCount, setSmartFormCount] = useState(0);
   const [openHouseCount, setOpenHouseCount] = useState(0);
-  const [sellerCount, setSellerCount] = useState(0);
-  const [buyerCount, setBuyerCount] = useState(0);
   const [genericForms, setGenericForms] = useState<GenericForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBuilder, setShowBuilder] = useState(false);
@@ -407,20 +405,16 @@ export default function FormsPage() {
         setVanitySlug((agentRow?.vanity_slug as string | null) ?? null);
       }
 
-      const [contactRes, openHouseRes, sellerRes, buyerRes, formsRes] = await Promise.all([
+      const [smartFormRes, openHouseRes, formsRes] = await Promise.all([
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "contact_form"),
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "open_house_form"),
-        supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "seller_form"),
-        supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "buyer_form"),
         supabase.from("generic_forms").select("id, title, description, questions, short_code").eq("agent_id", user.id).order("created_at", { ascending: false }),
       ]);
 
       if (!active) return;
 
-      setContactCount(contactRes.count ?? 0);
+      setSmartFormCount(smartFormRes.count ?? 0);
       setOpenHouseCount(openHouseRes.count ?? 0);
-      setSellerCount(sellerRes.count ?? 0);
-      setBuyerCount(buyerRes.count ?? 0);
 
       const forms = formsRes.data || [];
       const withCounts: GenericForm[] = await Promise.all(
@@ -506,32 +500,18 @@ export default function FormsPage() {
           {agentId ? (
             <>
               <BuiltInFormCard
-                label="Contact Form"
-                description="General lead capture for social media bios, link-in-bio pages, and website. Collects name, phone, email, intent, and timeline."
-                path={`/forms/contact/${vanitySlug ?? agentId}`}
-                submissionCount={contactCount}
-                downloadName="contact-form-qr.png"
+                label="Smart Lead Form"
+                description="The one link to share everywhere — social bio, posts, mailers. Step 1 captures name and phone instantly. Step 2 asks buyer or seller questions based on what they choose."
+                path={`/forms/${vanitySlug ?? agentId}`}
+                submissionCount={smartFormCount}
+                downloadName="smart-form-qr.png"
               />
               <BuiltInFormCard
                 label="Open House Sign-In"
-                description="QR code sign-in for open houses. Collects name, phone, email, buyer agent status, and how they heard about the open house."
+                description="QR code sign-in for open houses. Captures name, phone, email, buyer agent status, and how they heard about the open house."
                 path={`/forms/open-house/${vanitySlug ?? agentId}`}
                 submissionCount={openHouseCount}
                 downloadName="open-house-signin-qr.png"
-              />
-              <BuiltInFormCard
-                label="Seller Form"
-                description="For 'What's your home worth?' posts and mailers. Collects contact info, property address, type, timeline, and rough asking price."
-                path={`/forms/seller/${vanitySlug ?? agentId}`}
-                submissionCount={sellerCount}
-                downloadName="seller-form-qr.png"
-              />
-              <BuiltInFormCard
-                label="Buyer Form"
-                description="For 'Looking for homes?' posts and buyer seminars. Collects contact info, location, budget, pre-approval status, and timeline."
-                path={`/forms/buyer/${vanitySlug ?? agentId}`}
-                submissionCount={buyerCount}
-                downloadName="buyer-form-qr.png"
               />
             </>
           ) : null}

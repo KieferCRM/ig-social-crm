@@ -1321,14 +1321,78 @@ h1, h2, h3, h4 {
   flex-wrap: wrap;
 }
 
+/* Hide native radio inside chips */
+.crm-public-intake-radio-chip input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
 .crm-public-intake-radio-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 999px;
-  background: var(--backgroundCard);
-  padding: 8px 12px;
+  background: transparent;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-muted);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  user-select: none;
+}
+
+.crm-public-intake-radio-chip:has(input:checked) {
+  background: var(--brand, #16a34a);
+  border-color: var(--brand, #16a34a);
+  color: #fff;
+}
+
+/* Reset fieldset default browser styles in public forms */
+.crm-public-intake-field fieldset,
+.crm-smart-form-intent {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.crm-smart-form-intent legend,
+.crm-public-intake-field fieldset legend {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+/* Smart form intent chips (button-based, not radio) */
+.crm-smart-form-intent-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crm-smart-form-intent-chip {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 999px;
+  background: transparent;
+  padding: 7px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  user-select: none;
+}
+
+.crm-smart-form-intent-chip--selected {
+  background: var(--brand, #16a34a);
+  border-color: var(--brand, #16a34a);
+  color: #fff;
 }
 
 .crm-section-head {
