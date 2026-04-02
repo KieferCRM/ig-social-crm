@@ -526,6 +526,69 @@ export async function notifyAgentFormSubmission(
   }
 }
 
+export async function notifyAgentHotLead(
+  admin: AdminClient,
+  agentId: string,
+  opts: {
+    leadId: string;
+    leadName: string | null;
+    phone: string | null;
+    score: number;
+    urgencyReason: string;
+    agentNote: string;
+    flags: string[];
+  }
+): Promise<void> {
+  const context = await loadAgentReceptionistContext(admin, agentId);
+  const displayName = opts.leadName || opts.phone || "New lead";
+  const flagLine = opts.flags.length > 0 ? ` Heads up: ${opts.flags.join(", ")}.` : "";
+  const alertMessage = `Score ${opts.score}/10 — ${opts.urgencyReason} ${opts.agentNote}${flagLine}`;
+  const smsText = `🔥 Hot lead — ${displayName}${opts.phone ? `, ${opts.phone}` : ""}. Score ${opts.score}/10. ${opts.urgencyReason}${flagLine} Log in: https://lockboxhq.com/app`;
+
+  await createReceptionistAlert({
+    admin,
+    agentId,
+    leadId: opts.leadId,
+    alertType: "hot_lead",
+    severity: "urgent",
+    title: `🔥 Hot lead — ${displayName}`,
+    message: alertMessage,
+    metadata: {
+      lead_name: opts.leadName,
+      phone: opts.phone,
+      score: opts.score,
+      urgency_reason: opts.urgencyReason,
+      agent_note: opts.agentNote,
+      flags: opts.flags,
+    },
+  });
+
+  const fromPhone = normalizePhoneToE164(context.settings.business_phone_number);
+  const toPhone = normalizePhoneToE164(context.settings.notification_phone_number);
+  if (fromPhone && toPhone) {
+    await sendReceptionistSms({ agentId, fromPhone, toPhone, text: smsText });
+  } else {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (apiKey) {
+      try {
+        const { data: userData } = await admin.auth.admin.getUserById(agentId);
+        const agentEmail = userData?.user?.email;
+        if (agentEmail) {
+          const resend = new Resend(apiKey);
+          await resend.emails.send({
+            from: "LockboxHQ <onboarding@resend.dev>",
+            to: agentEmail,
+            subject: `🔥 Hot lead — ${displayName} (${opts.score}/10)`,
+            text: `${alertMessage}\n\nCall them now: ${opts.phone || "no phone on file"}\n\nLog in: https://lockboxhq.com/app`,
+          });
+        }
+      } catch (err) {
+        console.warn("[hot-lead] agent email fallback failed", err instanceof Error ? err.message : err);
+      }
+    }
+  }
+}
+
 export async function processInboundSms(input: {
   admin: AdminClient;
   agentId: string;

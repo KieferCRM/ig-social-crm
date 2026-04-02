@@ -9,6 +9,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { notifyAgentHotLead } from "@/lib/receptionist/service";
 
 export type MotivationScore = {
   temperature: "Hot" | "Warm" | "Cold";
@@ -27,7 +28,7 @@ export async function scoreLeadWithClaude(leadId: string): Promise<void> {
   const { data: lead, error } = await admin
     .from("leads")
     .select(
-      "id, full_name, intent, timeline, budget_range, location_area, notes, financing_status, agency_status, lead_temp, custom_fields"
+      "id, agent_id, full_name, canonical_phone, intent, timeline, budget_range, location_area, notes, financing_status, agency_status, lead_temp, custom_fields"
     )
     .eq("id", leadId)
     .maybeSingle();
@@ -148,6 +149,19 @@ Rules:
         },
       })
       .eq("id", leadId);
+
+    // Notify agent immediately if Hot
+    if (result.temperature === "Hot" && lead.agent_id) {
+      await notifyAgentHotLead(admin, lead.agent_id, {
+        leadId,
+        leadName: lead.full_name as string | null,
+        phone: lead.canonical_phone as string | null,
+        score: result.score,
+        urgencyReason: result.urgency_reason,
+        agentNote: result.agent_note,
+        flags: result.flags || [],
+      });
+    }
   } catch {
     // Scoring is best-effort — never throw
   }
