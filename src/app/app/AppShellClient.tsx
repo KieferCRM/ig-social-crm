@@ -123,7 +123,7 @@ export default function AppShellClient({
         { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
-        { href: "/app/secretary", label: "Assistant", active: pathname.startsWith("/app/secretary"), count: alertCount },
+        { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
         {
           href: "/app/settings",
           label: "Settings",
@@ -137,19 +137,11 @@ export default function AppShellClient({
         { href: "/app/deals", label: "Pipeline", active: pathname.startsWith("/app/deals"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
-        {
-          href: "/app/intake",
-          label: "Inquiries",
-          active:
-            pathname.startsWith("/app/intake") ||
-            pathname.startsWith("/app/ingestion") ||
-            pathname.startsWith("/app/import"),
-          count: 0,
-        },
+        { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
         { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents"), count: inboxUnreadCount },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
-        { href: "/app/secretary", label: "Assistant", active: pathname.startsWith("/app/secretary"), count: alertCount },
+        { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
         {
           href: "/app/settings",
           label: "Settings",
@@ -226,14 +218,14 @@ if (pathname.startsWith("/app/forms")) {
     }
     if (pathname.startsWith("/app/secretary")) {
       return {
-        title: "Assistant",
+        title: "Secretary",
         subtitle:
           "AI call handling, SMS outreach, transcripts, and alerts in one place.",
       };
     }
     if (pathname.startsWith("/app/settings/receptionist")) {
       return {
-        title: "Assistant Settings",
+        title: "Secretary Settings",
         subtitle:
           "Configure call handling, voice AI, after-hours mode, and SMS behavior.",
       };
