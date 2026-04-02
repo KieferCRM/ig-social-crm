@@ -5,6 +5,7 @@ export const SOURCE_CHANNEL_VALUES = [
   "website_form",
   "seller_form",
   "buyer_form",
+  "contact_form",
   "generic_form",
   "open_house",
   "inbound_call",
@@ -89,6 +90,7 @@ export function normalizeSourceChannel(value: string | null | undefined): Source
   if (includesAny(source, ["open house"])) return "open_house";
   if (source === "seller_form") return "seller_form";
   if (source === "buyer_form") return "buyer_form";
+  if (source === "contact_form") return "contact_form";
   if (source === "generic_form") return "generic_form";
   if (includesAny(source, ["sms_receptionist", "inbound_sms"])) return "inbound_sms";
   if (includesAny(source, ["call_inbound", "missed_call_textback", "inbound_call", "missed call", "call"])) return "inbound_call";
@@ -136,6 +138,7 @@ export function sourceChannelLabel(value: string | null | undefined): string {
   if (source === "website_form") return "Website Form";
   if (source === "seller_form") return "Seller Form";
   if (source === "buyer_form") return "Buyer Form";
+  if (source === "contact_form") return "Contact Form";
   if (source === "generic_form") return "Generic Form";
   if (source === "open_house") return "Open House";
   if (source === "inbound_call") return "Inbound Call";
@@ -153,7 +156,7 @@ export function sourceChannelTone(
   const source = normalizeSourceChannel(value);
   if (source === "instagram" || source === "facebook" || source === "tiktok") return "info";
   if (source === "open_house" || source === "referral") return "ok";
-  if (source === "seller_form" || source === "buyer_form" || source === "generic_form") return "ok";
+  if (source === "seller_form" || source === "buyer_form" || source === "contact_form" || source === "generic_form") return "ok";
   if (source === "inbound_call" || source === "inbound_sms" || source === "concierge") return "warn";
   return "default";
 }

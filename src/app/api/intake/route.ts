@@ -295,9 +295,13 @@ export async function POST(request: Request) {
   }
 
   const requestedSource = optionalString(resolvedInput.source);
+  const intentForSource = optionalString(resolvedInput.intent)?.toLowerCase() ?? "";
   const formDerivedSource =
     formVariant === "off_market_seller" || formVariant === "seller" ? "seller_form" :
     formVariant === "off_market_buyer" || formVariant === "buyer" ? "buyer_form" :
+    formVariant === "smart_form" && intentForSource.includes("sell") ? "seller_form" :
+    formVariant === "smart_form" && intentForSource.includes("buy") ? "buyer_form" :
+    formVariant === "smart_form" ? "contact_form" :
     null;
   const source = formDerivedSource || requestedSource || existingLead?.source || "website_form";
   const sourceChannel = normalizeSourceChannel(source) || "other";
