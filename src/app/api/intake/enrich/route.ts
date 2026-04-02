@@ -27,8 +27,8 @@ function optStr(value: string | null | undefined): string | null {
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
-  const limited = await takeRateLimit(`enrich:${ip}`, 20, 60);
-  if (!limited.ok) {
+  const limited = await takeRateLimit({ key: `enrich:${ip}`, limit: 20, windowMs: 60_000 });
+  if (!limited.allowed) {
     return NextResponse.json({ error: "Too many requests." }, { status: 429 });
   }
 
