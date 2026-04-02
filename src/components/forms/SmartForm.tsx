@@ -18,6 +18,11 @@ type Step2Buying = {
   budget_range: string;
   financing_status: string;
   timeline: string;
+  motivation: string;
+  decision_makers: string;
+  blocker: string;
+  contact_preference: string;
+  referral_source: string;
 };
 
 type Step2Selling = {
@@ -26,6 +31,10 @@ type Step2Selling = {
   property_type: string;
   timeline: string;
   asking_price: string;
+  motivation: string;
+  decision_makers: string;
+  contact_preference: string;
+  referral_source: string;
 };
 
 type Step2Both = {
@@ -34,6 +43,10 @@ type Step2Both = {
   location_area: string;
   budget_range: string;
   timeline: string;
+  motivation: string;
+  decision_makers: string;
+  contact_preference: string;
+  referral_source: string;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -62,6 +75,17 @@ const PROPERTY_TYPE_OPTIONS = [
   "Multi-Family",
   "Land Only",
   "Commercial",
+  "Other",
+];
+
+const REFERRAL_OPTIONS = [
+  "Instagram",
+  "Facebook",
+  "TikTok",
+  "Google",
+  "Friend or referral",
+  "Yard sign",
+  "Open house",
   "Other",
 ];
 
@@ -268,12 +292,15 @@ function Step2Form({
 }) {
   const [buying, setBuying] = useState<Step2Buying>({
     email: "", location_area: "", budget_range: "", financing_status: "", timeline: "",
+    motivation: "", decision_makers: "", blocker: "", contact_preference: "", referral_source: "",
   });
   const [selling, setSelling] = useState<Step2Selling>({
     email: "", property_address: "", property_type: "", timeline: "", asking_price: "",
+    motivation: "", decision_makers: "", contact_preference: "", referral_source: "",
   });
   const [both, setBoth] = useState<Step2Both>({
     email: "", property_address: "", location_area: "", budget_range: "", timeline: "",
+    motivation: "", decision_makers: "", contact_preference: "", referral_source: "",
   });
 
   const [saving, setSaving] = useState(false);
@@ -292,6 +319,11 @@ function Step2Form({
       payload.budget_range = buying.budget_range || null;
       payload.financing_status = buying.financing_status || null;
       payload.timeline = buying.timeline || null;
+      payload.motivation = buying.motivation || null;
+      payload.decision_makers = buying.decision_makers || null;
+      payload.blocker = buying.blocker || null;
+      payload.contact_preference = buying.contact_preference || null;
+      payload.referral_source = buying.referral_source || null;
       payload.intent = "Buying";
     } else if (intent === "Selling") {
       payload.email = selling.email || null;
@@ -299,6 +331,10 @@ function Step2Form({
       payload.property_type = selling.property_type || null;
       payload.timeline = selling.timeline || null;
       payload.asking_price = selling.asking_price || null;
+      payload.motivation = selling.motivation || null;
+      payload.decision_makers = selling.decision_makers || null;
+      payload.contact_preference = selling.contact_preference || null;
+      payload.referral_source = selling.referral_source || null;
       payload.intent = "Selling";
     } else {
       payload.email = both.email || null;
@@ -306,6 +342,10 @@ function Step2Form({
       payload.location_area = both.location_area || null;
       payload.budget_range = both.budget_range || null;
       payload.timeline = both.timeline || null;
+      payload.motivation = both.motivation || null;
+      payload.decision_makers = both.decision_makers || null;
+      payload.contact_preference = both.contact_preference || null;
+      payload.referral_source = both.referral_source || null;
       payload.intent = "Both";
     }
 
@@ -367,6 +407,32 @@ function Step2Form({
                 ))}
               </div>
             </fieldset>
+            <Field label="Why are you looking to move?" full>
+              <textarea rows={3} value={buying.motivation} placeholder="e.g. Job relocation, lease ending, growing family..." onChange={(e) => setBuying((p) => ({ ...p, motivation: e.target.value }))} />
+            </Field>
+            <fieldset className="crm-smart-form-intent crm-public-intake-field-full">
+              <legend>Is anyone else involved in this decision?</legend>
+              <div className="crm-smart-form-intent-row">
+                {["Just me", "Spouse / partner", "Yes — someone else"].map((opt) => (
+                  <button key={opt} type="button"
+                    className={`crm-smart-form-intent-chip${buying.decision_makers === opt ? " crm-smart-form-intent-chip--selected" : ""}`}
+                    onClick={() => setBuying((p) => ({ ...p, decision_makers: p.decision_makers === opt ? "" : opt }))}
+                  >{opt}</button>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="crm-smart-form-intent crm-public-intake-field-full">
+              <legend>Best way to reach you?</legend>
+              <div className="crm-smart-form-intent-row">
+                {["Call", "Text", "Email"].map((opt) => (
+                  <button key={opt} type="button"
+                    className={`crm-smart-form-intent-chip${buying.contact_preference === opt ? " crm-smart-form-intent-chip--selected" : ""}`}
+                    onClick={() => setBuying((p) => ({ ...p, contact_preference: p.contact_preference === opt ? "" : opt }))}
+                  >{opt}</button>
+                ))}
+              </div>
+            </fieldset>
+            <SelectField label="How did you hear about us?" value={buying.referral_source} options={REFERRAL_OPTIONS} onChange={(v) => setBuying((p) => ({ ...p, referral_source: v }))} />
           </>
         )}
 
@@ -383,6 +449,32 @@ function Step2Form({
             <Field label="Rough Asking Price in Mind?">
               <input type="text" value={selling.asking_price} placeholder="e.g. $450,000 — okay to estimate" onChange={(e) => setSelling((p) => ({ ...p, asking_price: e.target.value }))} />
             </Field>
+            <Field label="Why are you selling?" full>
+              <textarea rows={3} value={selling.motivation} placeholder="e.g. Downsizing, relocation, divorce, inherited property..." onChange={(e) => setSelling((p) => ({ ...p, motivation: e.target.value }))} />
+            </Field>
+            <fieldset className="crm-smart-form-intent crm-public-intake-field-full">
+              <legend>Is anyone else involved in this decision?</legend>
+              <div className="crm-smart-form-intent-row">
+                {["Just me", "Spouse / partner", "Yes — someone else"].map((opt) => (
+                  <button key={opt} type="button"
+                    className={`crm-smart-form-intent-chip${selling.decision_makers === opt ? " crm-smart-form-intent-chip--selected" : ""}`}
+                    onClick={() => setSelling((p) => ({ ...p, decision_makers: p.decision_makers === opt ? "" : opt }))}
+                  >{opt}</button>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="crm-smart-form-intent crm-public-intake-field-full">
+              <legend>Best way to reach you?</legend>
+              <div className="crm-smart-form-intent-row">
+                {["Call", "Text", "Email"].map((opt) => (
+                  <button key={opt} type="button"
+                    className={`crm-smart-form-intent-chip${selling.contact_preference === opt ? " crm-smart-form-intent-chip--selected" : ""}`}
+                    onClick={() => setSelling((p) => ({ ...p, contact_preference: p.contact_preference === opt ? "" : opt }))}
+                  >{opt}</button>
+                ))}
+              </div>
+            </fieldset>
+            <SelectField label="How did you hear about us?" value={selling.referral_source} options={REFERRAL_OPTIONS} onChange={(v) => setSelling((p) => ({ ...p, referral_source: v }))} />
           </>
         )}
 
@@ -399,6 +491,32 @@ function Step2Form({
             </Field>
             <SelectField label="Budget Range" value={both.budget_range} options={BUDGET_OPTIONS} onChange={(v) => setBoth((p) => ({ ...p, budget_range: v }))} />
             <SelectField label="Timeline" value={both.timeline} options={TIMELINE_OPTIONS} onChange={(v) => setBoth((p) => ({ ...p, timeline: v }))} />
+            <Field label="Why are you moving?" full>
+              <textarea rows={3} value={both.motivation} placeholder="e.g. Upsizing, job change, looking to cash out equity..." onChange={(e) => setBoth((p) => ({ ...p, motivation: e.target.value }))} />
+            </Field>
+            <fieldset className="crm-smart-form-intent crm-public-intake-field-full">
+              <legend>Is anyone else involved in this decision?</legend>
+              <div className="crm-smart-form-intent-row">
+                {["Just me", "Spouse / partner", "Yes — someone else"].map((opt) => (
+                  <button key={opt} type="button"
+                    className={`crm-smart-form-intent-chip${both.decision_makers === opt ? " crm-smart-form-intent-chip--selected" : ""}`}
+                    onClick={() => setBoth((p) => ({ ...p, decision_makers: p.decision_makers === opt ? "" : opt }))}
+                  >{opt}</button>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="crm-smart-form-intent crm-public-intake-field-full">
+              <legend>Best way to reach you?</legend>
+              <div className="crm-smart-form-intent-row">
+                {["Call", "Text", "Email"].map((opt) => (
+                  <button key={opt} type="button"
+                    className={`crm-smart-form-intent-chip${both.contact_preference === opt ? " crm-smart-form-intent-chip--selected" : ""}`}
+                    onClick={() => setBoth((p) => ({ ...p, contact_preference: p.contact_preference === opt ? "" : opt }))}
+                  >{opt}</button>
+                ))}
+              </div>
+            </fieldset>
+            <SelectField label="How did you hear about us?" value={both.referral_source} options={REFERRAL_OPTIONS} onChange={(v) => setBoth((p) => ({ ...p, referral_source: v }))} />
           </>
         )}
       </div>
