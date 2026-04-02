@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
+
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -384,7 +384,8 @@ export default function FormsPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [vanitySlug, setVanitySlug] = useState<string | null>(null);
-  const [isOffMarketAccount, setIsOffMarketAccount] = useState(false);
+  const [contactCount, setContactCount] = useState(0);
+  const [openHouseCount, setOpenHouseCount] = useState(0);
   const [sellerCount, setSellerCount] = useState(0);
   const [buyerCount, setBuyerCount] = useState(0);
   const [genericForms, setGenericForms] = useState<GenericForm[]>([]);
@@ -401,14 +402,14 @@ export default function FormsPage() {
       if (!user || !active) return;
       setAgentId(user.id);
 
-      const { data: agentRow } = await supabase.from("agents").select("settings, vanity_slug").eq("id", user.id).maybeSingle();
-      const onboardingState = readOnboardingStateFromAgentSettings(agentRow?.settings ?? null);
+      const { data: agentRow } = await supabase.from("agents").select("vanity_slug").eq("id", user.id).maybeSingle();
       if (active) {
-        setIsOffMarketAccount(onboardingState.account_type === "off_market_agent");
         setVanitySlug((agentRow?.vanity_slug as string | null) ?? null);
       }
 
-      const [sellerRes, buyerRes, formsRes] = await Promise.all([
+      const [contactRes, openHouseRes, sellerRes, buyerRes, formsRes] = await Promise.all([
+        supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "contact_form"),
+        supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "open_house_form"),
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "seller_form"),
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "buyer_form"),
         supabase.from("generic_forms").select("id, title, description, questions, short_code").eq("agent_id", user.id).order("created_at", { ascending: false }),
@@ -416,6 +417,8 @@ export default function FormsPage() {
 
       if (!active) return;
 
+      setContactCount(contactRes.count ?? 0);
+      setOpenHouseCount(openHouseRes.count ?? 0);
       setSellerCount(sellerRes.count ?? 0);
       setBuyerCount(buyerRes.count ?? 0);
 
@@ -503,22 +506,32 @@ export default function FormsPage() {
           {agentId ? (
             <>
               <BuiltInFormCard
+                label="Contact Form"
+                description="General lead capture for social media bios, link-in-bio pages, and website. Collects name, phone, email, intent, and timeline."
+                path={`/forms/contact/${vanitySlug ?? agentId}`}
+                submissionCount={contactCount}
+                downloadName="contact-form-qr.png"
+              />
+              <BuiltInFormCard
+                label="Open House Sign-In"
+                description="QR code sign-in for open houses. Collects name, phone, email, buyer agent status, and how they heard about the open house."
+                path={`/forms/open-house/${vanitySlug ?? agentId}`}
+                submissionCount={openHouseCount}
+                downloadName="open-house-signin-qr.png"
+              />
+              <BuiltInFormCard
                 label="Seller Form"
-                description="Collects name, phone, email, property address, acreage, asking price, and notes. Submissions create a new deal in the pipeline."
+                description="For 'What's your home worth?' posts and mailers. Collects contact info, property address, type, timeline, and rough asking price."
                 path={`/forms/seller/${vanitySlug ?? agentId}`}
                 submissionCount={sellerCount}
                 downloadName="seller-form-qr.png"
               />
               <BuiltInFormCard
-                label={isOffMarketAccount ? "Buyer Qualification Form" : "Buyer Form"}
-                description={
-                  isOffMarketAccount
-                    ? "Captures contact info, financing, budget, and search criteria. Use for off-market buyer matching, referrals, and serious inbound inquiries."
-                    : "Collects name, phone, email, price range, location preference, and notes. Submissions create a new buyer lead."
-                }
+                label="Buyer Form"
+                description="For 'Looking for homes?' posts and buyer seminars. Collects contact info, location, budget, pre-approval status, and timeline."
                 path={`/forms/buyer/${vanitySlug ?? agentId}`}
                 submissionCount={buyerCount}
-                downloadName={isOffMarketAccount ? "buyer-qualification-form-qr.png" : "buyer-form-qr.png"}
+                downloadName="buyer-form-qr.png"
               />
             </>
           ) : null}

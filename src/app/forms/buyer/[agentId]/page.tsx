@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import LockboxMark from "@/components/branding/lockbox-mark";
-import OffMarketBuyerForm from "@/components/forms/OffMarketBuyerForm";
+import FormRenderer from "@/components/forms/FormRenderer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -81,7 +81,7 @@ export default async function BuyerFormPage({
         <div style={{ marginBottom: 24 }}>
           <LockboxMark variant="full" decorative />
         </div>
-        <OffMarketBuyerForm agentSlug={resolvedAgentId} />
+        <FormRenderer formType="buyer" agentSlug={resolvedAgentId} source="buyer_form" />
       </div>
     </main>
   );

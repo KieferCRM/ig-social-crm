@@ -22,10 +22,12 @@ export type FormTemplate = {
 };
 
 const TIMELINE_OPTIONS = [
+  "ASAP",
   "Within 30 days",
   "1-3 months",
   "3-6 months",
-  "No rush",
+  "6-12 months",
+  "No rush / Just exploring",
 ];
 
 const PROPERTY_TYPE_OPTIONS = [
@@ -37,15 +39,160 @@ const PROPERTY_TYPE_OPTIONS = [
   "Other",
 ];
 
+const BUDGET_OPTIONS = [
+  "Under $200k",
+  "$200k–$350k",
+  "$350k–$500k",
+  "$500k–$750k",
+  "$750k–$1M",
+  "$1M+",
+];
+
 export const FORM_TEMPLATES: Record<string, FormTemplate> = {
   // ── Traditional agent forms ──────────────────────────────────────────────
 
-  generic_seller: {
-    form_type: "generic_seller",
-    title: "Seller Inquiry",
-    description: "Tell us about your property and we'll follow up with the right next step.",
+  contact: {
+    form_type: "contact",
+    title: "Get in Touch",
+    description: "Leave your info and I'll reach out — no pressure.",
+    fields: [
+      {
+        id: "full_name",
+        label: "Full Name",
+        type: "text",
+        required: true,
+        placeholder: "Jane Smith",
+        crm_field: "full_name",
+      },
+      {
+        id: "phone",
+        label: "Phone Number",
+        type: "tel",
+        required: true,
+        placeholder: "(615) 555-0100",
+        crm_field: "phone",
+      },
+      {
+        id: "email",
+        label: "Email Address",
+        type: "email",
+        required: false,
+        placeholder: "you@email.com",
+        crm_field: "email",
+      },
+      {
+        id: "intent",
+        label: "Are you buying, selling, or both?",
+        type: "radio",
+        required: false,
+        options: ["Buying", "Selling", "Both"],
+        crm_field: "intent",
+      },
+      {
+        id: "timeline",
+        label: "What's your timeline?",
+        type: "select",
+        required: false,
+        options: TIMELINE_OPTIONS,
+        crm_field: "timeline",
+      },
+      {
+        id: "notes",
+        label: "Anything else you'd like to share?",
+        type: "textarea",
+        required: false,
+        placeholder: "Questions about a listing, the market, anything — go for it.",
+        crm_field: "notes",
+      },
+    ],
+  },
+
+  open_house: {
+    form_type: "open_house",
+    title: "Open House Sign-In",
+    description: "Sign in and we'll send you the property details and any updates.",
+    intent: "Buy",
+    fields: [
+      {
+        id: "full_name",
+        label: "Full Name",
+        type: "text",
+        required: true,
+        placeholder: "Jane Smith",
+        crm_field: "full_name",
+      },
+      {
+        id: "phone",
+        label: "Phone Number",
+        type: "tel",
+        required: true,
+        placeholder: "(615) 555-0100",
+        crm_field: "phone",
+      },
+      {
+        id: "email",
+        label: "Email Address",
+        type: "email",
+        required: false,
+        placeholder: "you@email.com",
+        crm_field: "email",
+      },
+      {
+        id: "agency_status",
+        label: "Are you currently working with a buyer's agent?",
+        type: "radio",
+        required: false,
+        options: ["Yes", "No"],
+        crm_field: "agency_status",
+      },
+      {
+        id: "referral_source",
+        label: "How did you hear about this open house?",
+        type: "select",
+        required: false,
+        options: [
+          "Zillow",
+          "Realtor.com",
+          "Instagram / Facebook",
+          "Yard sign",
+          "Friend or referral",
+          "Other",
+        ],
+        crm_field: "custom.referral_source",
+      },
+    ],
+  },
+
+  seller: {
+    form_type: "seller",
+    title: "Thinking About Selling?",
+    description: "Tell us about your property and we'll follow up with next steps — no obligation.",
     intent: "Sell",
     fields: [
+      {
+        id: "full_name",
+        label: "Full Name",
+        type: "text",
+        required: true,
+        placeholder: "Jane Smith",
+        crm_field: "full_name",
+      },
+      {
+        id: "phone",
+        label: "Phone Number",
+        type: "tel",
+        required: true,
+        placeholder: "(615) 555-0100",
+        crm_field: "phone",
+      },
+      {
+        id: "email",
+        label: "Email Address",
+        type: "email",
+        required: false,
+        placeholder: "you@email.com",
+        crm_field: "email",
+      },
       {
         id: "property_address",
         label: "Property Address",
@@ -58,17 +205,9 @@ export const FORM_TEMPLATES: Record<string, FormTemplate> = {
         id: "property_type",
         label: "Property Type",
         type: "select",
-        required: true,
+        required: false,
         options: PROPERTY_TYPE_OPTIONS,
         crm_field: "property_type",
-      },
-      {
-        id: "estimated_condition",
-        label: "Estimated Condition",
-        type: "select",
-        required: true,
-        options: ["Move-in Ready", "Needs Work", "Major Repairs", "Tear Down"],
-        crm_field: "seller_readiness",
       },
       {
         id: "timeline",
@@ -79,11 +218,28 @@ export const FORM_TEMPLATES: Record<string, FormTemplate> = {
         crm_field: "timeline",
       },
       {
-        id: "first_name",
-        label: "First Name",
+        id: "asking_price",
+        label: "Rough Asking Price in Mind?",
+        type: "text",
+        required: false,
+        placeholder: "e.g. $450,000 — okay to estimate",
+        crm_field: "custom.asking_price",
+      },
+    ],
+  },
+
+  buyer: {
+    form_type: "buyer",
+    title: "Looking for a Home?",
+    description: "Share what you're looking for and we'll reach out with the right next step.",
+    intent: "Buy",
+    fields: [
+      {
+        id: "full_name",
+        label: "Full Name",
         type: "text",
         required: true,
-        placeholder: "Your first name",
+        placeholder: "Jane Smith",
         crm_field: "full_name",
       },
       {
@@ -102,52 +258,28 @@ export const FORM_TEMPLATES: Record<string, FormTemplate> = {
         placeholder: "you@email.com",
         crm_field: "email",
       },
-    ],
-  },
-
-  generic_buyer: {
-    form_type: "generic_buyer",
-    title: "Buyer Inquiry",
-    description: "Share a few details and we'll match you with the right properties and next steps.",
-    intent: "Buy",
-    fields: [
       {
         id: "location_area",
-        label: "Areas or ZIP Codes You're Interested In",
+        label: "Areas or Neighborhoods You're Interested In",
         type: "text",
         required: true,
         placeholder: "East Nashville, 37206, Green Hills...",
         crm_field: "location_area",
       },
       {
-        id: "property_type",
-        label: "Property Type",
-        type: "select",
-        required: true,
-        options: PROPERTY_TYPE_OPTIONS,
-        crm_field: "property_type",
-      },
-      {
         id: "budget_range",
         label: "Budget Range",
         type: "select",
         required: true,
-        options: [
-          "Under $200k",
-          "$200k–$350k",
-          "$350k–$500k",
-          "$500k–$750k",
-          "$750k–$1M",
-          "$1M+",
-        ],
+        options: BUDGET_OPTIONS,
         crm_field: "budget_range",
       },
       {
         id: "financing_status",
-        label: "Pre-Approved?",
+        label: "Are you pre-approved for a mortgage?",
         type: "radio",
-        required: true,
-        options: ["Yes", "No", "Not yet"],
+        required: false,
+        options: ["Yes", "No", "In progress"],
         crm_field: "financing_status",
       },
       {
@@ -157,70 +289,6 @@ export const FORM_TEMPLATES: Record<string, FormTemplate> = {
         required: true,
         options: TIMELINE_OPTIONS,
         crm_field: "timeline",
-      },
-      {
-        id: "first_name",
-        label: "First Name",
-        type: "text",
-        required: true,
-        placeholder: "Your first name",
-        crm_field: "full_name",
-      },
-      {
-        id: "phone",
-        label: "Phone Number",
-        type: "tel",
-        required: true,
-        placeholder: "(615) 555-0100",
-        crm_field: "phone",
-      },
-      {
-        id: "email",
-        label: "Email Address",
-        type: "email",
-        required: false,
-        placeholder: "you@email.com",
-        crm_field: "email",
-      },
-    ],
-  },
-
-  contact: {
-    form_type: "contact",
-    title: "Get in Touch",
-    description: "Leave your details and I'll follow up.",
-    fields: [
-      {
-        id: "first_name",
-        label: "First Name",
-        type: "text",
-        required: true,
-        placeholder: "Your first name",
-        crm_field: "full_name",
-      },
-      {
-        id: "phone",
-        label: "Phone Number",
-        type: "tel",
-        required: true,
-        placeholder: "(615) 555-0100",
-        crm_field: "phone",
-      },
-      {
-        id: "email",
-        label: "Email Address",
-        type: "email",
-        required: false,
-        placeholder: "you@email.com",
-        crm_field: "email",
-      },
-      {
-        id: "notes",
-        label: "What's on your mind?",
-        type: "textarea",
-        required: false,
-        placeholder: "Buying, selling, questions about a listing — anything works.",
-        crm_field: "notes",
       },
     ],
   },
@@ -361,25 +429,27 @@ export const FORM_TEMPLATES: Record<string, FormTemplate> = {
 
 // Router options shown on the /intake/[agentSlug] landing page
 export const FORM_ROUTER_OPTIONS = [
-  { label: "I want to buy a home", form_type: "generic_buyer" },
-  { label: "I want to sell my home", form_type: "generic_seller" },
+  { label: "I want to buy a home", form_type: "buyer" },
+  { label: "I want to sell my home", form_type: "seller" },
   { label: "Just getting in touch", form_type: "contact" },
 ] as const;
 
 // Form types available for intake_links (traditional agent side)
 export const INTAKE_LINK_FORM_TYPES = [
-  { value: "buyer", label: "Buyer form", formKey: "generic_buyer" },
-  { value: "seller", label: "Seller form", formKey: "generic_seller" },
+  { value: "buyer", label: "Buyer form", formKey: "buyer" },
+  { value: "seller", label: "Seller form", formKey: "seller" },
   { value: "contact", label: "Contact form", formKey: "contact" },
+  { value: "open_house", label: "Open House sign-in", formKey: "open_house" },
 ] as const;
 
-export type IntakeLinkFormType = "buyer" | "seller" | "contact";
+export type IntakeLinkFormType = "buyer" | "seller" | "contact" | "open_house";
 
 export function formKeyForLinkType(formType: IntakeLinkFormType): string {
   const map: Record<IntakeLinkFormType, string> = {
-    buyer: "generic_buyer",
-    seller: "generic_seller",
+    buyer: "buyer",
+    seller: "seller",
     contact: "contact",
+    open_house: "open_house",
   };
   return map[formType];
 }

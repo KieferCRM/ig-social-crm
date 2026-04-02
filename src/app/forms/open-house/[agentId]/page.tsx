@@ -21,7 +21,7 @@ function FormNotFound() {
   );
 }
 
-export default async function SellerFormPage({
+export default async function OpenHouseFormPage({
   params,
 }: {
   params: Promise<{ agentId: string }>;
@@ -31,7 +31,6 @@ export default async function SellerFormPage({
   let resolvedAgentId: string;
 
   if (UUID_RE.test(param)) {
-    // UUID path: if agent has a slug, redirect to clean URL
     const { data, error } = await admin
       .from("agents")
       .select("id, vanity_slug")
@@ -39,17 +38,15 @@ export default async function SellerFormPage({
       .maybeSingle();
 
     if (error) {
-      // vanity_slug column may not exist yet — fall back to bare existence check
       const { data: basic } = await admin.from("agents").select("id").eq("id", param).maybeSingle();
       if (!basic) return <FormNotFound />;
       resolvedAgentId = basic.id as string;
     } else {
       if (!data) return <FormNotFound />;
-      if (data.vanity_slug) redirect(`/forms/seller/${data.vanity_slug}`);
+      if (data.vanity_slug) redirect(`/forms/open-house/${data.vanity_slug}`);
       resolvedAgentId = data.id as string;
     }
   } else {
-    // Slug path: case-insensitive lookup
     const { data } = await admin
       .from("agents")
       .select("id")
@@ -59,7 +56,6 @@ export default async function SellerFormPage({
     if (data) {
       resolvedAgentId = data.id as string;
     } else {
-      // Check slug history for redirect to current slug
       const { data: hist } = await admin
         .from("agent_slug_history")
         .select("agent_id, agents!inner(id, vanity_slug)")
@@ -68,7 +64,7 @@ export default async function SellerFormPage({
 
       if (hist) {
         const agent = (hist as unknown as { agents: { vanity_slug: string | null; id: string } }).agents;
-        redirect(`/forms/seller/${agent.vanity_slug ?? agent.id}`);
+        redirect(`/forms/open-house/${agent.vanity_slug ?? agent.id}`);
       }
 
       return <FormNotFound />;
@@ -81,7 +77,7 @@ export default async function SellerFormPage({
         <div style={{ marginBottom: 24 }}>
           <LockboxMark variant="full" decorative />
         </div>
-        <FormRenderer formType="seller" agentSlug={resolvedAgentId} source="seller_form" />
+        <FormRenderer formType="open_house" agentSlug={resolvedAgentId} source="open_house_form" />
       </div>
     </main>
   );
