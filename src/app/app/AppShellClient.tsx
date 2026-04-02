@@ -134,14 +134,15 @@ export default function AppShellClient({
         },
       ]
     : [
-        { href: "/app", label: "Home", active: pathname === "/app", count: 0 },
-        { href: "/app/deals", label: "Pipeline", active: pathname.startsWith("/app/deals"), count: 0 },
-        { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
-        { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
-        { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
-        { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents"), count: inboxUnreadCount },
-        { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
+        { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
         { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
+        { href: "/app/intake", label: "Intake Coordinator", active: pathname.startsWith("/app/intake") || pathname.startsWith("/app/ingestion") || pathname.startsWith("/app/import"), count: 0 },
+        { href: "/app/deals", label: "Property Assistant", active: pathname.startsWith("/app/deals"), count: 0 },
+        { href: "/app/inbox", label: "Transaction Coordinator", active: pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents"), count: inboxUnreadCount },
+        { href: "/app/priorities", label: "Follow-Up Coordinator", active: pathname.startsWith("/app/priorities"), count: 0 },
+        { href: "/app/calendar", label: "Schedule", active: pathname.startsWith("/app/calendar"), count: 0 },
+        { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
+        { href: "/app/analytics", label: "Insights", active: pathname.startsWith("/app/analytics"), count: 0 },
         {
           href: "/app/settings",
           label: "Settings",
@@ -161,10 +162,10 @@ export default function AppShellClient({
     }
     if (pathname.startsWith("/app/deals")) {
       return {
-        title: "Deals",
+        title: isOffMarketAccount ? "Deals" : "Property Hub",
         subtitle: isOffMarketAccount
           ? "Work active buyer and assignment opportunities from one board. Stage, context, and next steps stay visible."
-          : "Track every client from first contact to close. Move stages fast, see context at a glance, and keep next steps visible.",
+          : "Every property and client relationship in one board. Stage, context, and next steps always visible.",
       };
     }
     if (pathname.startsWith("/app/contacts")) {
@@ -181,16 +182,18 @@ export default function AppShellClient({
       pathname.startsWith("/app/import")
     ) {
       return {
-        title: isOffMarketAccount ? "Intake" : "Inquiries",
+        title: isOffMarketAccount ? "Intake" : "Intake Coordinator",
         subtitle: isOffMarketAccount
           ? "Review new inbound inquiries, confirm what the system created, and keep source context clear."
-          : "Review new inquiries, confirm contact details, and get each lead into the right stage quickly.",
+          : "New inquiries routed, confirmed, and ready to work. Every lead gets in the right stage from day one.",
       };
     }
     if (pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents")) {
       return {
-        title: "Inbox",
-        subtitle: "Emails, documents, and client correspondence — all processed automatically and tied to the right deal.",
+        title: isOffMarketAccount ? "Inbox" : "Transaction Coordinator",
+        subtitle: isOffMarketAccount
+          ? "Emails, documents, and client correspondence — all processed automatically and tied to the right deal."
+          : "Emails, documents, and client correspondence organized by transaction so nothing falls through the cracks.",
       };
     }
 if (pathname.startsWith("/app/forms")) {
@@ -202,18 +205,26 @@ if (pathname.startsWith("/app/forms")) {
     }
     if (pathname.startsWith("/app/priorities")) {
       return {
-        title: "Tasks",
+        title: isOffMarketAccount ? "Tasks" : "Follow-Up Coordinator",
         subtitle: isOffMarketAccount
           ? "Actionable deal work first: due now, stale opportunities next, then the items that can wait."
-          : "Who needs a call, who needs an update, and what can wait — all in one place.",
+          : "Who needs a call, who needs an update, and what can wait — prioritized and ready to action.",
+      };
+    }
+    if (pathname.startsWith("/app/calendar")) {
+      return {
+        title: "Schedule",
+        subtitle: isOffMarketAccount
+          ? "Appointments, showings, and key dates across all your deals."
+          : "Showings, calls, and client appointments — your full week at a glance.",
       };
     }
     if (pathname.startsWith("/app/analytics")) {
       return {
-        title: "Analytics",
+        title: isOffMarketAccount ? "Analytics" : "Insights",
         subtitle: isOffMarketAccount
           ? "Pipeline health, deal volume, financial metrics, and follow-up status."
-          : "Lead volume, temperature breakdown, source performance, and follow-up health.",
+          : "Lead volume, source performance, temperature breakdown, and follow-up health.",
       };
     }
     if (pathname.startsWith("/app/secretary")) {
@@ -238,10 +249,10 @@ if (pathname.startsWith("/app/forms")) {
       };
     }
     return {
-      title: "Home",
+      title: "Today",
       subtitle: isOffMarketAccount
         ? "Your weekly ops view — brief, pipeline pulse, and everything that needs attention."
-        : "Start with the deals, hot inquiries, and follow-ups that matter right now.",
+        : "Your command center. Hot leads, overdue follow-ups, and what needs attention right now.",
     };
   }, [isOffMarketAccount, pathname]);
 
@@ -392,7 +403,7 @@ if (pathname.startsWith("/app/forms")) {
         <header className="crm-topbar">
           <div>
             <div className="crm-topbar-kicker">
-              {isOffMarketAccount ? "Off-Market Workspace" : "Inbound Workspace"}
+              {isOffMarketAccount ? "Off-Market Workspace" : "Your Virtual Office"}
             </div>
             <h1 className="crm-topbar-title">{pageMeta.title}</h1>
             <p className="crm-topbar-subtitle">{pageMeta.subtitle}</p>
@@ -402,7 +413,7 @@ if (pathname.startsWith("/app/forms")) {
         <div className="crm-workspace-content">{children}</div>
       </div>
 
-      {isOffMarketAccount && <FloatingAssistant />}
+      <FloatingAssistant accountType={initialAccountType} />
     </div>
   );
 }

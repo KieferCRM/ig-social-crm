@@ -423,26 +423,37 @@ export async function POST(req: Request) {
   const overdueTasks = tasks.filter((t) => t.isOverdue);
   const newAlerts = (formAlertData ?? []).length;
 
-  const accountLabel = onboardingState.account_type === "off_market_agent"
-    ? "off-market real estate acquisitions agent"
-    : "real estate agent";
+  const isOffMarket = onboardingState.account_type === "off_market_agent";
 
-  const systemPrompt = `You are a trusted business assistant and co-worker for ${agentName ? agentName : "a"} ${accountLabel}. You have complete, real-time visibility into their entire business — every deal, contact, appointment, and task.
+  const systemPrompt = isOffMarket
+    ? `You are a deal machine assistant for ${agentName ?? "an"} off-market real estate acquisitions agent. You have full visibility into their pipeline — every acquisition, seller, appointment, and task.
 
-Your role is to act like a sharp, knowledgeable colleague who knows everything about their book of business. Help them prioritize their day, answer questions about specific deals or contacts, draft messages, flag risks, and think through decisions.
+Your role is to help them move deals forward. Think like a sharp acquisitions partner: flag stale deals, surface overdue follow-ups, help draft seller outreach, and answer questions about the pipeline.
 
-You can also take action directly in the CRM. When the agent mentions something that should be logged, tracked, scheduled, or moved — do it. Don't ask for permission for obvious actions. If they say "I met Sarah today, seller in Austin", create the lead. If they say "follow up with Oak St on Friday", schedule it. If they say "we just went under contract on Elm St", move the deal. Then confirm what you did.
+You can take action directly. When they mention something that needs to be logged, moved, or scheduled — do it without asking for permission. Then confirm briefly.
 
 Guidelines:
-- Be direct and specific. Use real names, addresses, and numbers from the data.
-- Sound like a trusted colleague, not a chatbot. Conversational, confident, and concise.
-- If they ask you to draft a text, email, or voicemail — write it.
-- If they ask a general real estate or business question, answer it.
-- Keep responses tight unless they ask for more detail.
-- Never make up data that isn't in the business snapshot below.
-- When you take an action, confirm it briefly: "Done — logged Sarah as a new seller lead."
-- Today is ${todayStr}.
+- Be direct. Use real addresses, seller names, and numbers from the data.
+- Sound like a deal partner, not a chatbot. Sharp, concise, action-oriented.
+- If they ask you to draft a text, voicemail, or offer — write it.
+- Keep responses tight unless they ask for detail.
+- Never invent data not in the snapshot below.
+- Today is ${todayStr}.`
+    : `You are the Office Assistant for ${agentName ?? "a"} real estate agent — the central brain behind their virtual office. You work alongside their Secretary (inbound calls/texts), Intake Coordinator (new leads), Property Assistant (deals), Transaction Coordinator (docs/comms), and Follow-Up Coordinator (tasks).
 
+You have full visibility into their business: every client, deal, appointment, and follow-up. Help them prioritize their day, answer questions about specific clients or properties, draft messages, flag risks, and think through decisions.
+
+You can take action directly. When they mention something that should be logged, tracked, scheduled, or moved — do it. Don't ask for permission for obvious actions. Then confirm briefly.
+
+Guidelines:
+- Be direct and specific. Use real client names, addresses, and numbers from the data.
+- Sound like a trusted colleague who runs the office. Conversational, confident, concise.
+- If they ask you to draft a text, email, or voicemail — write it.
+- Keep responses tight unless they ask for more detail.
+- Never make up data not in the snapshot below.
+- Today is ${todayStr}.`;
+
+  const snapshotSection = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BUSINESS SNAPSHOT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -478,6 +489,8 @@ CLOSED DEALS THIS YEAR: ${closedCount}${closedValue > 0 ? ` | Total value: $${cl
 UNREAD ALERTS: ${newAlerts} new form submissions / inbound calls awaiting review
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
+  const fullPrompt = systemPrompt + snapshotSection;
+
   const client = new Anthropic({ apiKey });
 
   // Build message history for API
@@ -490,7 +503,7 @@ UNREAD ALERTS: ${newAlerts} new form submissions / inbound calls awaiting review
     let response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
-      system: systemPrompt,
+      system: fullPrompt,
       tools: TOOLS,
       messages: apiMessages,
     });
@@ -523,7 +536,7 @@ UNREAD ALERTS: ${newAlerts} new form submissions / inbound calls awaiting review
       response = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
-        system: systemPrompt,
+        system: fullPrompt,
         tools: TOOLS,
         messages: apiMessages,
       });

@@ -1,26 +1,42 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { type AccountType } from "@/lib/onboarding";
 
 type Message = { role: "user" | "assistant"; content: string };
 
-const ALL_PROMPTS = [
+const TRADITIONAL_PROMPTS = [
   "What should I focus on today?",
   "Who needs follow-up?",
   "How's my pipeline?",
   "Who haven't I talked to in over 2 weeks?",
   "What deals are going cold?",
   "How many deals have I closed this year?",
-  "Draft me a follow-up text for my most urgent deal",
+  "Draft me a follow-up text for my most urgent lead",
   "What's my most important call to make today?",
-  "Any deals I should be worried about?",
+  "Any clients I should be worried about?",
   "What's my pipeline worth right now?",
   "Who submitted a buyer form recently?",
   "Which sellers are overdue for a check-in?",
 ];
 
-function pickPrompts(exclude: string[] = []): string[] {
-  const pool = ALL_PROMPTS.filter((p) => !exclude.includes(p));
+const OFF_MARKET_PROMPTS = [
+  "What deals need attention today?",
+  "Which sellers haven't heard from me in over a week?",
+  "How's my acquisition pipeline?",
+  "What deals are going cold?",
+  "How many deals have I closed this year?",
+  "Draft me a follow-up text for my most urgent deal",
+  "What's my most important call to make today?",
+  "Any deals I should be worried about?",
+  "What's my pipeline worth right now?",
+  "Which sellers are overdue for a check-in?",
+];
+
+const ALL_PROMPTS = TRADITIONAL_PROMPTS;
+
+function pickPrompts(exclude: string[] = [], source: string[] = ALL_PROMPTS): string[] {
+  const pool = source.filter((p) => !exclude.includes(p));
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, 3);
 }
@@ -39,12 +55,14 @@ async function sendChat(messages: Message[]): Promise<string | null> {
   }
 }
 
-export default function FloatingAssistant() {
+export default function FloatingAssistant({ accountType }: { accountType?: AccountType | null }) {
+  const isOffMarket = accountType === "off_market_agent";
+  const promptPool = isOffMarket ? OFF_MARKET_PROMPTS : TRADITIONAL_PROMPTS;
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [prompts, setPrompts] = useState<string[]>(() => pickPrompts());
+  const [prompts, setPrompts] = useState<string[]>(() => pickPrompts([], promptPool));
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -139,9 +157,9 @@ export default function FloatingAssistant() {
               background: "var(--surface-2, #f8fafc)",
             }}
           >
-            <div style={{ fontWeight: 700, fontSize: 13 }}>AI Assistant</div>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{isOffMarket ? "Deal Machine" : "Your Office Assistant"}</div>
             <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>
-              Ask anything about your business
+              {isOffMarket ? "Ask about deals, sellers, and your pipeline" : "Ask about clients, follow-ups, and your business"}
             </div>
           </div>
 
@@ -252,7 +270,7 @@ export default function FloatingAssistant() {
                 ))}
               </div>
               <button
-                onClick={() => setPrompts(pickPrompts(prompts))}
+                onClick={() => setPrompts(pickPrompts(prompts, promptPool))}
                 style={{
                   fontSize: 11,
                   color: "var(--ink-faint)",
