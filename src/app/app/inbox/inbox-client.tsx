@@ -84,21 +84,34 @@ function formatDate(value: string): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+type ActiveTransaction = {
+  id: string;
+  address: string;
+  stage: string;
+  deal_type: string;
+  client_name: string | null;
+  next_followup_date: string | null;
+  expected_close_date: string | null;
+  updated_at: string | null;
+};
+
 export default function InboxClient({
   agentId,
   inboxEmail,
   isOffMarketAccount,
   deals,
   leads,
+  activeTransactions = [],
 }: {
   agentId: string;
   inboxEmail: string | null;
   isOffMarketAccount: boolean;
   deals: DealOption[];
   leads: LeadOption[];
+  activeTransactions?: ActiveTransaction[];
 }) {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const [tab, setTab] = useState<"emails" | "documents">("emails");
+  const [tab, setTab] = useState<"transactions" | "emails" | "documents">("transactions");
 
   // ── Email state ─────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<InboxMessage[]>([]);
@@ -322,9 +335,11 @@ export default function InboxClient({
       <section className="crm-card crm-section-card crm-stack-8">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <p className="crm-page-kicker">Inbox</p>
+            <p className="crm-page-kicker">{isOffMarketAccount ? "Inbox" : "Transaction Coordinator"}</p>
             <h1 className="crm-page-title" style={{ marginBottom: 4 }}>
-              {tab === "emails" ? (
+              {tab === "transactions" ? (
+                isOffMarketAccount ? "Inbox" : "Active Transactions"
+              ) : tab === "emails" ? (
                 <>Emails{unreadCount > 0 && <span style={{ marginLeft: 10, fontSize: 13, background: "var(--brand)", color: "#fff", borderRadius: 20, padding: "2px 10px", fontWeight: 700 }}>{unreadCount} new</span>}</>
               ) : "Documents"}
             </h1>
@@ -369,31 +384,201 @@ export default function InboxClient({
 
         {/* Tab bar */}
         <div style={{ display: "flex", gap: 4, marginTop: 4, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
-          {(["emails", "documents"] as const).map((t) => (
+          {([
+            { id: "transactions", label: isOffMarketAccount ? "Inbox" : "Transactions" },
+            { id: "emails", label: "Emails" },
+            { id: "documents", label: "Documents" },
+          ] as { id: "transactions" | "emails" | "documents"; label: string }[]).map(({ id, label }) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={id}
+              onClick={() => setTab(id)}
               style={{
                 fontSize: 13,
-                fontWeight: tab === t ? 700 : 400,
+                fontWeight: tab === id ? 700 : 400,
                 padding: "8px 16px",
                 borderRadius: "8px 8px 0 0",
                 border: "none",
-                borderBottom: tab === t ? "2px solid var(--brand)" : "2px solid transparent",
+                borderBottom: tab === id ? "2px solid var(--brand)" : "2px solid transparent",
                 background: "transparent",
-                color: tab === t ? "var(--ink)" : "var(--ink-muted)",
+                color: tab === id ? "var(--ink)" : "var(--ink-muted)",
                 cursor: "pointer",
-                textTransform: "capitalize",
               }}
             >
-              {t === "emails" ? "Emails" : "Documents"}
-              {t === "emails" && unreadCount > 0 && (
+              {label}
+              {id === "emails" && unreadCount > 0 && (
                 <span style={{ marginLeft: 6, fontSize: 11, background: "var(--brand)", color: "#fff", borderRadius: 10, padding: "1px 6px" }}>{unreadCount}</span>
               )}
             </button>
           ))}
         </div>
       </section>
+
+      {/* ── TRANSACTIONS TAB ────────────────────────────────────────────────── */}
+      {tab === "transactions" && !isOffMarketAccount && (
+        <div className="crm-stack-12">
+          {activeTransactions.length === 0 ? (
+            <section className="crm-card crm-section-card" style={{ textAlign: "center", padding: 40, color: "var(--ink-muted)" }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>No active transactions</div>
+              <div style={{ fontSize: 13, lineHeight: 1.6, maxWidth: 380, margin: "0 auto" }}>
+                When a deal moves to Under Contract, it will appear here with its deadline tracker and document checklist.
+              </div>
+            </section>
+          ) : (
+            <>
+              <section className="crm-card crm-section-card" style={{ padding: "12px 16px" }}>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <span className="crm-chip">Active: {activeTransactions.length}</span>
+                  {activeTransactions.filter((t) => {
+                    const close = t.expected_close_date;
+                    if (!close) return false;
+                    const days = Math.ceil((new Date(close).getTime() - Date.now()) / 86_400_000);
+                    return days <= 7 && days >= 0;
+                  }).length > 0 && (
+                    <span className="crm-chip crm-chip-danger">
+                      Closing this week: {activeTransactions.filter((t) => {
+                        const close = t.expected_close_date;
+                        if (!close) return false;
+                        const days = Math.ceil((new Date(close).getTime() - Date.now()) / 86_400_000);
+                        return days <= 7 && days >= 0;
+                      }).length}
+                    </span>
+                  )}
+                </div>
+              </section>
+
+              {activeTransactions.map((tx) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const closeDate = tx.expected_close_date ? new Date(tx.expected_close_date) : null;
+                const followupDate = tx.next_followup_date ? new Date(tx.next_followup_date) : null;
+                const daysToClose = closeDate ? Math.ceil((closeDate.getTime() - today.getTime()) / 86_400_000) : null;
+                const followupOverdue = followupDate ? followupDate < today : false;
+                const closingUrgent = daysToClose !== null && daysToClose <= 7 && daysToClose >= 0;
+                const closingPast = daysToClose !== null && daysToClose < 0;
+
+                const dealDocs = documents.filter((d) => d.deal_id === tx.id);
+                const signedDocs = dealDocs.filter((d) => d.status === "signed" || d.status === "final");
+
+                const TC_CHECKLIST = [
+                  "Purchase agreement signed",
+                  "Earnest money delivered",
+                  "Inspection ordered",
+                  "Inspection complete",
+                  "Appraisal ordered",
+                  "Appraisal complete",
+                  "Clear to close received",
+                  "Final walkthrough scheduled",
+                  "Closing disclosure reviewed",
+                ];
+
+                return (
+                  <section key={tx.id} className="crm-card crm-section-card crm-stack-10">
+                    {/* Transaction header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{tx.address}</div>
+                        <div style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 3 }}>
+                          {tx.client_name ? `${tx.client_name} · ` : ""}{tx.deal_type === "buyer" ? "Buyer" : "Listing"} · Under Contract
+                        </div>
+                      </div>
+                      <a
+                        href="/app/deals"
+                        style={{ fontSize: 12, color: "var(--brand)", textDecoration: "none", fontWeight: 600 }}
+                      >
+                        View in Pipeline →
+                      </a>
+                    </div>
+
+                    {/* Deadline tracker */}
+                    <div className="crm-card-muted crm-stack-8" style={{ padding: 14 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-muted)", marginBottom: 8 }}>
+                        Key Dates
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                        {/* Closing date */}
+                        <div style={{
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          background: closingPast ? "var(--danger-subtle, #fef2f2)" : closingUrgent ? "var(--warning-subtle, #fffbeb)" : "var(--surface-1)",
+                          border: `1px solid ${closingPast ? "var(--danger-border, #fecaca)" : closingUrgent ? "var(--warning-border, #fde68a)" : "var(--border)"}`,
+                        }}>
+                          <div style={{ fontSize: 11, color: "var(--ink-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Expected Close</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4, color: closingPast ? "var(--danger, #dc2626)" : closingUrgent ? "var(--warning, #d97706)" : "var(--ink)" }}>
+                            {closeDate ? closeDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Not set"}
+                          </div>
+                          {daysToClose !== null && (
+                            <div style={{ fontSize: 12, color: closingPast ? "var(--danger)" : closingUrgent ? "var(--warning)" : "var(--ink-muted)", marginTop: 2 }}>
+                              {closingPast ? `${Math.abs(daysToClose)}d overdue` : daysToClose === 0 ? "Today" : `${daysToClose}d away`}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Follow-up date */}
+                        <div style={{
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          background: followupOverdue ? "var(--danger-subtle, #fef2f2)" : "var(--surface-1)",
+                          border: `1px solid ${followupOverdue ? "var(--danger-border, #fecaca)" : "var(--border)"}`,
+                        }}>
+                          <div style={{ fontSize: 11, color: "var(--ink-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Next Follow-Up</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4, color: followupOverdue ? "var(--danger, #dc2626)" : "var(--ink)" }}>
+                            {followupDate ? followupDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Not set"}
+                          </div>
+                          {followupOverdue && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 2 }}>Overdue</div>}
+                        </div>
+
+                        {/* Documents filed */}
+                        <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+                          <div style={{ fontSize: 11, color: "var(--ink-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Documents Filed</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>
+                            {signedDocs.length} signed / {dealDocs.length} total
+                          </div>
+                          {dealDocs.length > 0 && (
+                            <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>
+                              {dealDocs.map((d) => d.file_name).slice(0, 2).join(", ")}{dealDocs.length > 2 ? ` +${dealDocs.length - 2}` : ""}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TC Checklist */}
+                    <div className="crm-stack-8">
+                      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-muted)" }}>
+                        Transaction Checklist
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 6 }}>
+                        {TC_CHECKLIST.map((item) => {
+                          const matched = signedDocs.some((d) =>
+                            d.file_name.toLowerCase().includes(item.split(" ")[0]?.toLowerCase() ?? "") ||
+                            d.file_type.toLowerCase().includes(item.split(" ")[0]?.toLowerCase() ?? "")
+                          );
+                          return (
+                            <div key={item} style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              fontSize: 13,
+                              color: matched ? "var(--ok, #16a34a)" : "var(--ink-muted)",
+                            }}>
+                              <span style={{ fontSize: 14, flexShrink: 0 }}>{matched ? "✓" : "○"}</span>
+                              <span style={{ textDecoration: matched ? "none" : "none" }}>{item}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 4 }}>
+                        Checklist items are inferred from documents filed. Upload signed docs to mark them complete.
+                      </div>
+                    </div>
+                  </section>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── EMAILS TAB ──────────────────────────────────────────────────────── */}
       {tab === "emails" && (

@@ -16,6 +16,12 @@ type LeadRow = {
 type DealRow = {
   id: string;
   property_address: string | null;
+  stage: string | null;
+  next_followup_date: string | null;
+  expected_close_date: string | null;
+  updated_at: string | null;
+  deal_type: string | null;
+  lead?: { full_name?: string | null } | null;
 };
 
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
@@ -44,7 +50,7 @@ export default async function InboxPage() {
       .limit(80),
     supabase
       .from("deals")
-      .select("id,property_address")
+      .select("id,property_address,stage,next_followup_date,expected_close_date,updated_at,deal_type,lead:leads(full_name)")
       .eq("agent_id", userId)
       .order("updated_at", { ascending: false })
       .limit(80),
@@ -63,10 +69,25 @@ export default async function InboxPage() {
       (lead.ig_username ? `@${lead.ig_username}` : "Unnamed contact"),
   }));
 
-  const deals = ((dealData || []) as DealRow[]).map((deal) => ({
+  const dealsRaw = (dealData || []) as DealRow[];
+
+  const deals = dealsRaw.map((deal) => ({
     id: deal.id,
     label: firstNonEmpty(deal.property_address) || "Untitled deal",
   }));
+
+  const activeTransactions = dealsRaw
+    .filter((d) => d.stage === "under_contract" || d.stage === "active" || d.stage === "pending")
+    .map((deal) => ({
+      id: deal.id,
+      address: firstNonEmpty(deal.property_address) || "Untitled deal",
+      stage: deal.stage ?? "unknown",
+      deal_type: deal.deal_type ?? "unknown",
+      client_name: (deal.lead as { full_name?: string | null } | null)?.full_name ?? null,
+      next_followup_date: deal.next_followup_date ?? null,
+      expected_close_date: deal.expected_close_date ?? null,
+      updated_at: deal.updated_at ?? null,
+    }));
 
   return (
     <InboxClient
@@ -75,6 +96,7 @@ export default async function InboxPage() {
       isOffMarketAccount={isOffMarketAccount}
       deals={deals}
       leads={leads}
+      activeTransactions={activeTransactions}
     />
   );
 }
