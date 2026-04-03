@@ -14,7 +14,7 @@ import Link from "next/link";
 // Types
 // ---------------------------------------------------------------------------
 
-type Tab = "activity" | "conversations" | "alerts" | "broadcast";
+type Tab = "activity" | "conversations" | "alerts" | "broadcast" | "briefings";
 type LeadTemp = string | null;
 
 type LeadRef = {
@@ -1084,6 +1084,7 @@ export default function SecretaryPage() {
     { id: "conversations", label: "Conversations" },
     { id: "alerts",        label: "Alerts", count: alertCount },
     { id: "broadcast",     label: "Broadcast" },
+    { id: "briefings",     label: "Property Briefings" },
   ];
 
   const isActive = Boolean(settings?.receptionist_enabled && settings.voice_tier !== "none");
@@ -1167,7 +1168,260 @@ export default function SecretaryPage() {
           />
         )}
         {tab === "broadcast" && <BroadcastTab />}
+        {tab === "briefings" && <PropertyBriefingsTab />}
       </div>
+    </div>
+  );
+}
+
+// ── PropertyBriefingsTab ──────────────────────────────────────────────────────
+
+type PropertyBriefing = {
+  id: string;
+  address: string;
+  price: string;
+  bedrooms: string;
+  bathrooms: string;
+  showing_instructions: string;
+  key_details: string;
+  active: boolean;
+};
+
+function PropertyBriefingsTab() {
+  const [briefings, setBriefings] = useState<PropertyBriefing[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem("secretary_property_briefings");
+      return saved ? (JSON.parse(saved) as PropertyBriefing[]) : [];
+    } catch { return []; }
+  });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Omit<PropertyBriefing, "id" | "active">>({
+    address: "", price: "", bedrooms: "", bathrooms: "", showing_instructions: "", key_details: "",
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  function save(next: PropertyBriefing[]) {
+    setBriefings(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("secretary_property_briefings", JSON.stringify(next));
+    }
+  }
+
+  function handleAdd() {
+    if (!form.address.trim()) return;
+    if (editingId) {
+      save(briefings.map((b) => b.id === editingId ? { ...b, ...form } : b));
+      setEditingId(null);
+    } else {
+      save([...briefings, { id: crypto.randomUUID(), active: true, ...form }]);
+    }
+    setForm({ address: "", price: "", bedrooms: "", bathrooms: "", showing_instructions: "", key_details: "" });
+    setShowForm(false);
+  }
+
+  function handleEdit(b: PropertyBriefing) {
+    setForm({ address: b.address, price: b.price, bedrooms: b.bedrooms, bathrooms: b.bathrooms, showing_instructions: b.showing_instructions, key_details: b.key_details });
+    setEditingId(b.id);
+    setShowForm(true);
+    setSelectedId(null);
+  }
+
+  function handleDelete(id: string) {
+    save(briefings.filter((b) => b.id !== id));
+    if (selectedId === id) setSelectedId(null);
+  }
+
+  function toggleActive(id: string) {
+    save(briefings.map((b) => b.id === id ? { ...b, active: !b.active } : b));
+  }
+
+  const selected = briefings.find((b) => b.id === selectedId) ?? null;
+  const active = briefings.filter((b) => b.active);
+  const inactive = briefings.filter((b) => !b.active);
+
+  return (
+    <div className="crm-stack-12">
+      {/* Header */}
+      <div className="crm-card crm-section-card crm-stack-8" style={{ padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Property Briefings</div>
+            <div style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 4 }}>
+              Add your active listings here. Your Secretary reads these before every call so she always knows what to say about each property.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="crm-btn crm-btn-primary"
+            style={{ fontSize: 13 }}
+            onClick={() => { setShowForm((v) => !v); setEditingId(null); setForm({ address: "", price: "", bedrooms: "", bathrooms: "", showing_instructions: "", key_details: "" }); }}
+          >
+            {showForm && !editingId ? "Cancel" : "+ Add listing"}
+          </button>
+        </div>
+
+        {/* Add / Edit form */}
+        {showForm && (
+          <div className="crm-card-muted crm-stack-8" style={{ padding: 16, marginTop: 8 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{editingId ? "Edit listing" : "New listing briefing"}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {([
+                ["address", "Property address *", "123 Main St, Austin TX"],
+                ["price", "List price", "$450,000"],
+                ["bedrooms", "Bedrooms", "3"],
+                ["bathrooms", "Bathrooms", "2"],
+              ] as [keyof typeof form, string, string][]).map(([key, label, placeholder]) => (
+                <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <label style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 600 }}>{label}</label>
+                  <input
+                    type="text"
+                    value={form[key]}
+                    placeholder={placeholder}
+                    onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                    style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--surface-1)", color: "var(--ink)", outline: "none" }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 600 }}>Showing instructions</label>
+              <input
+                type="text"
+                value={form.showing_instructions}
+                placeholder="Call listing agent 24hrs ahead, use lockbox code 1234"
+                onChange={(e) => setForm((f) => ({ ...f, showing_instructions: e.target.value }))}
+                style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--surface-1)", color: "var(--ink)", outline: "none" }}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 12, color: "var(--ink-muted)", fontWeight: 600 }}>Key details for callers</label>
+              <textarea
+                value={form.key_details}
+                placeholder="New roof 2023, large backyard, motivated seller, no HOA, close to downtown..."
+                rows={3}
+                onChange={(e) => setForm((f) => ({ ...f, key_details: e.target.value }))}
+                style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--surface-1)", color: "var(--ink)", outline: "none", resize: "vertical" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="crm-btn crm-btn-primary"
+                style={{ fontSize: 13 }}
+                onClick={handleAdd}
+                disabled={!form.address.trim()}
+              >
+                {editingId ? "Save changes" : "Add briefing"}
+              </button>
+              <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }} onClick={() => { setShowForm(false); setEditingId(null); }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {briefings.length === 0 ? (
+        <div className="crm-card crm-section-card" style={{ textAlign: "center", padding: 40, color: "var(--ink-muted)" }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>🏠</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>No listings briefed yet</div>
+          <div style={{ fontSize: 13 }}>Add your active listings so your Secretary knows exactly what to say when someone calls about a property.</div>
+        </div>
+      ) : (
+        <div className="crm-intake-grid">
+          {/* List */}
+          <div className="crm-card crm-section-card crm-stack-8">
+            {active.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-muted)" }}>Active ({active.length})</div>
+                {active.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setSelectedId(b.id)}
+                    className={`crm-card-muted crm-intake-row${selectedId === b.id ? " crm-intake-row-active" : ""}`}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{b.address}</div>
+                    <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                      {[b.price, b.bedrooms ? `${b.bedrooms} bd` : null, b.bathrooms ? `${b.bathrooms} ba` : null].filter(Boolean).join(" · ")}
+                    </div>
+                  </button>
+                ))}
+              </>
+            )}
+            {inactive.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-faint)", marginTop: 8 }}>Inactive ({inactive.length})</div>
+                {inactive.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setSelectedId(b.id)}
+                    className={`crm-card-muted crm-intake-row${selectedId === b.id ? " crm-intake-row-active" : ""}`}
+                    style={{ opacity: 0.5 }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{b.address}</div>
+                    <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                      {[b.price, b.bedrooms ? `${b.bedrooms} bd` : null, b.bathrooms ? `${b.bathrooms} ba` : null].filter(Boolean).join(" · ")}
+                    </div>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+
+          {/* Detail */}
+          <div className="crm-card crm-section-card crm-stack-10">
+            {selected ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{selected.address}</div>
+                    <div style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 4 }}>
+                      {[selected.price, selected.bedrooms ? `${selected.bedrooms} bed` : null, selected.bathrooms ? `${selected.bathrooms} bath` : null].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12 }} onClick={() => handleEdit(selected)}>Edit</button>
+                    <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12 }} onClick={() => toggleActive(selected.id)}>
+                      {selected.active ? "Mark inactive" : "Mark active"}
+                    </button>
+                    <button type="button" className="crm-btn crm-btn-secondary" style={{ fontSize: 12, color: "var(--danger)" }} onClick={() => handleDelete(selected.id)}>Delete</button>
+                  </div>
+                </div>
+
+                {/* Secretary briefing preview */}
+                <div className="crm-card-muted crm-stack-8" style={{ padding: 14, background: "var(--surface-2, #f8fafc)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-muted)" }}>Secretary briefing</div>
+                  <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.6 }}>
+                    {`"${selected.address}${selected.price ? ` — listed at ${selected.price}` : ""}${selected.bedrooms || selected.bathrooms ? `, ${[selected.bedrooms ? `${selected.bedrooms} bed` : null, selected.bathrooms ? `${selected.bathrooms} bath` : null].filter(Boolean).join(" / ")}` : ""}.${selected.showing_instructions ? ` Showings: ${selected.showing_instructions}.` : ""}${selected.key_details ? ` ${selected.key_details}.` : ""}"`}
+                  </div>
+                </div>
+
+                {selected.showing_instructions ? (
+                  <div className="crm-stack-4">
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Showing instructions</div>
+                    <div style={{ fontSize: 13 }}>{selected.showing_instructions}</div>
+                  </div>
+                ) : null}
+
+                {selected.key_details ? (
+                  <div className="crm-stack-4">
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Key details</div>
+                    <div style={{ fontSize: 13, lineHeight: 1.6 }}>{selected.key_details}</div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div style={{ color: "var(--ink-muted)", fontSize: 13, padding: 16 }}>
+                Select a listing to see how your Secretary will be briefed.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

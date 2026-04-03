@@ -137,7 +137,7 @@ export default function AppShellClient({
         { href: "/app", label: "Today", active: pathname === "/app", count: 0 },
         { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
         { href: "/app/intake", label: "Intake Coordinator", active: pathname.startsWith("/app/intake") || pathname.startsWith("/app/ingestion") || pathname.startsWith("/app/import"), count: 0 },
-        { href: "/app/deals", label: "Property Assistant", active: pathname.startsWith("/app/deals"), count: 0 },
+        { href: "/app/deals", label: "Pipeline", active: pathname.startsWith("/app/deals"), count: 0 },
         { href: "/app/inbox", label: "Transaction Coordinator", active: pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents"), count: inboxUnreadCount },
         { href: "/app/priorities", label: "Follow-Up Coordinator", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/calendar", label: "Schedule", active: pathname.startsWith("/app/calendar"), count: 0 },
@@ -162,10 +162,10 @@ export default function AppShellClient({
     }
     if (pathname.startsWith("/app/deals")) {
       return {
-        title: isOffMarketAccount ? "Deals" : "Property Hub",
+        title: isOffMarketAccount ? "Deals" : "Pipeline",
         subtitle: isOffMarketAccount
           ? "Work active buyer and assignment opportunities from one board. Stage, context, and next steps stay visible."
-          : "Every property and client relationship in one board. Stage, context, and next steps always visible.",
+          : "Every buyer and seller client tracked from first contact to close. Stage, context, and next steps always visible.",
       };
     }
     if (pathname.startsWith("/app/contacts")) {

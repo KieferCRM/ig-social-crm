@@ -850,8 +850,8 @@ export default function DealsBoardClient() {
     return (
       <main className="crm-page">
         <section className="crm-card crm-section-card">
-          <h1 className="crm-page-title">Deals</h1>
-          <p className="crm-page-subtitle">Sign in to view your deal board.</p>
+          <h1 className="crm-page-title">Pipeline</h1>
+          <p className="crm-page-subtitle">Sign in to view your pipeline.</p>
         </section>
       </main>
     );
@@ -862,12 +862,12 @@ export default function DealsBoardClient() {
       <section className="crm-card crm-section-card crm-stack-10">
         <div className="crm-page-header">
           <div className="crm-page-header-main">
-            <p className="crm-page-kicker">Deals</p>
-            <h1 className="crm-page-title">{isOffMarketAccount ? "Deal command board" : "Client pipeline"}</h1>
+            <p className="crm-page-kicker">{isOffMarketAccount ? "Deals" : "Pipeline"}</p>
+            <h1 className="crm-page-title">{isOffMarketAccount ? "Deal command board" : "Pipeline"}</h1>
             <p className="crm-page-subtitle">
               {isOffMarketAccount
                 ? "Work acquisition and disposition opportunities from one board with clear stage, contact context, and last activity."
-                : "Buyer and listing pipelines in one board. Track stage, follow-up dates, and deal details without leaving the view."}
+                : "Every buyer and seller client tracked from first contact to close. Stage, follow-up dates, and deal details in one view."}
             </p>
           </div>
           <div className="crm-page-actions">
