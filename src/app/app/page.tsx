@@ -520,7 +520,6 @@ export default async function AppHome() {
     .filter((t) => t.due_at)
     .map((t) => new Date(t.due_at!).toLocaleDateString("en-CA", { timeZone: agentTimezone }));
   const staleDeals = activeDeals.filter((deal) => isStale(deal.updatedAt, 7));
-  const contactToday = recommendations.filter((item) => item.priority === "urgent" || item.priority === "high");
   const trueEmptyWorkspace = leads.length === 0 && deals.length === 0 && recommendations.length === 0;
 
   // Pipeline health columns — 4 groups agents actually think in
@@ -607,13 +606,13 @@ export default async function AppHome() {
       {trueEmptyWorkspace ? (
         <section className="crm-card crm-section-card">
           <EmptyState
-            eyebrow="Traditional agent workspace"
-            title="Your pipeline is ready."
+            eyebrow="Your Virtual Office"
+            title="Your team is ready to go."
             body="No deals or leads yet. Share your intake link to start capturing buyers and sellers automatically."
             action={
               <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
-                <Link href="/app/intake" className="crm-btn crm-btn-primary">Open intake</Link>
-                <Link href="/app/deals" className="crm-btn crm-btn-secondary">Open pipeline</Link>
+                <Link href="/app/intake" className="crm-btn crm-btn-primary">Open Intake Coordinator</Link>
+                <Link href="/app/deals" className="crm-btn crm-btn-secondary">Open Pipeline</Link>
               </div>
             }
           />
@@ -626,8 +625,11 @@ export default async function AppHome() {
         {/* LEFT — Who to Contact Today */}
         <article className="crm-card crm-section-card crm-stack-10">
           <div className="crm-section-head">
-            <h2 className="crm-section-title">Who to Contact Today</h2>
-            <Link href="/app/priorities" className="crm-btn crm-btn-secondary">All priorities</Link>
+            <div>
+              <h2 className="crm-section-title">Who to Contact Today</h2>
+              <p style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2, marginBottom: 0 }}>From your Follow-Up Coordinator</p>
+            </div>
+            <Link href="/app/priorities" className="crm-btn crm-btn-secondary">Full queue</Link>
           </div>
           <div className="crm-stack-8">
             {attentionRows.length === 0 && hotNow.length === 0 ? (
@@ -686,7 +688,10 @@ export default async function AppHome() {
         {/* RIGHT — Pipeline Health */}
         <article className="crm-card crm-section-card crm-stack-10">
           <div className="crm-section-head">
-            <h2 className="crm-section-title">Pipeline</h2>
+            <div>
+              <h2 className="crm-section-title">Pipeline</h2>
+              <p style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2, marginBottom: 0 }}>From your Pipeline</p>
+            </div>
             <Link href="/app/deals" className="crm-btn crm-btn-secondary">Open board</Link>
           </div>
           <div className="crm-pipeline-health-grid">
@@ -724,8 +729,11 @@ export default async function AppHome() {
       {underContractDeals.length > 0 ? (
         <section className="crm-card crm-section-card crm-stack-10">
           <div className="crm-section-head">
-            <h2 className="crm-section-title">Active Transactions</h2>
-            <Link href="/app/deals" className="crm-btn crm-btn-secondary">Open board</Link>
+            <div>
+              <h2 className="crm-section-title">Active Transactions</h2>
+              <p style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2, marginBottom: 0 }}>From your Transaction Coordinator</p>
+            </div>
+            <Link href="/app/inbox" className="crm-btn crm-btn-secondary">Open TC</Link>
           </div>
           <div className="crm-stack-8">
             {underContractDeals.map((deal) => {
