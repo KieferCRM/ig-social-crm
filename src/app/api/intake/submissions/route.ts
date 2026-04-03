@@ -134,9 +134,20 @@ export async function GET() {
       lead.location_area
     );
 
+    const qualificationReason = typeof sourceDetail?.qualification_reason === "string"
+      ? sourceDetail.qualification_reason
+      : null;
+    const qualificationScore = typeof sourceDetail?.qualification_score === "number"
+      ? sourceDetail.qualification_score
+      : null;
+    const phone = typeof sourceDetail?.phone === "string" ? sourceDetail.phone : (firstNonEmpty(lead.canonical_phone) ?? null);
+    const email = typeof sourceDetail?.email === "string" ? sourceDetail.email : (firstNonEmpty(lead.canonical_email) ?? null);
+
     return {
       id: lead.id,
       lead_name: leadDisplayName(lead),
+      phone,
+      email,
       source: sourceChannelLabel(lead.source),
       is_sample_workspace: Boolean(sourceDetail?.sample_workspace),
       intent: firstNonEmpty(lead.intent) || "Not specified",
@@ -145,13 +156,18 @@ export async function GET() {
       stage: firstNonEmpty(lead.stage) || "New",
       property_context: propertyContext || "New inbound inquiry",
       budget_range: firstNonEmpty(lead.budget_range) || null,
+      location_area: firstNonEmpty(lead.location_area) || null,
       deal_id: deal?.id || null,
       deal_stage: firstNonEmpty(deal?.stage) || null,
+      deal_address: firstNonEmpty(deal?.property_address) || null,
       next_action: firstNonEmpty(recommendation?.title) || null,
       next_action_detail: firstNonEmpty(recommendation?.description) || null,
       next_action_priority: firstNonEmpty(recommendation?.priority) || null,
       next_action_due_at: recommendation?.due_at || null,
+      qualification_reason: qualificationReason,
+      qualification_score: qualificationScore,
       timestamp: lead.time_last_updated || lead.timestamp || null,
+      ic_status: "new" as const,
     };
   });
 
