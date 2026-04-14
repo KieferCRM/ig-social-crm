@@ -74,6 +74,7 @@ export default function GenericFormRenderer({ form }: { form: GenericForm }) {
   const [answers, setAnswers] = useState<Record<string, string>>(() =>
     Object.fromEntries(form.questions.map((q) => [q.id, ""]))
   );
+  const [smsConsent, setSmsConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -100,7 +101,7 @@ export default function GenericFormRenderer({ form }: { form: GenericForm }) {
       const response = await fetch(`/api/forms/generic/${form.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, sms_consent: smsConsent }),
       });
       const data = (await response.json()) as IntakeResponse;
       if (!response.ok || !data.ok) {
@@ -159,6 +160,24 @@ export default function GenericFormRenderer({ form }: { form: GenericForm }) {
           <div style={{ fontSize: 13, color: "var(--danger, #dc2626)" }}>{error}</div>
         ) : null}
 
+        <div className="crm-public-intake-consent">
+          <label className="crm-public-intake-consent-checkbox">
+            <input
+              type="checkbox"
+              checked={smsConsent}
+              onChange={(e) => setSmsConsent(e.target.checked)}
+            />
+            <span>
+              I agree to receive text messages regarding my inquiry, including automated responses.
+            </span>
+          </label>
+          <p className="crm-public-intake-consent-disclosure">
+            By providing your phone number and submitting this form, you consent to receive text
+            messages from the agent. Message frequency varies. Message and data rates may apply.
+            Reply STOP to unsubscribe. Reply HELP for help. Consent is not a condition of purchase.
+          </p>
+        </div>
+
         <div className="crm-inline-actions" style={{ justifyContent: "space-between" }}>
           <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
             Your information is kept private and only shared with the agent.
@@ -166,7 +185,7 @@ export default function GenericFormRenderer({ form }: { form: GenericForm }) {
           <button
             type="submit"
             className="crm-btn crm-btn-primary"
-            disabled={saving || requiredMissing || form.questions.length === 0}
+            disabled={saving || requiredMissing || !smsConsent || form.questions.length === 0}
           >
             {saving ? "Submitting..." : "Submit"}
           </button>
