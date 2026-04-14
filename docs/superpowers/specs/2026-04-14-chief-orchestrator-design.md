@@ -50,13 +50,18 @@ type OrchestratorContext = {
     id: string
     full_name: string | null
     stage: string | null
-    source: string | null
+    source: string | null       // "referral" | "zillow" | "form" | "open_house" | etc.
     created_at: string
   }
   event: {
-    type: string          // "form_submission" | "inbound_call" | "sms" | etc.
-    channel: string | null
+    type: string                // "form_submission" | "inbound_call" | "sms" | etc.
+    channel: string | null      // the channel the lead used to reach out
     message_text: string | null
+  }
+  contact: {
+    has_phone: boolean
+    has_email: boolean
+    preferred_channel: "call" | "text" | "email" | null  // stated preference from form
   }
   intent: {
     intent_type: string | null      // "buyer" | "seller" | "investor"
@@ -64,6 +69,7 @@ type OrchestratorContext = {
     location_interest: string | null
     budget_min: number | null
     budget_max: number | null
+    property_address: string | null // if seller provided a property address
   }
   path: "real_estate" | "wholesaler"
   open_tasks: Array<{
@@ -75,6 +81,8 @@ type OrchestratorContext = {
 ```
 
 **`path` detection:** Read from a `user_workspaces` or equivalent config table keyed to the authenticated user's account. Default to `"real_estate"` if unset.
+
+**`contact.preferred_channel`:** Extracted from form field labels (e.g. "Preferred Contact Method"). Falls back to inferring from available contact info: phone present → `call`, email only → `email`.
 
 **`open_tasks`:** Query existing open tasks for this lead. Pass only the fields above — no historical recommendations, no prior AI outputs.
 
@@ -92,7 +100,7 @@ type OrchestratorDecision = {
   target_task_id?: string              // required for update/replace
   closed_reason?: "replaced_by_newer_task" | "no_longer_relevant" | "duplicate"
   task?: {
-    type: "call" | "text" | "email" | "follow_up" | "document_review" | "booking" | "status_update"
+    type: "call" | "text" | "email" | "follow_up" | "prepare_cma" | "send_listings" | "book_consultation" | "lender_referral" | "document_review" | "status_update"
     title: string
     reason: string
     description: string
@@ -127,15 +135,31 @@ The CO uses a single system prompt with path-conditional logic baked in. It is n
 
 ### Real Estate Agent Path
 
-| Signal | Behavior |
-|--------|----------|
-| Any new lead | Create a task — speed-to-lead is the #1 lever (5min = 10x contact rate) |
-| Buyer intent | Task type: `call`, due in 2 hours, priority: `Do Now` |
-| Seller intent | Task type: `call`, due in 4 hours, priority: `Do Now` |
-| Vague or cold lead | Task still created: `follow_up`, due 24h, priority: `Upcoming` |
-| Active open task exists | Evaluate: update or keep existing. Do not duplicate. |
-| Cold lead, no activity >30 days | Priority: `At Risk` |
-| No timeline, no intent | Task: general follow-up, `Upcoming` |
+Every lead gets a task. No motivation gate. No filtering.
+
+**Channel selection rule (applied to every task):**
+1. If `preferred_channel` is stated → use it
+2. Else if `has_phone` → `call`
+3. Else if `has_email` only → `email`
+4. Fallback → `follow_up`
+
+| Signal | Task Type | Due | Priority |
+|--------|-----------|-----|----------|
+| Buyer intent, phone available | `call` (or stated preference) | 2 hours | `Do Now` |
+| Buyer intent, email only | `email` | 2 hours | `Do Now` |
+| Seller intent + property address | `prepare_cma` first, then contact task | 4 hours | `Do Now` |
+| Seller intent, no address | `call` (or stated preference) | 4 hours | `Do Now` |
+| Referral source | `call` (or stated preference) | same day | `Do Now` |
+| Open house sign-in | `call` or `text` | 24 hours | `At Risk` |
+| Vague / no intent | `follow_up` | 24 hours | `Upcoming` |
+| Cold, no activity >30 days | `follow_up` | 48 hours | `At Risk` |
+| Active open task exists | Evaluate: update or keep. Do not duplicate. | — | — |
+
+**Seller with address:** Create a `prepare_cma` task first (pull comps before calling). This is the task the agent sees on the Today Page. The contact task (`call`/`email`) is created as a follow-on after CMA is ready.
+
+**Referral source:** Same task type and urgency as a high-intent lead, but `context_snapshot` should note the referral so the agent's description uses warmer, relationship-aware framing instead of a cold-lead script.
+
+**Qualification framework:** The CO should reference LPMAMA (Location, Price, Motivation, Agent, Mortgage, Appointment) in the task description for buyer first-contact tasks — the goal of the call is always to book an appointment, not close over the phone.
 
 Key principle: **Never drop a real estate lead.** Cold leads → nurture. The task bucket changes, not the existence of the task.
 
