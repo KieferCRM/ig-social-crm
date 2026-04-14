@@ -1,6 +1,7 @@
 // src/lib/orchestrator/types.ts
 
-export type OperatorPath = "real_estate" | "wholesaler";
+import type { OperatorPath } from "@/lib/workspace-settings";
+export type { OperatorPath };
 
 export type PreferredChannel = "call" | "text" | "email" | null;
 

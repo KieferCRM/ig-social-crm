@@ -802,7 +802,7 @@ export async function POST(request: Request) {
     open_tasks: [],
   });
 
-  const { recommendation_id: recommendationId } = await applyDecision(
+  const { recommendation_id: recommendationId, deal_id: dealId } = await applyDecision(
     decision,
     leadId!,
     personId,
@@ -819,5 +819,6 @@ export async function POST(request: Request) {
     person_id: personId,
     intent_signal_id: intentSignalId,
     recommendation_id: recommendationId,
+    deal_id: dealId,
   });
 }
