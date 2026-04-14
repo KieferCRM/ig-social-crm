@@ -128,7 +128,7 @@ function normalizeNotificationMode(value: unknown): HotLeadNotificationMode {
 }
 
 function normalizeOperatorPath(value: unknown): OperatorPath {
-  if (value === "wholesaler") return "wholesaler";
+  if (typeof value === "string" && value.trim().toLowerCase() === "wholesaler") return "wholesaler";
   return "real_estate";
 }
 
