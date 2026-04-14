@@ -121,6 +121,7 @@ export default function FormRenderer({
   const [answers, setAnswers] = useState<Record<string, string>>(() =>
     Object.fromEntries((template?.fields || []).map((f) => [f.id, ""]))
   );
+  const [smsConsent, setSmsConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -196,7 +197,7 @@ export default function FormRenderer({
       const response = await fetch("/api/intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, sms_consent: smsConsent }),
       });
       const data = (await response.json()) as IntakeResponse;
       if (!response.ok || !data.ok) {
@@ -271,10 +272,28 @@ export default function FormRenderer({
           <button
             type="submit"
             className="crm-btn crm-btn-primary"
-            disabled={saving || requiredMissing}
+            disabled={saving || requiredMissing || !smsConsent}
           >
             {saving ? "Submitting..." : "Submit"}
           </button>
+        </div>
+
+        <div className="crm-public-intake-consent">
+          <label className="crm-public-intake-consent-checkbox">
+            <input
+              type="checkbox"
+              checked={smsConsent}
+              onChange={(e) => setSmsConsent(e.target.checked)}
+            />
+            <span>
+              I agree to receive text messages regarding my inquiry, including automated responses.
+            </span>
+          </label>
+          <p className="crm-public-intake-consent-disclosure">
+            By providing your phone number and submitting this form, you consent to receive text
+            messages from the agent. Message frequency varies. Message and data rates may apply.
+            Reply STOP to unsubscribe. Reply HELP for help. Consent is not a condition of purchase.
+          </p>
         </div>
       </form>
     </section>
