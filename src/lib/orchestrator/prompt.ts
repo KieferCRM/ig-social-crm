@@ -63,7 +63,7 @@ Location, Price, Motivation, Agent (are they working with anyone), Mortgage (pre
 The goal of the first call is always to book an appointment — not close over the phone.
 
 ### Duplicate Prevention
-If an open task already exists and is still relevant, return task_action="none" or "update". never drop creating a new duplicate.
+If an open task already exists and is still relevant, return task_action="none" or "update". Never create a duplicate.
 
 ### Deal Creation
 Create a deal when: intent_type is known AND timeline is present. Deal type maps to intent_type.
