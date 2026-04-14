@@ -160,6 +160,19 @@ export default function GenericFormRenderer({ form }: { form: GenericForm }) {
           <div style={{ fontSize: 13, color: "var(--danger, #dc2626)" }}>{error}</div>
         ) : null}
 
+        <div className="crm-inline-actions" style={{ justifyContent: "space-between" }}>
+          <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
+            Your information is kept private and only shared with the agent.
+          </div>
+          <button
+            type="submit"
+            className="crm-btn crm-btn-primary"
+            disabled={saving || requiredMissing || !smsConsent || form.questions.length === 0}
+          >
+            {saving ? "Submitting..." : "Submit"}
+          </button>
+        </div>
+
         <div className="crm-public-intake-consent">
           <label className="crm-public-intake-consent-checkbox">
             <input
@@ -176,19 +189,6 @@ export default function GenericFormRenderer({ form }: { form: GenericForm }) {
             messages from the agent. Message frequency varies. Message and data rates may apply.
             Reply STOP to unsubscribe. Reply HELP for help. Consent is not a condition of purchase.
           </p>
-        </div>
-
-        <div className="crm-inline-actions" style={{ justifyContent: "space-between" }}>
-          <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>
-            Your information is kept private and only shared with the agent.
-          </div>
-          <button
-            type="submit"
-            className="crm-btn crm-btn-primary"
-            disabled={saving || requiredMissing || !smsConsent || form.questions.length === 0}
-          >
-            {saving ? "Submitting..." : "Submit"}
-          </button>
         </div>
       </form>
     </section>
