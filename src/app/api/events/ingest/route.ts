@@ -5,6 +5,9 @@ import { loadAccessContext, ownerFilter } from "@/lib/access-context";
 import { normalizeConsent } from "@/lib/consent";
 import { normalizeTimeframeBucket } from "@/lib/inbound";
 import { supabaseServer } from "@/lib/supabase/server";
+import { runChiefOrchestrator } from "@/lib/orchestrator/index";
+import { applyDecision } from "@/lib/orchestrator/apply";
+import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 
 type IdentityBody = {
   email?: string | null;
@@ -44,15 +47,6 @@ type IdentityFragment = {
   fragment_value: string;
   fragment_normalized: string;
   confidence: number;
-};
-
-type RecommendationDraft = {
-  reason_code: string;
-  title: string;
-  description: string;
-  priority: "low" | "medium" | "high" | "urgent";
-  due_at: string | null;
-  metadata: Record<string, unknown>;
 };
 
 function optionalString(value: unknown): string | null {
@@ -309,39 +303,6 @@ function buildIdentityFragments(identity: IdentityBody | null | undefined): Iden
   return Array.from(deduped.values());
 }
 
-function inferRecommendation(input: {
-  eventType: string;
-  intentType: string | null;
-  timelineWindow: string | null;
-  messageText: string | null;
-}): RecommendationDraft | null {
-  const lowerText = (input.messageText || "").toLowerCase();
-
-  if (input.timelineWindow && input.timelineWindow.toLowerCase() === "asap") {
-    return {
-      reason_code: "urgent_timeline_signal",
-      title: "Urgent move signal",
-      description: "Lead signaled an immediate timeline. Prioritize same-day outreach.",
-      priority: "urgent",
-      due_at: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
-      metadata: { timeline_window: input.timelineWindow, event_type: input.eventType },
-    };
-  }
-
-  if (/\b(finance|financing|mortgage|pre-approval|preapproval)\b/.test(lowerText)) {
-    return {
-      reason_code: "financing_question_follow_up",
-      title: "Financing follow-up needed",
-      description: "Lead mentioned financing. Send financing guidance or lender intro.",
-      priority: "high",
-      due_at: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
-      metadata: { event_type: input.eventType, intent_type: input.intentType },
-    };
-  }
-
-  return null;
-}
-
 function isMissingRelationError(error: { code?: string } | null): boolean {
   return error?.code === "42P01";
 }
@@ -353,6 +314,16 @@ export async function POST(request: Request) {
   const supabase = await supabaseServer();
   const auth = await loadAccessContext(supabase);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  // Load operator path from workspace settings
+  const { data: agentRow } = await supabase
+    .from("agents")
+    .select("settings")
+    .eq("id", auth.context.user.id)
+    .maybeSingle();
+
+  const workspaceSettings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings);
+  const operatorPath = workspaceSettings.operator_path;
 
   const ip = getClientIp(request);
   const rate = await takeRateLimit({
@@ -790,37 +761,55 @@ export async function POST(request: Request) {
     intentSignalId = intentRow?.id || null;
   }
 
-  let recommendationId: string | null = null;
-  const recommendation = inferRecommendation({
-    eventType,
-    intentType,
-    timelineWindow,
-    messageText,
+  // Detect preferred channel from form/event data
+  const preferredChannel = (() => {
+    const raw =
+      optionalString(body.normalized_payload?.preferred_channel as unknown) ||
+      optionalString(body.raw_payload?.preferred_channel as unknown);
+    if (raw === "call" || raw === "text" || raw === "email") return raw as "call" | "text" | "email";
+    return null;
+  })();
+
+  const decision = await runChiefOrchestrator({
+    lead: {
+      id: leadId!,
+      full_name: optionalString(identity?.full_name),
+      stage: "New",
+      source,
+      created_at: occurredAt,
+    },
+    event: {
+      type: eventType,
+      channel: optionalString(body.channel),
+      message_text: messageText,
+    },
+    contact: {
+      has_phone: Boolean(canonicalPhone),
+      has_email: Boolean(canonicalEmail),
+      preferred_channel: preferredChannel,
+    },
+    intent: {
+      intent_type: intentType,
+      timeline_window: timelineWindow,
+      location_interest: locationInterest,
+      budget_min: budgetMin,
+      budget_max: budgetMax,
+      property_address: optionalString(
+        (body.intent as Record<string, unknown> | null | undefined)?.property_address
+      ),
+    },
+    path: operatorPath,
+    open_tasks: [],
   });
 
-  if (recommendation) {
-    const { data: recommendationRow, error: recommendationError } = await supabase
-      .from("lead_recommendations")
-      .insert({
-        agent_id: auth.context.user.id,
-        owner_user_id: auth.context.user.id,
-        lead_id: leadId,
-        person_id: personId,
-        source_event_id: eventRow.id,
-        reason_code: recommendation.reason_code,
-        title: recommendation.title,
-        description: recommendation.description,
-        priority: recommendation.priority,
-        due_at: recommendation.due_at,
-        metadata: recommendation.metadata,
-      })
-      .select("id")
-      .single();
-
-    if (!recommendationError && recommendationRow?.id) {
-      recommendationId = recommendationRow.id;
-    }
-  }
+  const { recommendation_id: recommendationId } = await applyDecision(
+    decision,
+    leadId!,
+    personId,
+    eventRow.id,
+    auth.context.user.id,
+    supabase
+  );
 
   return NextResponse.json({
     ok: true,
