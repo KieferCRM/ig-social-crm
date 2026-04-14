@@ -7,6 +7,8 @@ export type HotLeadNotificationMode =
   | "daily_summary"
   | "crm_only";
 
+export type OperatorPath = "real_estate" | "wholesaler";
+
 export type SocialScriptCategory =
   | "seller_outreach"
   | "buyer_outreach"
@@ -45,6 +47,7 @@ export type WorkspaceSettings = {
   tiktok_url: string;
   saved_scripts: SocialScript[];
   documents: WorkspaceDocument[];
+  operator_path: OperatorPath;
 };
 
 const DEFAULT_SCRIPTS: SocialScript[] = [
@@ -88,6 +91,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   tiktok_url: "",
   saved_scripts: DEFAULT_SCRIPTS,
   documents: [],
+  operator_path: "real_estate",
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -121,6 +125,11 @@ function normalizeNotificationMode(value: unknown): HotLeadNotificationMode {
     return normalized;
   }
   return DEFAULT_WORKSPACE_SETTINGS.hot_lead_notification_mode;
+}
+
+function normalizeOperatorPath(value: unknown): OperatorPath {
+  if (value === "wholesaler") return "wholesaler";
+  return "real_estate";
 }
 
 function normalizeScriptCategory(value: unknown): SocialScriptCategory {
@@ -232,6 +241,7 @@ export function normalizeWorkspaceSettings(input: unknown): WorkspaceSettings {
     tiktok_url: readString(raw.tiktok_url),
     saved_scripts: normalizeScripts(raw.saved_scripts),
     documents: normalizeDocuments(raw.documents),
+    operator_path: normalizeOperatorPath(raw.operator_path),
   };
 }
 

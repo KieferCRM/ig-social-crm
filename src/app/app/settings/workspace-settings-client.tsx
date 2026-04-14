@@ -19,6 +19,7 @@ function emptySettings(): WorkspaceSettings {
     tiktok_url: "",
     saved_scripts: [],
     documents: [],
+    operator_path: "real_estate",
   };
 }
 
