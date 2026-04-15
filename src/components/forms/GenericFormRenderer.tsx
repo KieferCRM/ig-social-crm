@@ -101,7 +101,7 @@ export default function GenericFormRenderer({ form }: { form: GenericForm }) {
       const response = await fetch(`/api/forms/generic/${form.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, sms_consent: smsConsent }),
+        body: JSON.stringify({ answers, consent_to_sms: smsConsent }),
       });
       const data = (await response.json()) as IntakeResponse;
       if (!response.ok || !data.ok) {

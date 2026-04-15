@@ -1,7 +1,10 @@
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { readOnboardingStateFromAgentSettings } from "@/lib/onboarding";
-import { writeDealEvent, writeLeadRecommendation } from "@/lib/crm-events";
+import { writeDealEvent } from "@/lib/crm-events";
+import { runChiefOrchestrator } from "@/lib/orchestrator/index";
+import { applyDecision } from "@/lib/orchestrator/apply";
+import { readWorkspaceSettingsFromAgentSettings, type OperatorPath } from "@/lib/workspace-settings";
 import { interpretLeadReply } from "@/lib/receptionist/pa-interpreter";
 import {
   buildMissedCallStarterText,
@@ -62,6 +65,7 @@ export type AgentReceptionistContext = {
   agentName: string;
   settings: ReceptionistSettings;
   isOffMarketAccount: boolean;
+  operatorPath: OperatorPath;
 };
 
 export type LeadCommunicationThread = {
@@ -123,12 +127,14 @@ export async function loadAgentReceptionistContext(
 
   const settings = readReceptionistSettingsFromAgentSettings(data?.settings || null);
   const onboarding = readOnboardingStateFromAgentSettings(data?.settings || null);
+  const workspaceSettings = readWorkspaceSettingsFromAgentSettings(data?.settings || null);
 
   return {
     agentId,
     agentName: optionalString(data?.full_name || null) || "your agent",
     settings,
     isOffMarketAccount: onboarding.account_type === "off_market_agent",
+    operatorPath: workspaceSettings.operator_path,
   };
 }
 
@@ -589,6 +595,55 @@ export async function notifyAgentHotLead(
   }
 }
 
+async function runOrchestratorForReceptionistLead(input: {
+  admin: AdminClient;
+  agentId: string;
+  leadId: string;
+  lead: Pick<ReceptionistLeadRow, "full_name" | "stage" | "source" | "canonical_phone" | "canonical_email">;
+  eventType: string;
+  channel: string | null;
+  messageText: string | null;
+  operatorPath: OperatorPath;
+}): Promise<void> {
+  try {
+    const decision = await runChiefOrchestrator({
+      lead: {
+        id: input.leadId,
+        full_name: input.lead.full_name ?? null,
+        stage: input.lead.stage ?? null,
+        source: input.lead.source ?? null,
+        created_at: new Date().toISOString(),
+      },
+      event: {
+        type: input.eventType,
+        channel: input.channel,
+        message_text: input.messageText,
+      },
+      contact: {
+        has_phone: Boolean(input.lead.canonical_phone),
+        has_email: Boolean(input.lead.canonical_email),
+        preferred_channel: null,
+      },
+      intent: {
+        intent_type: null,
+        timeline_window: null,
+        location_interest: null,
+        budget_min: null,
+        budget_max: null,
+        property_address: null,
+      },
+      path: input.operatorPath,
+      open_tasks: [],
+    });
+    await applyDecision(decision, input.leadId, null, null, input.agentId, input.admin);
+  } catch (err) {
+    console.warn(
+      "[service] orchestrator call failed",
+      err instanceof Error ? err.message : err
+    );
+  }
+}
+
 export async function processInboundSms(input: {
   admin: AdminClient;
   agentId: string;
@@ -763,20 +818,17 @@ export async function processInboundSms(input: {
     console.warn("[pa-interpreter] reply processing failed", err instanceof Error ? err.message : err)
   );
 
-  // ── Unified recommendation + deal event ─────────────────────────────────
-  void writeLeadRecommendation({
+  // ── Chief Orchestrator ───────────────────────────────────────────────────
+  void runOrchestratorForReceptionistLead({
     admin: input.admin,
     agentId: input.agentId,
     leadId: lead.id,
-    dealId: smsDealId,
-    title: upsertResult.created
-      ? `Call back new SMS lead${lead.full_name ? ` — ${lead.full_name}` : ""}`
-      : `Follow up with${lead.full_name ? ` ${lead.full_name}` : " lead"} (SMS)`,
-    description: compactText(body, 200),
-    priority: urgency.isHigh ? "urgent" : "high",
-    reasonCode: "sms_inbound",
-    metadata: { source_channel: "sms", lead_created: upsertResult.created },
-  }).catch(() => {});
+    lead,
+    eventType: "sms_inbound",
+    channel: "text",
+    messageText: body,
+    operatorPath: context.operatorPath,
+  });
 
   if (smsDealId) {
     void writeDealEvent({
@@ -1075,18 +1127,17 @@ export async function processMissedCall(input: {
     });
   }
 
-  // ── Unified recommendation + deal event ─────────────────────────────────
-  void writeLeadRecommendation({
+  // ── Chief Orchestrator ───────────────────────────────────────────────────
+  void runOrchestratorForReceptionistLead({
     admin: input.admin,
     agentId: input.agentId,
     leadId: lead.id,
-    dealId: missedCallDealId,
-    title: `Call back${lead.full_name ? ` ${lead.full_name}` : " missed caller"}`,
-    description: `Missed call from ${lead.canonical_phone || input.fromPhone}. Text-back ${sms.ok ? "sent" : "failed"}.`,
-    priority: "high",
-    reasonCode: "missed_call",
-    metadata: { source_channel: "phone", from_phone: input.fromPhone },
-  }).catch(() => {});
+    lead,
+    eventType: "missed_call",
+    channel: "call",
+    messageText: null,
+    operatorPath: context.operatorPath,
+  });
 
   if (missedCallDealId) {
     void writeDealEvent({
@@ -1343,18 +1394,17 @@ export async function processInboundCallLog(input: {
     });
   }
 
-  // ── Unified recommendation + deal event ─────────────────────────────────
-  void writeLeadRecommendation({
+  // ── Chief Orchestrator ───────────────────────────────────────────────────
+  void runOrchestratorForReceptionistLead({
     admin: input.admin,
     agentId: input.agentId,
     leadId: lead.id,
-    dealId: callDealId,
-    title: `Follow up with${lead.full_name ? ` ${lead.full_name}` : " caller"}`,
-    description: transcript ? compactText(transcript, 200) : `Inbound call — ${status}.`,
-    priority: urgency.isHigh ? "urgent" : "high",
-    reasonCode: "call_inbound",
-    metadata: { source_channel: "phone", from_phone: input.fromPhone, urgency_score: urgency.score },
-  }).catch(() => {});
+    lead,
+    eventType: "call_inbound",
+    channel: "call",
+    messageText: transcript ?? null,
+    operatorPath: context.operatorPath,
+  });
 
   if (callDealId) {
     void writeDealEvent({

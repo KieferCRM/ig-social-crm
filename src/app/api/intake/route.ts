@@ -32,6 +32,9 @@ import { withReminderOwnerColumn } from "@/lib/reminders";
 import { notifyAgentFormSubmission } from "@/lib/receptionist/service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inferLeadTags, normalizeTagList } from "@/lib/tags";
+import { runChiefOrchestrator } from "@/lib/orchestrator/index";
+import { applyDecision } from "@/lib/orchestrator/apply";
+import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 
 type IntakeBody = {
   agent_id?: string | null;
@@ -675,7 +678,6 @@ export async function POST(request: Request) {
   }
 
   let dealCreated = false;
-  let dealId: string | null = null;
   const { data: existingDeal } = await admin
     .from("deals")
     .select("id,stage,notes")
@@ -688,7 +690,6 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (existingDeal?.id) {
-    dealId = String(existingDeal.id);
     if (isBuyerForm && buyerFormStep === "2" && resolvedNotes) {
       const { error: dealUpdateError } = await admin
         .from("deals")
@@ -746,7 +747,6 @@ export async function POST(request: Request) {
 
     if (!dealError && insertedDeal?.id) {
       dealCreated = true;
-      dealId = String(insertedDeal.id);
     } else if (dealError) {
       console.warn("[intake] deal insert failed", { error: dealError.message });
     }
@@ -809,36 +809,62 @@ export async function POST(request: Request) {
   }
 
   let recommendationCreated = false;
-  const { data: existingRecommendation } = await admin
-    .from("lead_recommendations")
-    .select("id")
-    .eq("lead_id", leadId)
-    .eq("status", "open")
-    .limit(1)
-    .maybeSingle();
+  try {
+    const { data: agentRow } = await admin
+      .from("agents")
+      .select("settings")
+      .eq("id", intakeAgentId)
+      .maybeSingle();
+    const workspaceSettings = readWorkspaceSettingsFromAgentSettings(agentRow?.settings);
 
-  if (!existingRecommendation) {
-    const { error: recommendationError } = await admin.from("lead_recommendations").insert({
-      agent_id: intakeAgentId,
-      owner_user_id: intakeAgentId,
-      lead_id: leadId,
-      person_id: null,
-      source_event_id: null,
-      reason_code: leadTemp === "Hot" ? "hot_inbound" : "inbound_next_action",
-      title: nextAction.title,
-      description: nextAction.description,
-      priority: nextAction.priority,
-      due_at: nextAction.dueAt,
-      metadata: {
-        source_channel: sourceChannel,
-        source_label: sourceChannelLabel(sourceChannel),
-        temperature: leadTemp,
-        qualification_score: qualification.score,
-        deal_id: dealId,
-        tags: combinedTags,
+    const prefRaw = optionalString(resolvedInput.contact_preference)?.toLowerCase();
+    const preferredChannel =
+      prefRaw === "call" || prefRaw === "text" || prefRaw === "email"
+        ? (prefRaw as "call" | "text" | "email")
+        : null;
+
+    const decision = await runChiefOrchestrator({
+      lead: {
+        id: leadId,
+        full_name: displayName || null,
+        stage,
+        source,
+        created_at: occurredAt,
       },
+      event: {
+        type: "intake_form",
+        channel: sourceChannel,
+        message_text: optionalString(resolvedInput.notes),
+      },
+      contact: {
+        has_phone: Boolean(phone),
+        has_email: Boolean(email),
+        preferred_channel: preferredChannel,
+      },
+      intent: {
+        intent_type: optionalString(resolvedInput.intent),
+        timeline_window: optionalString(resolvedInput.timeline),
+        location_interest: optionalString(resolvedInput.location_area),
+        budget_min: null,
+        budget_max: null,
+        property_address: optionalString(resolvedInput.property_context),
+      },
+      path: workspaceSettings.operator_path,
+      open_tasks: [],
     });
-    recommendationCreated = !recommendationError;
+
+    // Intake already creates deals — tell the CO not to duplicate
+    const { recommendation_id } = await applyDecision(
+      { ...decision, deal_action: "none" },
+      leadId,
+      null,
+      null,
+      intakeAgentId,
+      admin
+    );
+    recommendationCreated = Boolean(recommendation_id);
+  } catch (err) {
+    console.warn("[intake] orchestrator call failed", err instanceof Error ? err.message : err);
   }
 
   return NextResponse.json({

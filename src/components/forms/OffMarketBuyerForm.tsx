@@ -240,7 +240,7 @@ export default function OffMarketBuyerForm({ agentSlug }: { agentSlug: string })
       const response = await fetch("/api/intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, sms_consent: smsConsent }),
+        body: JSON.stringify({ ...payload, consent_to_sms: smsConsent }),
       });
       const data = (await response.json()) as IntakeResponse;
       if (!response.ok || !data.ok) {

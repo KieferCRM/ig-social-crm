@@ -6,7 +6,7 @@ export async function applyDecision(
   decision: OrchestratorDecision,
   leadId: string,
   personId: string | null,
-  eventId: string,
+  eventId: string | null,
   agentId: string,
   supabase: SupabaseClient
 ): Promise<{ recommendation_id: string | null; deal_id: string | null }> {

@@ -193,7 +193,7 @@ function Step1Form({
           full_name: form.full_name.trim(),
           phone: form.phone.trim(),
           intent: form.intent || null,
-          sms_consent: smsConsent,
+          consent_to_sms: smsConsent,
           questionnaire_answers: {
             full_name: form.full_name.trim(),
             phone: form.phone.trim(),
