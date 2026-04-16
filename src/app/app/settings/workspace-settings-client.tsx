@@ -17,9 +17,20 @@ function emptySettings(): WorkspaceSettings {
     instagram_url: "",
     facebook_url: "",
     tiktok_url: "",
+    youtube_url: "",
+    linkedin_url: "",
     saved_scripts: [],
     documents: [],
     operator_path: "real_estate",
+    profile_template: "wholesaler",
+    profile_company_name: "",
+    profile_tagline: "",
+    profile_bio: "",
+    profile_headshot_url: "",
+    profile_service_areas: [],
+    profile_testimonials: [],
+    profile_listings: [],
+    profile_show_contact_form: true,
   };
 }
 

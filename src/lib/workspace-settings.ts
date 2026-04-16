@@ -37,6 +37,24 @@ export type WorkspaceDocument = {
   uploaded_by: string;
 };
 
+export type ProfileTemplate = "wholesaler" | "agent";
+
+export type ProfileTestimonial = {
+  id: string;
+  author_name: string;
+  author_role: string;
+  text: string;
+};
+
+export type ProfileListing = {
+  id: string;
+  address: string;
+  price: number;
+  description: string;
+  status: "active" | "pending" | "sold";
+  image_url: string;
+};
+
 export type WorkspaceSettings = {
   booking_link: string;
   hot_lead_notification_mode: HotLeadNotificationMode;
@@ -45,9 +63,21 @@ export type WorkspaceSettings = {
   instagram_url: string;
   facebook_url: string;
   tiktok_url: string;
+  youtube_url: string;
+  linkedin_url: string;
   saved_scripts: SocialScript[];
   documents: WorkspaceDocument[];
   operator_path: OperatorPath;
+  // Public profile
+  profile_template: ProfileTemplate;
+  profile_company_name: string;
+  profile_tagline: string;
+  profile_bio: string;
+  profile_headshot_url: string;
+  profile_service_areas: string[];
+  profile_testimonials: ProfileTestimonial[];
+  profile_listings: ProfileListing[];
+  profile_show_contact_form: boolean;
 };
 
 const DEFAULT_SCRIPTS: SocialScript[] = [
@@ -89,9 +119,20 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   instagram_url: "",
   facebook_url: "",
   tiktok_url: "",
+  youtube_url: "",
+  linkedin_url: "",
   saved_scripts: DEFAULT_SCRIPTS,
   documents: [],
   operator_path: "real_estate",
+  profile_template: "wholesaler",
+  profile_company_name: "",
+  profile_tagline: "",
+  profile_bio: "",
+  profile_headshot_url: "",
+  profile_service_areas: [],
+  profile_testimonials: [],
+  profile_listings: [],
+  profile_show_contact_form: true,
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -217,6 +258,52 @@ function normalizeDocuments(value: unknown): WorkspaceDocument[] {
     .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
 }
 
+function normalizeProfileTemplate(value: unknown): ProfileTemplate {
+  if (value === "agent") return "agent";
+  return "wholesaler";
+}
+
+function normalizeTestimonials(value: unknown): ProfileTestimonial[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const record = asRecord(item);
+      if (!record) return null;
+      const id = readString(record.id);
+      const author_name = readString(record.author_name);
+      const text = readString(record.text);
+      if (!id || !author_name || !text) return null;
+      return { id, author_name, author_role: readString(record.author_role), text };
+    })
+    .filter((item): item is ProfileTestimonial => Boolean(item))
+    .slice(0, 20);
+}
+
+function normalizeListings(value: unknown): ProfileListing[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const record = asRecord(item);
+      if (!record) return null;
+      const id = readString(record.id);
+      const address = readString(record.address);
+      if (!id || !address) return null;
+      const rawStatus = readString(record.status);
+      const status: ProfileListing["status"] =
+        rawStatus === "pending" ? "pending" : rawStatus === "sold" ? "sold" : "active";
+      return {
+        id,
+        address,
+        price: typeof record.price === "number" ? record.price : 0,
+        description: readString(record.description),
+        status,
+        image_url: readString(record.image_url),
+      };
+    })
+    .filter((item): item is ProfileListing => Boolean(item))
+    .slice(0, 50);
+}
+
 export function normalizeWorkspaceSettings(input: unknown): WorkspaceSettings {
   const raw = asRecord(input) || {};
   return {
@@ -239,9 +326,21 @@ export function normalizeWorkspaceSettings(input: unknown): WorkspaceSettings {
     instagram_url: readString(raw.instagram_url),
     facebook_url: readString(raw.facebook_url),
     tiktok_url: readString(raw.tiktok_url),
+    youtube_url: readString(raw.youtube_url),
+    linkedin_url: readString(raw.linkedin_url),
     saved_scripts: normalizeScripts(raw.saved_scripts),
     documents: normalizeDocuments(raw.documents),
     operator_path: normalizeOperatorPath(raw.operator_path),
+    profile_template: normalizeProfileTemplate(raw.profile_template),
+    profile_company_name: readString(raw.profile_company_name),
+    profile_tagline: readString(raw.profile_tagline),
+    profile_bio: readString(raw.profile_bio),
+    profile_headshot_url: readString(raw.profile_headshot_url),
+    profile_service_areas: normalizeStringArray(raw.profile_service_areas),
+    profile_testimonials: normalizeTestimonials(raw.profile_testimonials),
+    profile_listings: normalizeListings(raw.profile_listings),
+    profile_show_contact_form:
+      typeof raw.profile_show_contact_form === "boolean" ? raw.profile_show_contact_form : true,
   };
 }
 
