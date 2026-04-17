@@ -125,6 +125,7 @@ export default function AppShellClient({
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
         { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
+        { href: "/app/profile", label: "My Page", active: pathname.startsWith("/app/profile"), count: 0 },
         {
           href: "/app/settings",
           label: "Settings",
@@ -143,6 +144,7 @@ export default function AppShellClient({
         { href: "/app/calendar", label: "Schedule", active: pathname.startsWith("/app/calendar"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/analytics", label: "Insights", active: pathname.startsWith("/app/analytics"), count: 0 },
+        { href: "/app/profile", label: "My Page", active: pathname.startsWith("/app/profile"), count: 0 },
         {
           href: "/app/settings",
           label: "Settings",
