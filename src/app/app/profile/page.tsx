@@ -19,11 +19,12 @@ export default async function MyProfilePage() {
 
   const hasContent = Boolean(ws.profile_company_name || ws.profile_tagline || ws.profile_bio);
 
+  if (!hasContent) redirect("/app/profile/onboard");
+
   return (
     <ProfilePageClient
       slug={slug}
       isPublic={ws.profile_public}
-      hasContent={hasContent}
     />
   );
 }
