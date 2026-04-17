@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Message = { role: "user" | "assistant"; content: string };
 
 export default function OnboardClient() {
+  const searchParams = useSearchParams();
+  const prefilledPrompt = searchParams.get("prompt");
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -13,10 +17,17 @@ export default function OnboardClient() {
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const started = useRef(false);
 
-  // Kick off with the first AI message
   useEffect(() => {
-    void sendMessage(null);
+    if (started.current) return;
+    started.current = true;
+    // If a suggested prompt was passed, send it as the user's first message
+    if (prefilledPrompt) {
+      void sendMessage(prefilledPrompt);
+    } else {
+      void sendMessage(null);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
