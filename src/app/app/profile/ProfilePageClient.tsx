@@ -35,6 +35,66 @@ export default function ProfilePageClient({ slug, isPublic, hasContent }: Props)
     }
   }
 
+  if (!hasContent) {
+    return (
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px 80px" }}>
+        <div style={{
+          borderRadius: 20,
+          border: "1px solid var(--border)",
+          background: "var(--surface)",
+          padding: "48px 40px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 20 }}>👋</div>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-muted)", marginBottom: 12 }}>
+            LockboxHQ · Personal Website Developer
+          </div>
+          <h1 style={{ margin: "0 0 16px", fontSize: 26, fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.2 }}>
+            Let&apos;s build your public page
+          </h1>
+          <p style={{ margin: "0 0 32px", fontSize: 15, color: "var(--ink-muted)", lineHeight: 1.7, maxWidth: 400, marginLeft: "auto", marginRight: "auto" }}>
+            I&apos;ll ask you 7 quick questions about your business. From your answers, I&apos;ll write your bio, outline your process, set your color palette, and publish your page — all in about 2 minutes.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 340, margin: "0 auto 36px", textAlign: "left" }}>
+            {[
+              "Company name & tagline",
+              "Markets you work in",
+              "Your process (how it works)",
+              "Stats you're proud of",
+              "Your story / bio",
+              "Brand vibe & color palette",
+            ].map((item, i) => (
+              <div key={item} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                  background: "var(--surface-strong, #f1f5f9)",
+                  border: "1px solid var(--border)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 700, color: "var(--ink-muted)",
+                }}>
+                  {i + 1}
+                </div>
+                <span style={{ fontSize: 13, color: "var(--ink-muted)" }}>{item}</span>
+              </div>
+            ))}
+          </div>
+
+          <Link
+            href="/app/profile/onboard"
+            className="crm-btn crm-btn-primary"
+            style={{ fontSize: 15, padding: "14px 36px", textDecoration: "none", fontWeight: 700, display: "inline-block" }}
+          >
+            Let&apos;s build it →
+          </Link>
+          <p style={{ margin: "16px 0 0", fontSize: 12, color: "var(--ink-faint)" }}>
+            Takes about 2 minutes · You can edit anything after
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "40px 20px 80px" }}>
 
