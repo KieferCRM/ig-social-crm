@@ -98,12 +98,18 @@ export async function POST(req: NextRequest) {
 
   const messages = body.messages ?? [];
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2048,
-    system: SYSTEM,
-    messages,
-  });
+  let response;
+  try {
+    response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 2048,
+      system: SYSTEM,
+      messages,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "AI service unavailable";
+    return NextResponse.json({ error: msg }, { status: 502 });
+  }
 
   const text = response.content[0]?.type === "text" ? response.content[0].text : "";
   const rawSettings = extractSettings(text);

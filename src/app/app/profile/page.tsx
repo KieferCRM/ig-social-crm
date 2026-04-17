@@ -10,38 +10,20 @@ export default async function MyProfilePage() {
 
   const { data: agent } = await supabase
     .from("agents")
-    .select("full_name, brokerage, vanity_slug, settings")
+    .select("vanity_slug, settings")
     .eq("id", user.id)
     .maybeSingle();
 
   const slug = (agent?.vanity_slug as string | null) ?? user.id;
   const ws = readWorkspaceSettingsFromAgentSettings(agent?.settings);
 
+  const hasContent = Boolean(ws.profile_company_name || ws.profile_tagline || ws.profile_bio);
+
   return (
     <ProfilePageClient
       slug={slug}
-      fullName={(agent?.full_name as string | null) ?? ""}
-      initialSettings={{
-        booking_link: ws.booking_link,
-        profile_company_name: ws.profile_company_name,
-        profile_tagline: ws.profile_tagline,
-        profile_bio: ws.profile_bio,
-        profile_headshot_url: ws.profile_headshot_url,
-        profile_service_areas: ws.profile_service_areas,
-        profile_testimonials: ws.profile_testimonials,
-        profile_listings: ws.profile_listings,
-        profile_show_contact_form: ws.profile_show_contact_form,
-        profile_public: ws.profile_public,
-        profile_template: ws.profile_template,
-        instagram_url: ws.instagram_url,
-        facebook_url: ws.facebook_url,
-        tiktok_url: ws.tiktok_url,
-        youtube_url: ws.youtube_url,
-        linkedin_url: ws.linkedin_url,
-        profile_stats: ws.profile_stats,
-        profile_how_it_works: ws.profile_how_it_works,
-        profile_theme: ws.profile_theme,
-      }}
+      isPublic={ws.profile_public}
+      hasContent={hasContent}
     />
   );
 }
