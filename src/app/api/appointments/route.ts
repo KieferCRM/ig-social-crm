@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { readGoogleTokens, ensureValidToken, createCalendarEvent, GOOGLE_OAUTH_KEY } from "@/lib/google-calendar";
 
 export async function GET() {
   const supabase = await supabaseServer();
@@ -51,5 +53,32 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Best-effort push to Google Calendar if connected
+  try {
+    const admin = supabaseAdmin();
+    const { data: agent } = await admin.from("agents").select("settings").eq("id", user.id).maybeSingle();
+    const tokens = readGoogleTokens(agent?.settings);
+    if (tokens) {
+      const { tokens: validTokens, refreshed } = await ensureValidToken(tokens);
+      if (refreshed) {
+        const current = (agent?.settings ?? {}) as Record<string, unknown>;
+        await admin.from("agents").update({ settings: { ...current, [GOOGLE_OAUTH_KEY]: validTokens } }).eq("id", user.id);
+      }
+      const durationMs = (data.duration_minutes ?? 30) * 60_000;
+      const start = new Date(data.scheduled_at).toISOString();
+      const end = new Date(new Date(data.scheduled_at).getTime() + durationMs).toISOString();
+      await createCalendarEvent(validTokens, {
+        summary: data.title,
+        description: data.notes ?? undefined,
+        location: data.location ?? undefined,
+        start,
+        end,
+      });
+    }
+  } catch {
+    // non-fatal — appointment was saved, just couldn't push to Google
+  }
+
   return NextResponse.json({ appointment: data });
 }

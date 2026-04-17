@@ -189,12 +189,14 @@ export default function CalendarClient({
     const err = searchParams.get("google_error");
     const connected = searchParams.get("google_connected");
     if (err) setGoogleError(`Google Calendar error: ${err}`);
-    if (connected) setGoogleError(""); // clear any prior error on success
+    if (connected) setGoogleError("");
 
     async function loadGoogleEvents() {
       setGoogleLoading(true);
       try {
-        const res = await fetch("/api/calendar/google");
+        const timeMin = new Date(viewYear, viewMonth, 1).toISOString();
+        const timeMax = new Date(viewYear, viewMonth + 1, 0, 23, 59, 59).toISOString();
+        const res = await fetch(`/api/calendar/google?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`);
         const data = await res.json() as { connected?: boolean; connected_email?: string; events?: GoogleEvent[]; error?: string };
         setGoogleConnected(data.connected ?? false);
         setGoogleEmail(data.connected_email ?? "");
@@ -207,7 +209,7 @@ export default function CalendarClient({
       }
     }
     void loadGoogleEvents();
-  }, [searchParams]);
+  }, [searchParams, viewYear, viewMonth]);
 
   async function handleGoogleDisconnect() {
     if (!window.confirm("Disconnect Google Calendar?")) return;
