@@ -34,6 +34,31 @@ export default function PrivacyPage() {
         <li>Troubleshoot incidents and maintain service quality.</li>
       </ul>
 
+      <h2>Google Calendar Data</h2>
+        <p>
+          If you connect your Google Calendar, we access your calendar events solely to display them
+          alongside your LockboxHQ schedule. We store OAuth tokens (access token, refresh token)
+          in your account settings to maintain the connection and automatically refresh it.
+        </p>
+        <p className="mt-2">
+          We do <strong>not</strong> use Google Calendar data to serve ads, share it with third
+          parties for marketing, or use it for any purpose beyond showing you your events in the
+          app. Our use of Google user data complies with the{" "}
+          <a
+            href="https://developers.google.com/terms/api-services-user-data-policy"
+            className="text-blue-600 underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google API Services User Data Policy
+          </a>
+          , including the Limited Use requirements.
+        </p>
+        <p className="mt-2">
+          You can disconnect Google Calendar at any time from your account settings. When you
+          disconnect, we delete your stored tokens and request revocation from Google immediately.
+        </p>
+
       <h2>SMS and Text Messaging</h2>
       <p>
         {PRODUCT_NAME} enables real estate agents to send SMS messages to leads who have provided their phone number
