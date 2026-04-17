@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { Trash2, CheckCheck, Eye, Plus, X } from "lucide-react";
 import StatusBadge from "@/components/ui/status-badge";
 import ManualLeadForm from "@/app/app/list/manual-lead-form";
 import { sourceChannelTone } from "@/lib/inbound";
@@ -75,8 +76,8 @@ function ScoreDots({ score }: { score: number | null }) {
         <div
           key={i}
           style={{
-            width: 8,
-            height: 8,
+            width: 7,
+            height: 7,
             borderRadius: "50%",
             background: i <= filled
               ? clamped >= 8 ? "var(--danger, #dc2626)" : clamped >= 5 ? "var(--warning, #d97706)" : "var(--ink-muted)"
@@ -112,6 +113,9 @@ export default function IntakeCoordinatorPage() {
 
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [localStatus, setLocalStatus] = useState<Record<string, "new" | "reviewed" | "actioned">>({});
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [loadingSubs, setLoadingSubs] = useState(true);
   const [subsError, setSubsError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("");
@@ -148,8 +152,10 @@ export default function IntakeCoordinatorPage() {
   }, [reloadToken]);
 
   const enrichedSubmissions = useMemo(() =>
-    submissions.map((s) => ({ ...s, ic_status: localStatus[s.id] ?? s.ic_status })),
-    [submissions, localStatus]
+    submissions
+      .filter((s) => !deletedIds.has(s.id))
+      .map((s) => ({ ...s, ic_status: localStatus[s.id] ?? s.ic_status })),
+    [submissions, localStatus, deletedIds]
   );
 
   const newCount = enrichedSubmissions.filter((s) => s.ic_status === "new").length;
@@ -158,7 +164,7 @@ export default function IntakeCoordinatorPage() {
   const sampleCount = enrichedSubmissions.filter((s) => s.is_sample_workspace).length;
 
   const filteredSubmissions = useMemo(() => {
-    let list = enrichedSubmissions;
+    const list = enrichedSubmissions;
     if (subFilter === "new") return list.filter((s) => s.ic_status === "new");
     if (subFilter === "hot") return list.filter((s) => s.temperature === "Hot");
     if (subFilter === "buyer") return list.filter((s) => s.intent?.toLowerCase().includes("buy"));
@@ -180,6 +186,25 @@ export default function IntakeCoordinatorPage() {
     try { await navigator.clipboard.writeText(text); } catch { /* ignore */ }
     setCopyMsg((prev) => ({ ...prev, [key]: "Copied!" }));
     setTimeout(() => setCopyMsg((prev) => ({ ...prev, [key]: "" })), 1800);
+  }
+
+  async function handleDelete(id: string) {
+    if (deletingId) return;
+    setDeletingId(id);
+    setConfirmDeleteId(null);
+    try {
+      const res = await fetch(`/api/intake/submissions/${id}`, { method: "DELETE" });
+      if (!res.ok) return;
+      setDeletedIds((prev) => new Set([...prev, id]));
+      // Select next lead if the deleted one was selected
+      setSelectedId((cur) => {
+        if (cur !== id) return cur;
+        const remaining = filteredSubmissions.filter((s) => s.id !== id);
+        return remaining[0]?.id ?? "";
+      });
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function handleClearSampleData() {
@@ -223,7 +248,7 @@ export default function IntakeCoordinatorPage() {
             <p className="crm-page-kicker">Intake Coordinator</p>
             <h1 className="crm-page-title">Your lead intake queue</h1>
             <p className="crm-page-subtitle">
-              Every inbound lead scored, routed, and ready for your review. Nothing gets missed.
+              Every inbound lead scored, routed, and ready for your review.
             </p>
           </div>
           {tab === "queue" ? (
@@ -231,9 +256,10 @@ export default function IntakeCoordinatorPage() {
               <button
                 type="button"
                 className="crm-btn crm-btn-primary"
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
                 onClick={() => setShowManualForm((v) => !v)}
               >
-                {showManualForm ? "Cancel" : "Add manually"}
+                {showManualForm ? <><X size={14} /> Cancel</> : <><Plus size={14} /> Add manually</>}
               </button>
               {sampleCount > 0 ? (
                 <button
@@ -269,7 +295,7 @@ export default function IntakeCoordinatorPage() {
               }}
             >
               {t === "queue"
-                ? `Queue${submissions.length > 0 ? ` (${submissions.length})` : ""}`
+                ? `Queue${enrichedSubmissions.length > 0 ? ` (${enrichedSubmissions.length})` : ""}`
                 : "Forms"}
             </button>
           ))}
@@ -300,7 +326,7 @@ export default function IntakeCoordinatorPage() {
                     {newCount} lead{newCount !== 1 ? "s" : ""} need{newCount === 1 ? "s" : ""} your review
                   </div>
                   <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>
-                    Your Intake Coordinator processed and scored {newCount === 1 ? "this lead" : "these leads"} — review and mark as actioned when done.
+                    Scored and waiting — mark as actioned when done.
                   </div>
                 </div>
               </div>
@@ -313,7 +339,7 @@ export default function IntakeCoordinatorPage() {
                 Show new only
               </button>
             </section>
-          ) : submissions.length > 0 ? (
+          ) : enrichedSubmissions.length > 0 ? (
             <section style={{
               background: "var(--ok-subtle, #f0fdf4)",
               border: "1px solid var(--ok-border, #bbf7d0)",
@@ -333,7 +359,7 @@ export default function IntakeCoordinatorPage() {
           {/* Stats row */}
           <section className="crm-card crm-section-card">
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <span className="crm-chip">Total: {submissions.length}</span>
+              <span className="crm-chip">Total: {enrichedSubmissions.length}</span>
               {newCount > 0 ? <span className="crm-chip crm-chip-danger">Needs review: {newCount}</span> : null}
               <span className="crm-chip crm-chip-danger">Hot: {hotCount}</span>
               <span className="crm-chip crm-chip-ok">Converted: {convertedCount}</span>
@@ -368,7 +394,7 @@ export default function IntakeCoordinatorPage() {
 
           {loadingSubs ? (
             <section className="crm-card crm-section-card">
-              <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Your Intake Coordinator is loading the queue…</div>
+              <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>Loading queue…</div>
             </section>
           ) : subsError ? (
             <section className="crm-card crm-section-card">
@@ -378,58 +404,119 @@ export default function IntakeCoordinatorPage() {
             <section className="crm-intake-grid">
 
               {/* Left — queue list */}
-              <article className="crm-card crm-section-card crm-stack-8">
-                <div className="crm-section-head">
-                  <h2 className="crm-section-title">
-                    {subFilter === "all" ? "All leads" : subFilter === "new" ? "Needs review" : `Filtered — ${subFilter}`}
+              <article className="crm-card crm-section-card crm-stack-6" style={{ padding: 0, overflow: "hidden" }}>
+                <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid var(--border)" }}>
+                  <h2 className="crm-section-title" style={{ margin: 0, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-muted)" }}>
+                    {subFilter === "all" ? `All leads` : subFilter === "new" ? "Needs review" : subFilter === "no-deal" ? "No deal" : subFilter.charAt(0).toUpperCase() + subFilter.slice(1)}
+                    <span style={{ fontWeight: 400, marginLeft: 6 }}>({filteredSubmissions.length})</span>
                   </h2>
                 </div>
-                <div className="crm-stack-8">
+                <div style={{ overflowY: "auto", maxHeight: 640 }}>
                   {filteredSubmissions.length === 0 ? (
-                    <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
-                      {submissions.length === 0
-                        ? "No leads yet. Share a form link and your Intake Coordinator will process them here."
+                    <div style={{ padding: "24px 16px", color: "var(--ink-muted)", fontSize: 13 }}>
+                      {enrichedSubmissions.length === 0
+                        ? "No leads yet. Share a form link and leads will appear here."
                         : "No leads match this filter."}
                     </div>
                   ) : null}
-                  {filteredSubmissions.map((sub) => {
+                  {filteredSubmissions.map((sub, idx) => {
                     const isNew = sub.ic_status === "new";
                     const isActioned = sub.ic_status === "actioned";
+                    const isSelected = selectedSubmission?.id === sub.id;
+                    const isConfirmingDelete = confirmDeleteId === sub.id;
                     return (
-                      <button
+                      <div
                         key={sub.id}
-                        type="button"
-                        onClick={() => setSelectedId(sub.id)}
-                        className={`crm-card-muted crm-intake-row${selectedSubmission?.id === sub.id ? " crm-intake-row-active" : ""}`}
-                        style={{ position: "relative", opacity: isActioned ? 0.6 : 1 }}
+                        style={{
+                          borderBottom: idx < filteredSubmissions.length - 1 ? "1px solid var(--border)" : "none",
+                          background: isSelected ? "var(--surface-hover, #f8fafc)" : "transparent",
+                          opacity: isActioned ? 0.65 : 1,
+                          transition: "background 0.12s",
+                        }}
                       >
-                        {isNew ? (
-                          <div style={{
-                            position: "absolute",
-                            top: 10,
-                            right: 10,
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: "var(--danger, #dc2626)",
-                          }} />
-                        ) : null}
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                          <div className="crm-stack-4" style={{ minWidth: 0 }}>
-                            <div style={{ fontWeight: 700 }}>{sub.lead_name}</div>
-                            <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>{sub.property_context}</div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(sub.id)}
+                          style={{
+                            width: "100%",
+                            background: "none",
+                            border: "none",
+                            padding: "12px 16px",
+                            textAlign: "left",
+                            cursor: "pointer",
+                            display: "block",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                                {isNew ? (
+                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--danger, #dc2626)", flexShrink: 0, display: "inline-block" }} />
+                                ) : null}
+                                <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {sub.lead_name}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 12, color: "var(--ink-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 6 }}>
+                                {sub.property_context}
+                              </div>
+                              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                                <StatusBadge label={sub.temperature} tone={temperatureTone(sub.temperature)} />
+                                <StatusBadge label={sub.intent} tone="default" />
+                                {sub.deal_id ? <StatusBadge label="Deal" tone="ok" /> : null}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--ink-faint)", flexShrink: 0, paddingTop: 2 }}>
+                              {formatDate(sub.timestamp)}
+                            </div>
                           </div>
-                          <StatusBadge label={sub.temperature} tone={temperatureTone(sub.temperature)} />
+                        </button>
+
+                        {/* Delete controls */}
+                        <div style={{ padding: "0 16px 10px", display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                          {isConfirmingDelete ? (
+                            <>
+                              <span style={{ fontSize: 12, color: "var(--ink-muted)", alignSelf: "center" }}>Delete this lead?</span>
+                              <button
+                                type="button"
+                                onClick={() => void handleDelete(sub.id)}
+                                disabled={deletingId === sub.id}
+                                style={{
+                                  fontSize: 12, padding: "3px 10px", borderRadius: 6,
+                                  background: "var(--danger, #dc2626)", color: "#fff",
+                                  border: "none", cursor: "pointer", fontWeight: 600,
+                                }}
+                              >
+                                {deletingId === sub.id ? "Deleting…" : "Delete"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                style={{
+                                  fontSize: 12, padding: "3px 10px", borderRadius: 6,
+                                  background: "var(--surface)", color: "var(--ink-muted)",
+                                  border: "1px solid var(--border)", cursor: "pointer",
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(sub.id); }}
+                              title="Delete lead"
+                              style={{
+                                background: "none", border: "none", cursor: "pointer",
+                                color: "var(--ink-faint)", padding: "2px 4px", borderRadius: 4,
+                                display: "flex", alignItems: "center",
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
-                        <div className="crm-inline-actions" style={{ gap: 6, flexWrap: "wrap" }}>
-                          <StatusBadge label={sub.source} tone={sourceChannelTone(sub.source)} />
-                          <StatusBadge label={sub.intent} tone="default" />
-                          {sub.deal_id ? <StatusBadge label="Deal linked" tone="ok" /> : null}
-                          {isActioned ? <StatusBadge label="Actioned" tone="ok" /> : null}
-                          {sub.is_sample_workspace ? <StatusBadge label="Sample" tone="default" /> : null}
-                        </div>
-                        <div style={{ color: "var(--ink-faint)", fontSize: 12 }}>{formatDate(sub.timestamp)}</div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -453,7 +540,6 @@ export default function IntakeCoordinatorPage() {
                         </div>
                       </div>
 
-                      {/* Contact info */}
                       {(selectedSubmission.phone || selectedSubmission.email) ? (
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
                           {selectedSubmission.phone ? (
@@ -492,7 +578,7 @@ export default function IntakeCoordinatorPage() {
                         <ScoreDots score={selectedSubmission.qualification_score} />
                       </div>
                       {selectedSubmission.qualification_reason ? (
-                        <div style={{ fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                        <div style={{ fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55 }}>
                           {selectedSubmission.qualification_reason}
                         </div>
                       ) : (
@@ -508,7 +594,7 @@ export default function IntakeCoordinatorPage() {
                           {selectedSubmission.next_action}
                         </div>
                         {selectedSubmission.next_action_detail ? (
-                          <div style={{ fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+                          <div style={{ fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.55 }}>
                             {selectedSubmission.next_action_detail}
                           </div>
                         ) : null}
@@ -531,7 +617,7 @@ export default function IntakeCoordinatorPage() {
                         <div>
                           <div className="crm-detail-label">Deal</div>
                           {selectedSubmission.deal_id ? (
-                            <Link href={`/app/deals`} style={{ color: "var(--ok, #16a34a)", fontWeight: 600, textDecoration: "none" }}>
+                            <Link href="/app/deals" style={{ color: "var(--ok, #16a34a)", fontWeight: 600, textDecoration: "none" }}>
                               ✓ {selectedSubmission.deal_address ?? "Deal linked"}
                             </Link>
                           ) : (
@@ -550,29 +636,29 @@ export default function IntakeCoordinatorPage() {
                     </div>
 
                     {/* Action buttons */}
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       {selectedSubmission.ic_status !== "actioned" ? (
                         <button
                           type="button"
                           className="crm-btn crm-btn-primary"
-                          style={{ fontSize: 13 }}
+                          style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
                           onClick={() => markStatus(selectedSubmission.id, "actioned")}
                         >
-                          Mark actioned
+                          <CheckCheck size={14} /> Mark actioned
                         </button>
                       ) : null}
                       {selectedSubmission.ic_status === "new" ? (
                         <button
                           type="button"
                           className="crm-btn crm-btn-secondary"
-                          style={{ fontSize: 13 }}
+                          style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
                           onClick={() => markStatus(selectedSubmission.id, "reviewed")}
                         >
-                          Mark reviewed
+                          <Eye size={14} /> Mark reviewed
                         </button>
                       ) : null}
                       <Link
-                        href={`/app/contacts`}
+                        href="/app/contacts"
                         className="crm-btn crm-btn-secondary"
                         style={{ fontSize: 13, textDecoration: "none" }}
                       >
@@ -580,18 +666,61 @@ export default function IntakeCoordinatorPage() {
                       </Link>
                       {selectedSubmission.deal_id ? (
                         <Link
-                          href={`/app/deals`}
+                          href="/app/deals"
                           className="crm-btn crm-btn-secondary"
                           style={{ fontSize: 13, textDecoration: "none" }}
                         >
                           View deal →
                         </Link>
                       ) : null}
+                      <div style={{ marginLeft: "auto" }}>
+                        {confirmDeleteId === selectedSubmission.id ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Permanently delete?</span>
+                            <button
+                              type="button"
+                              onClick={() => void handleDelete(selectedSubmission.id)}
+                              disabled={deletingId === selectedSubmission.id}
+                              style={{
+                                fontSize: 12, padding: "3px 10px", borderRadius: 6,
+                                background: "var(--danger, #dc2626)", color: "#fff",
+                                border: "none", cursor: "pointer", fontWeight: 600,
+                              }}
+                            >
+                              {deletingId === selectedSubmission.id ? "Deleting…" : "Delete"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              style={{
+                                fontSize: 12, padding: "3px 10px", borderRadius: 6,
+                                background: "none", color: "var(--ink-muted)",
+                                border: "1px solid var(--border)", cursor: "pointer",
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(selectedSubmission.id)}
+                            title="Delete this lead"
+                            style={{
+                              background: "none", border: "none", cursor: "pointer",
+                              color: "var(--ink-faint)", padding: "6px", borderRadius: 6,
+                              display: "flex", alignItems: "center",
+                            }}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </>
                 ) : (
                   <div className="crm-card-muted" style={{ padding: 16, color: "var(--ink-muted)" }}>
-                    {submissions.length === 0
+                    {enrichedSubmissions.length === 0
                       ? "No leads in the queue yet. Share a form link and your Intake Coordinator will process them here."
                       : "Select a lead to see the full IC assessment."}
                   </div>
