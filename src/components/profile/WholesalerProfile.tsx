@@ -138,7 +138,7 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
         <span style={{ color: "#fff", fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>{displayName}</span>
         {profile.showContactForm && (
           <a
-            href={`/forms/${profile.slug}`}
+            href={`/forms/wholesale/${profile.slug}`}
             style={{ background: P.brownLight, color: "#fff", padding: "9px 20px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}
           >
             Submit a Property
@@ -175,7 +175,7 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
           {profile.showContactForm && (
             <a
-              href={`/forms/${profile.slug}`}
+              href={`/forms/wholesale/${profile.slug}`}
               style={{ background: P.brownLight, color: "#fff", padding: "14px 32px", borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: "none", letterSpacing: "-0.01em" }}
             >
               Submit a Property →
@@ -313,7 +313,7 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
               Off-market, honest, and fast. If the timing is right and the land is right, we&apos;ll make it simple.
             </p>
             <a
-              href={`/forms/${profile.slug}`}
+              href={`/forms/wholesale/${profile.slug}`}
               style={{ display: "inline-block", background: P.green, color: "#fff", padding: "15px 36px", borderRadius: 10, fontWeight: 800, fontSize: 15, textDecoration: "none", letterSpacing: "-0.01em" }}
             >
               Submit Your Property →

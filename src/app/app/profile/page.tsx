@@ -22,6 +22,7 @@ export default async function MyProfilePage() {
       slug={slug}
       fullName={(agent?.full_name as string | null) ?? ""}
       initialSettings={{
+        booking_link: ws.booking_link,
         profile_company_name: ws.profile_company_name,
         profile_tagline: ws.profile_tagline,
         profile_bio: ws.profile_bio,

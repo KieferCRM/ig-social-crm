@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ProfileTemplate, ProfileTestimonial, ProfileListing, ProfileStat, ProfileHowItWorksStep, ProfileTheme } from "@/lib/workspace-settings";
 
 type ProfileSettings = {
+  booking_link: string;
   profile_company_name: string;
   profile_tagline: string;
   profile_bio: string;
@@ -54,13 +55,13 @@ export default function ProfilePageClient({ slug, fullName, initialSettings }: P
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/settings/workspace", {
-        method: "PATCH",
+      const res = await fetch("/api/workspace/settings", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
-      const data = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) {
+      const data = await res.json() as { settings?: unknown; error?: string };
+      if (!res.ok || !data.settings) {
         setError(data.error ?? "Could not save.");
       } else {
         setSaved(true);
@@ -187,6 +188,11 @@ export default function ProfilePageClient({ slug, fullName, initialSettings }: P
             <span style={labelStyle}>Headshot URL</span>
             <input style={inputStyle} value={settings.profile_headshot_url} onChange={(e) => set("profile_headshot_url", e.target.value)} placeholder="https://..." />
             <span style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 4, display: "block" }}>Image upload coming soon — paste a URL for now.</span>
+          </label>
+          <label>
+            <span style={labelStyle}>Booking Link</span>
+            <input style={inputStyle} value={settings.booking_link} onChange={(e) => set("booking_link", e.target.value)} placeholder="https://calendly.com/your-link" />
+            <span style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 4, display: "block" }}>Adds a &ldquo;Book a Call&rdquo; button to your public page.</span>
           </label>
         </div>
       </div>
