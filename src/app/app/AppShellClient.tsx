@@ -200,8 +200,9 @@ export default function AppShellClient({
 if (pathname.startsWith("/app/forms")) {
       return {
         title: "Forms",
-        subtitle:
-          "Share seller and buyer intake forms with a link or QR code. Build custom forms for open houses, events, or any inquiry.",
+        subtitle: isOffMarketAccount
+          ? "Share your seller intake form with a link or QR code. Collect condition, timeline, motivation, and price from every inbound seller."
+          : "Share seller and buyer intake forms with a link or QR code. Build custom forms for open houses, events, or any inquiry.",
       };
     }
     if (pathname.startsWith("/app/priorities")) {
@@ -404,7 +405,7 @@ if (pathname.startsWith("/app/forms")) {
         <header className="crm-topbar">
           <div>
             <div className="crm-topbar-kicker">
-              {isOffMarketAccount ? "Off-Market Workspace" : "Your Virtual Office"}
+              {isOffMarketAccount ? "Wholesaler Workspace" : "Your Virtual Office"}
             </div>
             <h1 className="crm-topbar-title">{pageMeta.title}</h1>
             <p className="crm-topbar-subtitle">{pageMeta.subtitle}</p>

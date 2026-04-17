@@ -384,7 +384,9 @@ export default function FormsPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [vanitySlug, setVanitySlug] = useState<string | null>(null);
+  const [accountType, setAccountType] = useState<string | null>(null);
   const [smartFormCount, setSmartFormCount] = useState(0);
+  const [wholesaleFormCount, setWholesaleFormCount] = useState(0);
   const [openHouseCount, setOpenHouseCount] = useState(0);
   const [genericForms, setGenericForms] = useState<GenericForm[]>([]);
   const [loading, setLoading] = useState(true);
@@ -400,13 +402,15 @@ export default function FormsPage() {
       if (!user || !active) return;
       setAgentId(user.id);
 
-      const { data: agentRow } = await supabase.from("agents").select("vanity_slug").eq("id", user.id).maybeSingle();
+      const { data: agentRow } = await supabase.from("agents").select("vanity_slug, account_type").eq("id", user.id).maybeSingle();
       if (active) {
         setVanitySlug((agentRow?.vanity_slug as string | null) ?? null);
+        setAccountType((agentRow?.account_type as string | null) ?? null);
       }
 
-      const [smartFormRes, openHouseRes, formsRes] = await Promise.all([
-        supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "contact_form"),
+      const [smartFormRes, wholesaleFormRes, openHouseRes, formsRes] = await Promise.all([
+        supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "contact_form").eq("form_variant", "smart_form"),
+        supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("form_variant", "wholesaler_smart_form"),
         supabase.from("leads").select("id", { count: "exact", head: true }).eq("agent_id", user.id).eq("source", "open_house_form"),
         supabase.from("generic_forms").select("id, title, description, questions, short_code").eq("agent_id", user.id).order("created_at", { ascending: false }),
       ]);
@@ -414,6 +418,7 @@ export default function FormsPage() {
       if (!active) return;
 
       setSmartFormCount(smartFormRes.count ?? 0);
+      setWholesaleFormCount(wholesaleFormRes.count ?? 0);
       setOpenHouseCount(openHouseRes.count ?? 0);
 
       const forms = formsRes.data || [];
@@ -499,20 +504,32 @@ export default function FormsPage() {
         <div className="crm-grid-cards-2">
           {agentId ? (
             <>
-              <BuiltInFormCard
-                label="Smart Lead Form"
-                description="The one link to share everywhere — social bio, posts, mailers. Step 1 captures name and phone instantly. Step 2 asks buyer or seller questions based on what they choose."
-                path={`/forms/${vanitySlug ?? agentId}`}
-                submissionCount={smartFormCount}
-                downloadName="smart-form-qr.png"
-              />
-              <BuiltInFormCard
-                label="Open House Sign-In"
-                description="QR code sign-in for open houses. Captures name, phone, email, buyer agent status, and how they heard about the open house."
-                path={`/forms/open-house/${vanitySlug ?? agentId}`}
-                submissionCount={openHouseCount}
-                downloadName="open-house-signin-qr.png"
-              />
+              {accountType === "off_market_agent" ? (
+                <BuiltInFormCard
+                  label="Wholesaler Seller Form"
+                  description="Your go-to link for inbound sellers. Collects condition, timeline, motivation, and price — in the right order. Share it in your bio, DMs, or on mailers."
+                  path={`/forms/wholesale/${vanitySlug ?? agentId}`}
+                  submissionCount={wholesaleFormCount}
+                  downloadName="wholesale-seller-form-qr.png"
+                />
+              ) : (
+                <BuiltInFormCard
+                  label="Smart Lead Form"
+                  description="The one link to share everywhere — social bio, posts, mailers. Step 1 captures name and phone instantly. Step 2 asks buyer or seller questions based on what they choose."
+                  path={`/forms/${vanitySlug ?? agentId}`}
+                  submissionCount={smartFormCount}
+                  downloadName="smart-form-qr.png"
+                />
+              )}
+              {accountType !== "off_market_agent" && (
+                <BuiltInFormCard
+                  label="Open House Sign-In"
+                  description="QR code sign-in for open houses. Captures name, phone, email, buyer agent status, and how they heard about the open house."
+                  path={`/forms/open-house/${vanitySlug ?? agentId}`}
+                  submissionCount={openHouseCount}
+                  downloadName="open-house-signin-qr.png"
+                />
+              )}
             </>
           ) : null}
         </div>
