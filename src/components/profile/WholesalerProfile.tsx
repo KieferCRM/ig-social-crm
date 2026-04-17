@@ -1,4 +1,4 @@
-import type { ProfileTestimonial, ProfileListing, ProfileStat, ProfileHowItWorksStep } from "@/lib/workspace-settings";
+import type { ProfileTestimonial, ProfileListing, ProfileStat, ProfileHowItWorksStep, ProfileTheme } from "@/lib/workspace-settings";
 
 export type PublicProfile = {
   agentId: string;
@@ -24,9 +24,10 @@ export type PublicProfile = {
   operatorPath: string;
   stats: ProfileStat[];
   howItWorks: ProfileHowItWorksStep[];
+  theme?: ProfileTheme | null;
 };
 
-const P = {
+const DEFAULT_PALETTE = {
   bg: "#faf8f4",
   surface: "#ffffff",
   green: "#2d4a2d",
@@ -41,6 +42,25 @@ const P = {
   line: "#e0d8c8",
   heroBg: "linear-gradient(160deg, #2d4a2d 0%, #1a2e1a 60%, #0f1f0f 100%)",
 } as const;
+
+function buildPalette(theme?: ProfileTheme | null) {
+  if (!theme) return DEFAULT_PALETTE;
+  return {
+    bg: theme.bg,
+    surface: theme.surface,
+    green: theme.primary,
+    greenLight: theme.primaryLight,
+    brown: theme.accent,
+    brownLight: theme.accent,
+    cream: theme.bg,
+    creamDark: theme.line,
+    ink: theme.ink,
+    inkMuted: theme.inkMuted,
+    inkFaint: theme.inkMuted,
+    line: theme.line,
+    heroBg: theme.heroBg,
+  };
+}
 
 function formatPrice(price: number) {
   if (!price) return null;
@@ -89,6 +109,7 @@ const VALUES = [
 ];
 
 export default function WholesalerProfile({ profile }: { profile: PublicProfile }) {
+  const P = buildPalette(profile.theme);
   const displayName = profile.companyName || profile.fullName || "Our Company";
   const tagline = profile.tagline || "Land, lifestyle & legacy — off-market properties done right.";
   const bio = profile.bio || "TerraVixen Co. was built on a love for the land and the people who care for it. We're a land, lifestyle, and legacy company specializing in off-market properties — the kind you don't find online, but through connection, conversation, and trust.\n\nRooted in the earth that grounds us and guided by instinct and a fearless sense of direction, we bring a personal touch back to real estate. Our work is about more than transactions — it's about matching good people with good ground and helping each property's story continue in the right hands.";

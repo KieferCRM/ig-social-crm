@@ -156,6 +156,7 @@ export default async function PublicProfilePage({
     operatorPath: ws.operator_path,
     stats: ws.profile_stats,
     howItWorks: ws.profile_how_it_works,
+    theme: ws.profile_theme,
   };
 
   if (ws.profile_template === "agent") {

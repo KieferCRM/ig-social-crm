@@ -34,6 +34,7 @@ function emptySettings(): WorkspaceSettings {
     profile_public: false,
     profile_stats: [],
     profile_how_it_works: [],
+    profile_theme: null,
   };
 }
 

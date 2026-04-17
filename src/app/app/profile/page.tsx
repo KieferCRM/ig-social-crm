@@ -39,6 +39,7 @@ export default async function MyProfilePage() {
         linkedin_url: ws.linkedin_url,
         profile_stats: ws.profile_stats,
         profile_how_it_works: ws.profile_how_it_works,
+        profile_theme: ws.profile_theme,
       }}
     />
   );

@@ -39,6 +39,82 @@ export type WorkspaceDocument = {
 
 export type ProfileTemplate = "wholesaler" | "agent";
 
+export type ProfileTheme = {
+  palette: string; // named palette key
+  primary: string;
+  primaryLight: string;
+  accent: string;
+  bg: string;
+  surface: string;
+  ink: string;
+  inkMuted: string;
+  line: string;
+  heroBg: string;
+};
+
+export const PROFILE_PALETTES: Record<string, ProfileTheme> = {
+  earthy: {
+    palette: "earthy",
+    primary: "#2d4a2d",
+    primaryLight: "#3d6b3d",
+    accent: "#7c5c3a",
+    bg: "#faf8f4",
+    surface: "#ffffff",
+    ink: "#1c1c1c",
+    inkMuted: "#5a5a4a",
+    line: "#e0d8c8",
+    heroBg: "linear-gradient(160deg,#2d4a2d 0%,#1a2e1a 60%,#0f1f0f 100%)",
+  },
+  modern: {
+    palette: "modern",
+    primary: "#1e293b",
+    primaryLight: "#334155",
+    accent: "#2563eb",
+    bg: "#f8fafc",
+    surface: "#ffffff",
+    ink: "#0f172a",
+    inkMuted: "#64748b",
+    line: "#e2e8f0",
+    heroBg: "linear-gradient(160deg,#1e293b 0%,#0f172a 100%)",
+  },
+  bold: {
+    palette: "bold",
+    primary: "#1a1a2e",
+    primaryLight: "#16213e",
+    accent: "#c9a84c",
+    bg: "#f9f9f9",
+    surface: "#ffffff",
+    ink: "#1a1a2e",
+    inkMuted: "#6b6b8a",
+    line: "#e5e5f0",
+    heroBg: "linear-gradient(160deg,#1a1a2e 0%,#0d0d1a 100%)",
+  },
+  warm: {
+    palette: "warm",
+    primary: "#92400e",
+    primaryLight: "#b45309",
+    accent: "#d97706",
+    bg: "#fffbf5",
+    surface: "#ffffff",
+    ink: "#1c1008",
+    inkMuted: "#78716c",
+    line: "#fed7aa",
+    heroBg: "linear-gradient(160deg,#92400e 0%,#5c2d0a 100%)",
+  },
+  clean: {
+    palette: "clean",
+    primary: "#0f766e",
+    primaryLight: "#0d9488",
+    accent: "#0891b2",
+    bg: "#f0fdfa",
+    surface: "#ffffff",
+    ink: "#134e4a",
+    inkMuted: "#5eead4",
+    line: "#ccfbf1",
+    heroBg: "linear-gradient(160deg,#0f766e 0%,#065f55 100%)",
+  },
+};
+
 export type ProfileTestimonial = {
   id: string;
   author_name: string;
@@ -94,6 +170,7 @@ export type WorkspaceSettings = {
   profile_public: boolean;
   profile_stats: ProfileStat[];
   profile_how_it_works: ProfileHowItWorksStep[];
+  profile_theme: ProfileTheme | null;
 };
 
 const DEFAULT_SCRIPTS: SocialScript[] = [
@@ -152,6 +229,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   profile_public: true,
   profile_stats: [],
   profile_how_it_works: [],
+  profile_theme: null,
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -310,6 +388,27 @@ function normalizeHowItWorks(value: unknown): ProfileHowItWorksStep[] {
     .slice(0, 6);
 }
 
+function normalizeTheme(value: unknown): ProfileTheme | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const palette = readString(record.palette);
+  if (palette && PROFILE_PALETTES[palette]) {
+    return {
+      ...PROFILE_PALETTES[palette],
+      primary: readString(record.primary) || PROFILE_PALETTES[palette].primary,
+      primaryLight: readString(record.primaryLight) || PROFILE_PALETTES[palette].primaryLight,
+      accent: readString(record.accent) || PROFILE_PALETTES[palette].accent,
+      bg: readString(record.bg) || PROFILE_PALETTES[palette].bg,
+      surface: readString(record.surface) || PROFILE_PALETTES[palette].surface,
+      ink: readString(record.ink) || PROFILE_PALETTES[palette].ink,
+      inkMuted: readString(record.inkMuted) || PROFILE_PALETTES[palette].inkMuted,
+      line: readString(record.line) || PROFILE_PALETTES[palette].line,
+      heroBg: readString(record.heroBg) || PROFILE_PALETTES[palette].heroBg,
+    };
+  }
+  return null;
+}
+
 function normalizeProfileTemplate(value: unknown): ProfileTemplate {
   if (value === "agent") return "agent";
   return "wholesaler";
@@ -397,6 +496,7 @@ export function normalizeWorkspaceSettings(input: unknown): WorkspaceSettings {
       typeof raw.profile_public === "boolean" ? raw.profile_public : true,
     profile_stats: normalizeStats(raw.profile_stats),
     profile_how_it_works: normalizeHowItWorks(raw.profile_how_it_works),
+    profile_theme: normalizeTheme(raw.profile_theme),
   };
 }
 

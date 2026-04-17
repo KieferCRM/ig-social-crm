@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ProfileTemplate, ProfileTestimonial, ProfileListing, ProfileStat, ProfileHowItWorksStep } from "@/lib/workspace-settings";
+import type { ProfileTemplate, ProfileTestimonial, ProfileListing, ProfileStat, ProfileHowItWorksStep, ProfileTheme } from "@/lib/workspace-settings";
 
 type ProfileSettings = {
   profile_company_name: string;
@@ -21,6 +21,7 @@ type ProfileSettings = {
   linkedin_url: string;
   profile_stats: ProfileStat[];
   profile_how_it_works: ProfileHowItWorksStep[];
+  profile_theme: ProfileTheme | null;
 };
 
 type Props = {
@@ -157,6 +158,9 @@ export default function ProfilePageClient({ slug, fullName, initialSettings }: P
           <button onClick={() => void handleCopy()} className="crm-btn crm-btn-secondary" style={{ whiteSpace: "nowrap", fontSize: 13 }}>
             {copied ? "Copied!" : "Copy Link"}
           </button>
+          <a href="/app/profile/onboard" className="crm-btn crm-btn-secondary" style={{ whiteSpace: "nowrap", fontSize: 13, textDecoration: "none" }}>
+            ✨ Build with AI
+          </a>
           <a href={`/p/${slug}`} target="_blank" rel="noopener noreferrer" className="crm-btn crm-btn-secondary" style={{ whiteSpace: "nowrap", fontSize: 13, textDecoration: "none" }}>
             Preview →
           </a>
