@@ -78,6 +78,7 @@ export type WorkspaceSettings = {
   profile_testimonials: ProfileTestimonial[];
   profile_listings: ProfileListing[];
   profile_show_contact_form: boolean;
+  profile_public: boolean;
 };
 
 const DEFAULT_SCRIPTS: SocialScript[] = [
@@ -133,6 +134,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   profile_testimonials: [],
   profile_listings: [],
   profile_show_contact_form: true,
+  profile_public: true,
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -341,6 +343,8 @@ export function normalizeWorkspaceSettings(input: unknown): WorkspaceSettings {
     profile_listings: normalizeListings(raw.profile_listings),
     profile_show_contact_form:
       typeof raw.profile_show_contact_form === "boolean" ? raw.profile_show_contact_form : true,
+    profile_public:
+      typeof raw.profile_public === "boolean" ? raw.profile_public : true,
   };
 }
 

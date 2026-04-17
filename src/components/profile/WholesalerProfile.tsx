@@ -37,6 +37,7 @@ const P = {
   inkMuted: "#5a5a4a",
   inkFaint: "#8a8a7a",
   line: "#e0d8c8",
+  heroBg: "linear-gradient(160deg, #2d4a2d 0%, #1a2e1a 60%, #0f1f0f 100%)",
 } as const;
 
 function formatPrice(price: number) {
@@ -70,10 +71,37 @@ function SocialIcon({ type }: { type: string }) {
   );
 }
 
+const HOW_IT_WORKS = [
+  {
+    step: "01",
+    title: "You Reach Out",
+    body: "Tell us about your property. We listen first — no pressure, no scripts, no wasted time.",
+  },
+  {
+    step: "02",
+    title: "We Come to You",
+    body: "We evaluate quickly and honestly. You get a fair offer based on what the land is actually worth.",
+  },
+  {
+    step: "03",
+    title: "We Close Clean",
+    body: "Fast, straightforward closing on your timeline. We handle the details so you don't have to.",
+  },
+];
+
+const VALUES = [
+  { name: "Integrity", body: "We do what we say. Every handshake, every promise, every deal." },
+  { name: "Authenticity", body: "We show up as ourselves — honest, approachable, and real." },
+  { name: "Stewardship", body: "Land is a trust passed from one hand to the next. We treat it accordingly." },
+  { name: "Connection", body: "Relationships come first. We build our business on people, not just properties." },
+  { name: "Legacy", body: "We help families and investors build stories that last for generations." },
+  { name: "Work Ethic", body: "Trust earned the old-fashioned way — through consistency and follow-through." },
+];
+
 export default function WholesalerProfile({ profile }: { profile: PublicProfile }) {
   const displayName = profile.companyName || profile.fullName || "Our Company";
   const tagline = profile.tagline || "Land, lifestyle & legacy — off-market properties done right.";
-  const bio = profile.bio || "We specialize in off-market properties — the kind you won't find listed online. Our work is built on genuine relationships, honest communication, and a deep respect for the land and the people connected to it.";
+  const bio = profile.bio || "TerraVixen Co. was built on a love for the land and the people who care for it. We're a land, lifestyle, and legacy company specializing in off-market properties — the kind you don't find online, but through connection, conversation, and trust.\n\nRooted in the earth that grounds us and guided by instinct and a fearless sense of direction, we bring a personal touch back to real estate. Our work is about more than transactions — it's about matching good people with good ground and helping each property's story continue in the right hands.";
   const hoursStart = formatHour(profile.officeHoursStart);
   const hoursEnd = formatHour(profile.officeHoursEnd);
 
@@ -93,12 +121,12 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
     <div style={{ background: P.bg, minHeight: "100vh", fontFamily: "'Satoshi', 'Avenir Next', 'Segoe UI', sans-serif", color: P.ink }}>
 
       {/* NAV */}
-      <nav style={{ background: P.green, padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ color: "#fff", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{displayName}</span>
+      <nav style={{ background: P.green, padding: "16px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50, boxShadow: "0 1px 0 rgba(0,0,0,0.2)" }}>
+        <span style={{ color: "#fff", fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>{displayName}</span>
         {profile.showContactForm && (
           <a
             href={`/forms/${profile.slug}`}
-            style={{ background: P.brownLight, color: "#fff", padding: "8px 18px", borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: "none", whiteSpace: "nowrap" }}
+            style={{ background: P.brownLight, color: "#fff", padding: "9px 20px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}
           >
             Submit a Property
           </a>
@@ -106,35 +134,38 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
       </nav>
 
       {/* HERO */}
-      <section style={{ background: `linear-gradient(160deg, ${P.green} 0%, #1a2e1a 100%)`, padding: "64px 24px 56px", textAlign: "center" }}>
-        {profile.headshotUrl && (
+      <section style={{ background: P.heroBg, padding: "72px 24px 64px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        {/* subtle texture overlay */}
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(ellipse at 70% 30%, rgba(160,120,80,0.08) 0%, transparent 60%)", pointerEvents: "none" }} />
+
+        {profile.headshotUrl ? (
           <img
             src={profile.headshotUrl}
             alt={profile.fullName}
-            style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover", border: `3px solid ${P.brownLight}`, marginBottom: 20 }}
+            style={{ width: 112, height: 112, borderRadius: "50%", objectFit: "cover", border: `3px solid ${P.brownLight}`, marginBottom: 24, position: "relative" }}
           />
-        )}
-        {!profile.headshotUrl && (
-          <div style={{ width: 100, height: 100, borderRadius: "50%", background: P.brownLight, margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>
+        ) : (
+          <div style={{ width: 112, height: 112, borderRadius: "50%", background: "rgba(160,120,80,0.25)", border: `2px solid rgba(160,120,80,0.5)`, margin: "0 auto 24px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, position: "relative" }}>
             🌿
           </div>
         )}
-        <h1 style={{ color: "#fff", fontSize: "clamp(26px, 5vw, 40px)", fontWeight: 800, margin: "0 0 12px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>
+
+        <h1 style={{ color: "#fff", fontSize: "clamp(28px, 5vw, 44px)", fontWeight: 900, margin: "0 0 10px", letterSpacing: "-0.03em", lineHeight: 1.1 }}>
           {displayName}
         </h1>
         {profile.fullName && profile.companyName && (
-          <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, margin: "0 0 16px" }}>{profile.fullName}</p>
+          <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, margin: "0 0 18px", letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 600 }}>{profile.fullName}</p>
         )}
-        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "clamp(15px, 2.5vw, 18px)", maxWidth: 520, margin: "0 auto 32px", lineHeight: 1.6 }}>
+        <p style={{ color: "rgba(255,255,255,0.82)", fontSize: "clamp(15px, 2.5vw, 19px)", maxWidth: 540, margin: "0 auto 36px", lineHeight: 1.65, fontWeight: 400 }}>
           {tagline}
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
           {profile.showContactForm && (
             <a
               href={`/forms/${profile.slug}`}
-              style={{ background: P.brownLight, color: "#fff", padding: "13px 28px", borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: "none" }}
+              style={{ background: P.brownLight, color: "#fff", padding: "14px 32px", borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: "none", letterSpacing: "-0.01em" }}
             >
-              Submit a Property
+              Submit a Property →
             </a>
           )}
           {profile.bookingLink && (
@@ -142,7 +173,7 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
               href={profile.bookingLink}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ background: "rgba(255,255,255,0.12)", color: "#fff", padding: "13px 28px", borderRadius: 10, fontWeight: 600, fontSize: 15, textDecoration: "none", border: "1px solid rgba(255,255,255,0.25)" }}
+              style={{ background: "rgba(255,255,255,0.1)", color: "#fff", padding: "14px 32px", borderRadius: 10, fontWeight: 600, fontSize: 15, textDecoration: "none", border: "1px solid rgba(255,255,255,0.2)", backdropFilter: "blur(4px)" }}
             >
               Book a Call
             </a>
@@ -150,29 +181,25 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
         </div>
       </section>
 
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 20px" }}>
+      <div style={{ maxWidth: 780, margin: "0 auto", padding: "0 24px" }}>
 
         {/* ABOUT */}
-        <section style={{ padding: "52px 0 44px", borderBottom: `1px solid ${P.line}` }}>
-          <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: P.brown, margin: "0 0 16px" }}>About</h2>
-          <p style={{ fontSize: "clamp(15px, 2vw, 17px)", lineHeight: 1.75, color: P.inkMuted, margin: 0, whiteSpace: "pre-wrap" }}>
+        <section style={{ padding: "60px 0 52px", borderBottom: `1px solid ${P.line}` }}>
+          <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: P.brownLight, margin: "0 0 20px" }}>About</p>
+          <p style={{ fontSize: "clamp(16px, 2vw, 18px)", lineHeight: 1.8, color: P.inkMuted, margin: 0, whiteSpace: "pre-wrap" }}>
             {bio}
           </p>
         </section>
 
         {/* HOW IT WORKS */}
-        <section style={{ padding: "48px 0 44px", borderBottom: `1px solid ${P.line}` }}>
-          <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: P.brown, margin: "0 0 28px" }}>How It Works</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 20 }}>
-            {[
-              { step: "01", title: "You Reach Out", body: "Tell us about your property. We listen first — no pressure, no scripts." },
-              { step: "02", title: "We Evaluate", body: "We assess the opportunity quickly and come back with an honest offer." },
-              { step: "03", title: "We Close", body: "Fast, straightforward closing. We handle the details so you don't have to." },
-            ].map((item) => (
-              <div key={item.step} style={{ background: P.cream, borderRadius: 12, padding: "24px 20px" }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: P.brownLight, marginBottom: 10 }}>{item.step}</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: P.green, marginBottom: 8 }}>{item.title}</div>
-                <div style={{ fontSize: 13, color: P.inkMuted, lineHeight: 1.6 }}>{item.body}</div>
+        <section style={{ padding: "52px 0 48px", borderBottom: `1px solid ${P.line}` }}>
+          <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: P.brownLight, margin: "0 0 32px" }}>How It Works</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+            {HOW_IT_WORKS.map((item) => (
+              <div key={item.step} style={{ background: P.cream, borderRadius: 14, padding: "28px 22px", border: `1px solid ${P.creamDark}` }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: P.brownLight, marginBottom: 12 }}>{item.step}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: P.green, marginBottom: 10, letterSpacing: "-0.01em" }}>{item.title}</div>
+                <div style={{ fontSize: 13, color: P.inkMuted, lineHeight: 1.65 }}>{item.body}</div>
               </div>
             ))}
           </div>
@@ -180,11 +207,11 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
 
         {/* SERVICE AREAS */}
         {hasServiceAreas && (
-          <section style={{ padding: "48px 0 44px", borderBottom: `1px solid ${P.line}` }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: P.brown, margin: "0 0 20px" }}>Service Areas</h2>
+          <section style={{ padding: "52px 0 48px", borderBottom: `1px solid ${P.line}` }}>
+            <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: P.brownLight, margin: "0 0 22px" }}>Where We Work</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               {profile.serviceAreas.map((area) => (
-                <span key={area} style={{ background: P.creamDark, color: P.green, padding: "7px 14px", borderRadius: 20, fontSize: 13, fontWeight: 600 }}>
+                <span key={area} style={{ background: P.creamDark, color: P.green, padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700, border: `1px solid ${P.line}` }}>
                   {area}
                 </span>
               ))}
@@ -194,24 +221,23 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
 
         {/* ACTIVE LISTINGS */}
         {hasListings && (
-          <section style={{ padding: "48px 0 44px", borderBottom: `1px solid ${P.line}` }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: P.brown, margin: "0 0 24px" }}>Active Deals</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+          <section style={{ padding: "52px 0 48px", borderBottom: `1px solid ${P.line}` }}>
+            <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: P.brownLight, margin: "0 0 28px" }}>Active Deals</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 16 }}>
               {profile.listings.filter((l) => l.status === "active").map((listing) => (
-                <div key={listing.id} style={{ background: P.surface, borderRadius: 12, overflow: "hidden", border: `1px solid ${P.line}` }}>
-                  {listing.image_url && (
-                    <img src={listing.image_url} alt={listing.address} style={{ width: "100%", height: 140, objectFit: "cover" }} />
+                <div key={listing.id} style={{ background: P.surface, borderRadius: 14, overflow: "hidden", border: `1px solid ${P.line}`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                  {listing.image_url ? (
+                    <img src={listing.image_url} alt={listing.address} style={{ width: "100%", height: 150, objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ width: "100%", height: 150, background: P.cream, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>🏡</div>
                   )}
-                  {!listing.image_url && (
-                    <div style={{ width: "100%", height: 140, background: P.cream, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>🏡</div>
-                  )}
-                  <div style={{ padding: "14px 16px" }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: P.ink, marginBottom: 4, lineHeight: 1.4 }}>{listing.address}</div>
+                  <div style={{ padding: "16px 18px" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: P.ink, marginBottom: 6, lineHeight: 1.4 }}>{listing.address}</div>
                     {formatPrice(listing.price) && (
-                      <div style={{ fontSize: 15, fontWeight: 800, color: P.green }}>{formatPrice(listing.price)}</div>
+                      <div style={{ fontSize: 17, fontWeight: 900, color: P.green, letterSpacing: "-0.01em" }}>{formatPrice(listing.price)}</div>
                     )}
                     {listing.description && (
-                      <div style={{ fontSize: 12, color: P.inkMuted, marginTop: 6, lineHeight: 1.5 }}>{listing.description}</div>
+                      <div style={{ fontSize: 12, color: P.inkMuted, marginTop: 8, lineHeight: 1.6 }}>{listing.description}</div>
                     )}
                   </div>
                 </div>
@@ -222,53 +248,69 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
 
         {/* TESTIMONIALS */}
         {hasTestimonials && (
-          <section style={{ padding: "48px 0 44px", borderBottom: `1px solid ${P.line}` }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: P.brown, margin: "0 0 24px" }}>What People Say</h2>
+          <section style={{ padding: "52px 0 48px", borderBottom: `1px solid ${P.line}` }}>
+            <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: P.brownLight, margin: "0 0 28px" }}>What People Say</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
               {profile.testimonials.map((t) => (
-                <div key={t.id} style={{ background: P.cream, borderRadius: 12, padding: "24px 20px" }}>
-                  <p style={{ fontSize: 14, lineHeight: 1.7, color: P.inkMuted, margin: "0 0 16px", fontStyle: "italic" }}>"{t.text}"</p>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: P.green }}>{t.author_name}</div>
-                  {t.author_role && <div style={{ fontSize: 12, color: P.inkFaint, marginTop: 2 }}>{t.author_role}</div>}
+                <div key={t.id} style={{ background: P.cream, borderRadius: 14, padding: "28px 24px", border: `1px solid ${P.creamDark}` }}>
+                  <p style={{ fontSize: 14, lineHeight: 1.75, color: P.inkMuted, margin: "0 0 20px", fontStyle: "italic" }}>&ldquo;{t.text}&rdquo;</p>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: P.green, letterSpacing: "-0.01em" }}>{t.author_name}</div>
+                  {t.author_role && <div style={{ fontSize: 12, color: P.inkFaint, marginTop: 3 }}>{t.author_role}</div>}
                 </div>
               ))}
             </div>
           </section>
         )}
 
+        {/* VALUES */}
+        <section style={{ padding: "52px 0 48px", borderBottom: `1px solid ${P.line}` }}>
+          <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: P.brownLight, margin: "0 0 32px" }}>What We Stand For</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
+            {VALUES.map((v) => (
+              <div key={v.name} style={{ padding: "20px 0", borderTop: `2px solid ${P.creamDark}` }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: P.green, marginBottom: 8, letterSpacing: "-0.01em" }}>{v.name}</div>
+                <div style={{ fontSize: 13, color: P.inkMuted, lineHeight: 1.65 }}>{v.body}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* CONTACT CTA */}
         {profile.showContactForm && (
-          <section style={{ padding: "48px 0 44px", borderBottom: `1px solid ${P.line}`, textAlign: "center" }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: P.green, margin: "0 0 12px", letterSpacing: "-0.01em" }}>Have a property to sell?</h2>
-            <p style={{ fontSize: 15, color: P.inkMuted, margin: "0 0 28px", lineHeight: 1.6 }}>
-              We work with motivated sellers directly. Off-market, honest, and fast.
+          <section style={{ padding: "52px 0 48px", borderBottom: `1px solid ${P.line}`, textAlign: "center" }}>
+            <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: P.brownLight, margin: "0 0 16px" }}>Have a Property to Sell?</p>
+            <h2 style={{ fontSize: "clamp(22px, 4vw, 32px)", fontWeight: 900, color: P.green, margin: "0 0 14px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+              We work directly with motivated sellers.
+            </h2>
+            <p style={{ fontSize: 15, color: P.inkMuted, margin: "0 0 32px", lineHeight: 1.7, maxWidth: 480, marginLeft: "auto", marginRight: "auto" }}>
+              Off-market, honest, and fast. If the timing is right and the land is right, we&apos;ll make it simple.
             </p>
             <a
               href={`/forms/${profile.slug}`}
-              style={{ display: "inline-block", background: P.green, color: "#fff", padding: "14px 32px", borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: "none" }}
+              style={{ display: "inline-block", background: P.green, color: "#fff", padding: "15px 36px", borderRadius: 10, fontWeight: 800, fontSize: 15, textDecoration: "none", letterSpacing: "-0.01em" }}
             >
-              Submit Your Property
+              Submit Your Property →
             </a>
           </section>
         )}
 
         {/* FOOTER */}
-        <footer style={{ padding: "36px 0 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <footer style={{ padding: "40px 0 56px", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
           {(hoursStart && hoursEnd) && (
             <p style={{ fontSize: 13, color: P.inkFaint, margin: 0 }}>
               Available {hoursStart} – {hoursEnd}
             </p>
           )}
           {socialLinks.length > 0 && (
-            <div style={{ display: "flex", gap: 16 }}>
+            <div style={{ display: "flex", gap: 20 }}>
               {socialLinks.map((s) => (
-                <a key={s.type} href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: P.inkMuted, display: "flex", alignItems: "center" }}>
+                <a key={s.type} href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: P.inkFaint, display: "flex", alignItems: "center", transition: "color 0.15s" }}>
                   <SocialIcon type={s.type} />
                 </a>
               ))}
             </div>
           )}
-          <p style={{ fontSize: 11, color: P.inkFaint, margin: 0 }}>
+          <p style={{ fontSize: 11, color: P.inkFaint, margin: 0, letterSpacing: "0.02em" }}>
             Powered by <strong style={{ color: P.brownLight }}>LockboxHQ</strong>
           </p>
         </footer>

@@ -75,6 +75,8 @@ export default async function PublicProfilePage({
   if (!agent) return <ProfileNotFound />;
 
   const ws = readWorkspaceSettingsFromAgentSettings(agent.settings);
+
+  if (!ws.profile_public) return <ProfileNotFound />;
   const receptionist = readReceptionistSettingsFromAgentSettings(agent.settings);
 
   const profile = {

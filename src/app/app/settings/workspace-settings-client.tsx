@@ -31,6 +31,7 @@ function emptySettings(): WorkspaceSettings {
     profile_testimonials: [],
     profile_listings: [],
     profile_show_contact_form: true,
+    profile_public: false,
   };
 }
 
