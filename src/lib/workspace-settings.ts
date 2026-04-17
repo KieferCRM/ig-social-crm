@@ -55,6 +55,19 @@ export type ProfileListing = {
   image_url: string;
 };
 
+export type ProfileStat = {
+  id: string;
+  label: string;
+  value: string;
+};
+
+export type ProfileHowItWorksStep = {
+  id: string;
+  step: string;
+  title: string;
+  body: string;
+};
+
 export type WorkspaceSettings = {
   booking_link: string;
   hot_lead_notification_mode: HotLeadNotificationMode;
@@ -79,6 +92,8 @@ export type WorkspaceSettings = {
   profile_listings: ProfileListing[];
   profile_show_contact_form: boolean;
   profile_public: boolean;
+  profile_stats: ProfileStat[];
+  profile_how_it_works: ProfileHowItWorksStep[];
 };
 
 const DEFAULT_SCRIPTS: SocialScript[] = [
@@ -135,6 +150,8 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   profile_listings: [],
   profile_show_contact_form: true,
   profile_public: true,
+  profile_stats: [],
+  profile_how_it_works: [],
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -260,6 +277,39 @@ function normalizeDocuments(value: unknown): WorkspaceDocument[] {
     .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
 }
 
+function normalizeStats(value: unknown): ProfileStat[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const record = asRecord(item);
+      if (!record) return null;
+      const id = readString(record.id);
+      const label = readString(record.label);
+      const val = readString(record.value);
+      if (!id || !label || !val) return null;
+      return { id, label, value: val };
+    })
+    .filter((item): item is ProfileStat => Boolean(item))
+    .slice(0, 6);
+}
+
+function normalizeHowItWorks(value: unknown): ProfileHowItWorksStep[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const record = asRecord(item);
+      if (!record) return null;
+      const id = readString(record.id);
+      const step = readString(record.step);
+      const title = readString(record.title);
+      const body = readString(record.body);
+      if (!id || !title) return null;
+      return { id, step, title, body };
+    })
+    .filter((item): item is ProfileHowItWorksStep => Boolean(item))
+    .slice(0, 6);
+}
+
 function normalizeProfileTemplate(value: unknown): ProfileTemplate {
   if (value === "agent") return "agent";
   return "wholesaler";
@@ -345,6 +395,8 @@ export function normalizeWorkspaceSettings(input: unknown): WorkspaceSettings {
       typeof raw.profile_show_contact_form === "boolean" ? raw.profile_show_contact_form : true,
     profile_public:
       typeof raw.profile_public === "boolean" ? raw.profile_public : true,
+    profile_stats: normalizeStats(raw.profile_stats),
+    profile_how_it_works: normalizeHowItWorks(raw.profile_how_it_works),
   };
 }
 

@@ -6,16 +6,14 @@ import EmptyState from "@/components/ui/empty-state";
 import StatusBadge from "@/components/ui/status-badge";
 import { parsePositiveDecimal, formatCurrency, asInputNumber, asInputDate } from "@/lib/deal-metrics";
 import {
-  OFF_MARKET_STAGES,
   PIPELINE_TAGS,
   normalizeOffMarketStage,
-  offMarketStageLabel,
   pipelineStageLabel,
   pipelineStageTone,
   type OffMarketStage,
 } from "@/lib/pipeline";
 import { DEFAULT_PIPELINE_STAGES, type PipelineStageConfig } from "@/lib/pipeline-settings";
-import { sourceChannelLabel, sourceChannelTone } from "@/lib/inbound";
+import { sourceChannelLabel } from "@/lib/inbound";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 // ─── Local types ────────────────────────────────────────────────────────────
@@ -109,6 +107,21 @@ function daysInStage(stageEnteredAt: string | null, updatedAt: string | null): n
   const ts = new Date(ref).getTime();
   if (Number.isNaN(ts)) return 0;
   return Math.max(0, Math.floor((Date.now() - ts) / 86_400_000));
+}
+
+function hoursInStage(stageEnteredAt: string | null, updatedAt: string | null): number {
+  const ref = stageEnteredAt || updatedAt;
+  if (!ref) return 0;
+  const ts = new Date(ref).getTime();
+  if (Number.isNaN(ts)) return 0;
+  return Math.max(0, (Date.now() - ts) / 3_600_000);
+}
+
+function isStaleForStage(stage: string, stageEnteredAt: string | null, updatedAt: string | null): boolean {
+  if (stage === "offer_sent" || stage === "negotiating") {
+    return hoursInStage(stageEnteredAt, updatedAt) > 48;
+  }
+  return daysInStage(stageEnteredAt, updatedAt) > 14;
 }
 
 function priceDisplay(value: number | null): string {
@@ -1024,9 +1037,10 @@ export default function PipelineClient() {
                       <tr>
                         <th>Property Address</th>
                         <th>Seller</th>
-                        <th>Asking Price</th>
+                        <th>Offer Price</th>
+                        <th>Source</th>
                         <th>Stage</th>
-                        <th>Days in Stage</th>
+                        <th>Time in Stage</th>
                         <th>Next Follow-up</th>
                         <th>Tags</th>
                       </tr>
@@ -1034,6 +1048,11 @@ export default function PipelineClient() {
                     <tbody>
                       {filteredDeals.map((deal) => {
                         const overdue = isOverdue(deal.next_followup_date);
+                        const stale = isStaleForStage(deal.stage, deal.stage_entered_at, deal.updated_at);
+                        const isOfferStage = deal.stage === "offer_sent" || deal.stage === "negotiating";
+                        const timeLabel = isOfferStage
+                          ? `${Math.floor(hoursInStage(deal.stage_entered_at, deal.updated_at))}h`
+                          : `${daysInStage(deal.stage_entered_at, deal.updated_at)}d`;
                         return (
                           <tr
                             key={deal.id}
@@ -1043,16 +1062,29 @@ export default function PipelineClient() {
                             <td style={{ fontWeight: 600 }}>
                               {deal.property_address || "—"}
                             </td>
-                            <td>{deal.seller_name || "—"}</td>
-                            <td>{priceDisplay(deal.price)}</td>
+                            <td>
+                              <div>{deal.seller_name || "—"}</div>
+                              {deal.seller_phone && (
+                                <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>{deal.seller_phone}</div>
+                              )}
+                            </td>
+                            <td>{priceDisplay(deal.offer_price ?? deal.price)}</td>
+                            <td>
+                              {deal.seller_source ? (
+                                <span className="crm-chip" style={{ fontSize: 11 }}>
+                                  {sourceChannelLabel(deal.seller_source)}
+                                </span>
+                              ) : "—"}
+                            </td>
                             <td>
                               <StatusBadge
                                 label={pipelineStageLabel(deal.stage)}
                                 tone={pipelineStageTone(deal.stage)}
                               />
                             </td>
-                            <td style={{ color: daysInStage(deal.stage_entered_at, deal.updated_at) > 14 ? "#dc2626" : "var(--ink-muted)", fontWeight: daysInStage(deal.stage_entered_at, deal.updated_at) > 14 ? 600 : undefined }}>
-                              {daysInStage(deal.stage_entered_at, deal.updated_at)}d
+                            <td style={{ color: stale ? "#dc2626" : "var(--ink-muted)", fontWeight: stale ? 600 : undefined }}>
+                              {timeLabel}
+                              {stale && <span style={{ marginLeft: 4 }}>⚠</span>}
                             </td>
                             <td style={{ color: overdue ? "#dc2626" : undefined, fontWeight: overdue ? 600 : undefined }}>
                               {overdue && <span style={{ marginRight: 4 }}>⚠</span>}
@@ -1130,54 +1162,74 @@ export default function PipelineClient() {
 
                     {/* Cards */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 60 }}>
-                      {stageDeals.map((deal) => (
-                        <div
-                          key={deal.id}
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", deal.id);
-                            draggedDealIdRef.current = deal.id;
-                          }}
-                          onClick={() => openDetail(deal)}
-                          className="crm-card"
-                          style={{
-                            padding: "10px 12px",
-                            cursor: "pointer",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 6,
-                            userSelect: "none",
-                          }}
-                        >
-                          <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>
-                            {deal.property_address || "No address"}
-                          </div>
-                          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
-                            {deal.seller_name || "—"}
-                          </div>
-                          {deal.price != null && (
-                            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
-                              {priceDisplay(deal.price)}
+                      {stageDeals.map((deal) => {
+                        const stale = isStaleForStage(deal.stage, deal.stage_entered_at, deal.updated_at);
+                        const isOfferStage = deal.stage === "offer_sent" || deal.stage === "negotiating";
+                        const timeLabel = isOfferStage
+                          ? `${Math.floor(hoursInStage(deal.stage_entered_at, deal.updated_at))}h`
+                          : `${daysInStage(deal.stage_entered_at, deal.updated_at)}d`;
+                        return (
+                          <div
+                            key={deal.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", deal.id);
+                              draggedDealIdRef.current = deal.id;
+                            }}
+                            onClick={() => openDetail(deal)}
+                            className="crm-card"
+                            style={{
+                              padding: "10px 12px",
+                              cursor: "pointer",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                              userSelect: "none",
+                              borderLeft: stale ? "3px solid #dc2626" : undefined,
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>
+                              {deal.property_address || "No address"}
                             </div>
-                          )}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--ink-muted)" }}>
-                            <span>{daysInStage(deal.stage_entered_at, deal.updated_at)}d in stage</span>
-                            {deal.next_followup_date && (
-                              <span>↑ {dateDisplay(deal.next_followup_date)}</span>
+                            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                              {deal.seller_name || "—"}
+                            </div>
+                            {deal.seller_phone && (
+                              <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>
+                                {deal.seller_phone}
+                              </div>
+                            )}
+                            {(deal.offer_price ?? deal.price) != null && (
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+                                {priceDisplay(deal.offer_price ?? deal.price)}
+                              </div>
+                            )}
+                            {deal.seller_source && (
+                              <div>
+                                <span className="crm-chip" style={{ fontSize: 10 }}>
+                                  {sourceChannelLabel(deal.seller_source)}
+                                </span>
+                              </div>
+                            )}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: stale ? "#dc2626" : "var(--ink-muted)", fontWeight: stale ? 600 : undefined }}>
+                              <span>{timeLabel} in stage{stale ? " ⚠" : ""}</span>
+                              {deal.next_followup_date && (
+                                <span style={{ color: "var(--ink-muted)", fontWeight: "normal" }}>↑ {dateDisplay(deal.next_followup_date)}</span>
+                              )}
+                            </div>
+                            {deal.tags.length > 0 && (
+                              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                                {deal.tags.map((tag) => (
+                                  <span key={tag} className="crm-chip" style={{ fontSize: 10, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </div>
-                          {deal.tags.length > 0 && (
-                            <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-                              {deal.tags.map((tag) => (
-                                <span key={tag} className="crm-chip" style={{ fontSize: 10, display: "inline-flex", alignItems: "center", gap: 3 }}>
-                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );

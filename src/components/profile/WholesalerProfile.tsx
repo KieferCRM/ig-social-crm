@@ -1,4 +1,4 @@
-import type { ProfileTestimonial, ProfileListing } from "@/lib/workspace-settings";
+import type { ProfileTestimonial, ProfileListing, ProfileStat, ProfileHowItWorksStep } from "@/lib/workspace-settings";
 
 export type PublicProfile = {
   agentId: string;
@@ -22,6 +22,8 @@ export type PublicProfile = {
   officeHoursStart: string;
   officeHoursEnd: string;
   operatorPath: string;
+  stats: ProfileStat[];
+  howItWorks: ProfileHowItWorksStep[];
 };
 
 const P = {
@@ -71,22 +73,10 @@ function SocialIcon({ type }: { type: string }) {
   );
 }
 
-const HOW_IT_WORKS = [
-  {
-    step: "01",
-    title: "You Reach Out",
-    body: "Tell us about your property. We listen first — no pressure, no scripts, no wasted time.",
-  },
-  {
-    step: "02",
-    title: "We Come to You",
-    body: "We evaluate quickly and honestly. You get a fair offer based on what the land is actually worth.",
-  },
-  {
-    step: "03",
-    title: "We Close Clean",
-    body: "Fast, straightforward closing on your timeline. We handle the details so you don't have to.",
-  },
+const DEFAULT_HOW_IT_WORKS = [
+  { id: "1", step: "01", title: "You Reach Out", body: "Tell us about your property. We listen first — no pressure, no scripts, no wasted time." },
+  { id: "2", step: "02", title: "We Come to You", body: "We evaluate quickly and honestly. You get a fair offer based on what the property is actually worth." },
+  { id: "3", step: "03", title: "We Close Clean", body: "Fast, straightforward closing on your timeline. We handle the details so you don't have to." },
 ];
 
 const VALUES = [
@@ -116,6 +106,8 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
   const hasTestimonials = profile.testimonials.length > 0;
   const hasListings = profile.listings.length > 0;
   const hasServiceAreas = profile.serviceAreas.length > 0;
+  const hasStats = profile.stats.length > 0;
+  const howItWorksSteps = profile.howItWorks.length > 0 ? profile.howItWorks : DEFAULT_HOW_IT_WORKS;
 
   return (
     <div style={{ background: P.bg, minHeight: "100vh", fontFamily: "'Satoshi', 'Avenir Next', 'Segoe UI', sans-serif", color: P.ink }}>
@@ -181,6 +173,20 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
         </div>
       </section>
 
+      {/* STATS BAR */}
+      {hasStats && (
+        <div style={{ background: P.cream, borderBottom: `1px solid ${P.creamDark}` }}>
+          <div style={{ maxWidth: 780, margin: "0 auto", padding: "0 24px", display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 0 }}>
+            {profile.stats.map((stat, i) => (
+              <div key={stat.id} style={{ padding: "28px 32px", textAlign: "center", borderRight: i < profile.stats.length - 1 ? `1px solid ${P.line}` : "none", flex: "1 0 140px" }}>
+                <div style={{ fontSize: "clamp(22px, 4vw, 32px)", fontWeight: 900, color: P.green, letterSpacing: "-0.02em", lineHeight: 1 }}>{stat.value}</div>
+                <div style={{ fontSize: 12, color: P.inkMuted, marginTop: 6, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ maxWidth: 780, margin: "0 auto", padding: "0 24px" }}>
 
         {/* ABOUT */}
@@ -195,8 +201,8 @@ export default function WholesalerProfile({ profile }: { profile: PublicProfile 
         <section style={{ padding: "52px 0 48px", borderBottom: `1px solid ${P.line}` }}>
           <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: P.brownLight, margin: "0 0 32px" }}>How It Works</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-            {HOW_IT_WORKS.map((item) => (
-              <div key={item.step} style={{ background: P.cream, borderRadius: 14, padding: "28px 22px", border: `1px solid ${P.creamDark}` }}>
+            {howItWorksSteps.map((item) => (
+              <div key={item.id} style={{ background: P.cream, borderRadius: 14, padding: "28px 22px", border: `1px solid ${P.creamDark}` }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: P.brownLight, marginBottom: 12 }}>{item.step}</div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: P.green, marginBottom: 10, letterSpacing: "-0.01em" }}>{item.title}</div>
                 <div style={{ fontSize: 13, color: P.inkMuted, lineHeight: 1.65 }}>{item.body}</div>

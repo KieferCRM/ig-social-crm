@@ -37,6 +37,8 @@ export default async function MyProfilePage() {
         tiktok_url: ws.tiktok_url,
         youtube_url: ws.youtube_url,
         linkedin_url: ws.linkedin_url,
+        profile_stats: ws.profile_stats,
+        profile_how_it_works: ws.profile_how_it_works,
       }}
     />
   );

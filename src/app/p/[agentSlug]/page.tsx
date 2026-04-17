@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { readWorkspaceSettingsFromAgentSettings } from "@/lib/workspace-settings";
 import { readReceptionistSettingsFromAgentSettings } from "@/lib/receptionist/settings";
@@ -7,7 +8,59 @@ import AgentProfile from "@/components/profile/AgentProfile";
 
 export const dynamic = "force-dynamic";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE_META = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ agentSlug: string }>;
+}): Promise<Metadata> {
+  const { agentSlug: param } = await params;
+  const admin = supabaseAdmin();
+
+  let agentId: string | null = null;
+  if (UUID_RE_META.test(param)) {
+    const { data } = await admin.from("agents").select("id").eq("id", param).maybeSingle();
+    agentId = (data?.id as string | null) ?? null;
+  } else {
+    const { data } = await admin.from("agents").select("id").ilike("vanity_slug", param).maybeSingle();
+    agentId = (data?.id as string | null) ?? null;
+  }
+
+  if (!agentId) return { title: "Profile | LockboxHQ" };
+
+  const { data: agent } = await admin
+    .from("agents")
+    .select("full_name, brokerage, settings")
+    .eq("id", agentId)
+    .maybeSingle();
+
+  if (!agent) return { title: "Profile | LockboxHQ" };
+
+  const ws = readWorkspaceSettingsFromAgentSettings(agent.settings);
+  const name = ws.profile_company_name || (agent.brokerage as string | null) || (agent.full_name as string | null) || "LockboxHQ";
+  const tagline = ws.profile_tagline || "Real estate done right.";
+  const description = ws.profile_bio ? ws.profile_bio.slice(0, 160) : tagline;
+
+  return {
+    title: `${name} | LockboxHQ`,
+    description,
+    openGraph: {
+      title: name,
+      description,
+      type: "website",
+      ...(ws.profile_headshot_url ? { images: [{ url: ws.profile_headshot_url }] } : {}),
+    },
+    twitter: {
+      card: "summary",
+      title: name,
+      description,
+      ...(ws.profile_headshot_url ? { images: [ws.profile_headshot_url] } : {}),
+    },
+  };
+}
+
+const UUID_RE = UUID_RE_META;
 
 function ProfileNotFound() {
   return (
@@ -101,6 +154,8 @@ export default async function PublicProfilePage({
     officeHoursStart: receptionist.office_hours_start,
     officeHoursEnd: receptionist.office_hours_end,
     operatorPath: ws.operator_path,
+    stats: ws.profile_stats,
+    howItWorks: ws.profile_how_it_works,
   };
 
   if (ws.profile_template === "agent") {

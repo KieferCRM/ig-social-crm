@@ -32,7 +32,7 @@ export type PipelineTag = (typeof PIPELINE_TAGS)[number];
 
 const STAGE_LABELS: Record<OffMarketStage, string> = {
   prospecting: "Prospecting",
-  offer_sent: "Offer Sent",
+  offer_sent: "Offer Out",
   negotiating: "Negotiating",
   under_contract: "Under Contract",
   closed: "Closed",

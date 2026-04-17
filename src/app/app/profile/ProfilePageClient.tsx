@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ProfileTemplate, ProfileTestimonial, ProfileListing } from "@/lib/workspace-settings";
+import type { ProfileTemplate, ProfileTestimonial, ProfileListing, ProfileStat, ProfileHowItWorksStep } from "@/lib/workspace-settings";
 
 type ProfileSettings = {
   profile_company_name: string;
@@ -19,6 +19,8 @@ type ProfileSettings = {
   tiktok_url: string;
   youtube_url: string;
   linkedin_url: string;
+  profile_stats: ProfileStat[];
+  profile_how_it_works: ProfileHowItWorksStep[];
 };
 
 type Props = {
@@ -91,6 +93,29 @@ export default function ProfilePageClient({ slug, fullName, initialSettings }: P
 
   function removeListing(id: string) {
     set("profile_listings", settings.profile_listings.filter((l) => l.id !== id));
+  }
+
+  function addStat() {
+    const id = `stat-${Date.now()}`;
+    set("profile_stats", [...settings.profile_stats, { id, label: "", value: "" }]);
+  }
+  function updateStat(id: string, patch: Partial<ProfileStat>) {
+    set("profile_stats", settings.profile_stats.map((s) => s.id === id ? { ...s, ...patch } : s));
+  }
+  function removeStat(id: string) {
+    set("profile_stats", settings.profile_stats.filter((s) => s.id !== id));
+  }
+
+  function addHowItWorksStep() {
+    const idx = settings.profile_how_it_works.length + 1;
+    const id = `step-${Date.now()}`;
+    set("profile_how_it_works", [...settings.profile_how_it_works, { id, step: `0${idx}`, title: "", body: "" }]);
+  }
+  function updateHowItWorksStep(id: string, patch: Partial<ProfileHowItWorksStep>) {
+    set("profile_how_it_works", settings.profile_how_it_works.map((s) => s.id === id ? { ...s, ...patch } : s));
+  }
+  function removeHowItWorksStep(id: string) {
+    set("profile_how_it_works", settings.profile_how_it_works.filter((s) => s.id !== id));
   }
 
   function addTestimonial() {
@@ -179,6 +204,35 @@ export default function ProfilePageClient({ slug, fullName, initialSettings }: P
         </div>
       </div>
 
+      {/* Stats */}
+      <div style={sectionStyle}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <div>
+            <div style={sectionTitleStyle}>Stats</div>
+            <p style={{ fontSize: 12, color: "var(--ink-muted)", margin: "-12px 0 0" }}>Numbers that build trust — deals closed, years in business, states served, etc. Shows as a bar under your hero.</p>
+          </div>
+          <button onClick={addStat} className="crm-btn crm-btn-secondary" style={{ fontSize: 13, flexShrink: 0 }}>+ Add</button>
+        </div>
+        {settings.profile_stats.length === 0 && (
+          <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: 0 }}>No stats yet. Example: Value = "47", Label = "Deals Closed".</p>
+        )}
+        {settings.profile_stats.map((stat) => (
+          <div key={stat.id} style={{ background: "var(--surface-strong)", borderRadius: 10, padding: 16, marginBottom: 10, border: "1px solid var(--line)" }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--ink-muted)" }}>Value</div>
+                <input style={inputStyle} value={stat.value} onChange={(e) => updateStat(stat.id, { value: e.target.value })} placeholder="47" />
+              </div>
+              <div style={{ flex: 2 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--ink-muted)" }}>Label</div>
+                <input style={inputStyle} value={stat.label} onChange={(e) => updateStat(stat.id, { label: e.target.value })} placeholder="Deals Closed" />
+              </div>
+            </div>
+            <button onClick={() => removeStat(stat.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: 13, padding: 0 }}>Remove</button>
+          </div>
+        ))}
+      </div>
+
       {/* Listings */}
       <div style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
@@ -203,6 +257,35 @@ export default function ProfilePageClient({ slug, fullName, initialSettings }: P
               <input style={inputStyle} value={listing.description} onChange={(e) => updateListing(listing.id, { description: e.target.value })} placeholder="Short description" />
               <input style={inputStyle} value={listing.image_url} onChange={(e) => updateListing(listing.id, { image_url: e.target.value })} placeholder="Image URL (optional)" />
               <button onClick={() => removeListing(listing.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: 13, textAlign: "left", padding: 0 }}>Remove listing</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* How It Works */}
+      <div style={sectionStyle}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div>
+            <div style={sectionTitleStyle}>How It Works</div>
+            <p style={{ fontSize: 12, color: "var(--ink-muted)", margin: "-12px 0 16px" }}>Explain your process in 3–4 steps. Leave empty to use the default steps.</p>
+          </div>
+          <button onClick={addHowItWorksStep} className="crm-btn crm-btn-secondary" style={{ fontSize: 13, flexShrink: 0 }}>+ Add Step</button>
+        </div>
+        {settings.profile_how_it_works.map((step) => (
+          <div key={step.id} style={{ background: "var(--surface-strong)", borderRadius: 10, padding: 16, marginBottom: 10, border: "1px solid var(--line)" }}>
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ width: 80 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--ink-muted)" }}>Step #</div>
+                  <input style={inputStyle} value={step.step} onChange={(e) => updateHowItWorksStep(step.id, { step: e.target.value })} placeholder="01" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--ink-muted)" }}>Title</div>
+                  <input style={inputStyle} value={step.title} onChange={(e) => updateHowItWorksStep(step.id, { title: e.target.value })} placeholder="You Reach Out" />
+                </div>
+              </div>
+              <textarea style={{ ...inputStyle, minHeight: 72, resize: "vertical" }} value={step.body} onChange={(e) => updateHowItWorksStep(step.id, { body: e.target.value })} placeholder="Describe this step..." />
+              <button onClick={() => removeHowItWorksStep(step.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: 13, padding: 0, textAlign: "left" }}>Remove</button>
             </div>
           </div>
         ))}
