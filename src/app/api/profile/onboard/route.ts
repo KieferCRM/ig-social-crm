@@ -3,7 +3,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
-  WORKSPACE_SETTINGS_KEY,
   PROFILE_PALETTES,
   mergeWorkspaceSettingsIntoAgentSettings,
   readWorkspaceSettingsFromAgentSettings,
@@ -96,7 +95,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const messages = body.messages ?? [];
+  const messages: Message[] = body.messages?.length
+    ? body.messages
+    : [{ role: "user", content: "Hi, I'm ready to build my profile page." }];
 
   let response;
   try {
