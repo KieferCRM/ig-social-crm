@@ -115,16 +115,14 @@ export async function POST(req: NextRequest) {
   const rawSettings = extractSettings(text);
 
   if (rawSettings) {
-    // Resolve theme palette
     if (rawSettings.profile_theme) {
       rawSettings.profile_theme = resolveTheme(rawSettings.profile_theme);
     }
 
-    // Save to agent settings
     const admin = supabaseAdmin();
     const { data: agent } = await admin
       .from("agents")
-      .select("settings")
+      .select("settings, vanity_slug")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -135,9 +133,17 @@ export async function POST(req: NextRequest) {
       profile_public: true,
     });
 
-    await admin.from("agents").update({ settings: updated }).eq("id", user.id);
+    const { error: saveError } = await admin
+      .from("agents")
+      .upsert({ id: user.id, settings: updated, updated_at: new Date().toISOString() }, { onConflict: "id" })
+      .eq("id", user.id);
 
-    return NextResponse.json({ message: text, done: true, settings: rawSettings });
+    if (saveError) {
+      return NextResponse.json({ error: `Saved AI response but failed to write profile: ${saveError.message}` }, { status: 500 });
+    }
+
+    const slug = (agent?.vanity_slug as string | null) ?? user.id;
+    return NextResponse.json({ message: text, done: true, settings: rawSettings, slug });
   }
 
   return NextResponse.json({ message: text, done: false });

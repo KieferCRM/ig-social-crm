@@ -14,6 +14,7 @@ export default function OnboardClient() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [slug, setSlug] = useState<string | null>(null);
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -50,7 +51,7 @@ export default function OnboardClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),
       });
-      const data = await res.json() as { message?: string; done?: boolean; error?: string };
+      const data = await res.json() as { message?: string; done?: boolean; slug?: string; error?: string };
 
       if (!res.ok || data.error) {
         setError(data.error ?? "Something went wrong.");
@@ -58,12 +59,14 @@ export default function OnboardClient() {
       }
 
       const aiMessage = data.message ?? "";
-      // Strip the settings block from display
       const display = aiMessage.replace(/```settings[\s\S]*?```/g, "").trim();
 
       setMessages(prev => [...prev, { role: "assistant", content: display || aiMessage }]);
 
-      if (data.done) setDone(true);
+      if (data.done) {
+        if (data.slug) setSlug(data.slug);
+        setDone(true);
+      }
     } catch {
       setError("Connection error. Try again.");
     } finally {
@@ -145,10 +148,15 @@ export default function OnboardClient() {
           <div style={{ textAlign: "center", padding: "24px 16px", background: "#f0fdf4", borderRadius: 16, border: "1px solid #bbf7d0" }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>🌿</div>
             <div style={{ fontWeight: 800, fontSize: 18, color: "#2d4a2d", marginBottom: 8 }}>Your website is ready.</div>
-            <div style={{ fontSize: 14, color: "#5a5a4a", marginBottom: 20 }}>Head to My Page to preview and fine-tune it.</div>
+            <div style={{ fontSize: 14, color: "#5a5a4a", marginBottom: 20 }}>Your public page is live. Open it to see how it looks.</div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/app/profile" style={{ background: "#2d4a2d", color: "#fff", padding: "11px 24px", borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
-                View My Page →
+              {slug && (
+                <a href={`/p/${slug}`} target="_blank" rel="noopener noreferrer" style={{ background: "#2d4a2d", color: "#fff", padding: "11px 24px", borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+                  View live page →
+                </a>
+              )}
+              <Link href="/app/profile" style={{ background: slug ? "#fff" : "#2d4a2d", color: slug ? "#2d4a2d" : "#fff", padding: "11px 24px", borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: "none", border: "1px solid #bbf7d0" }}>
+                My Page →
               </Link>
               <Link href="/app/profile/onboard" onClick={() => { setMessages([]); setDone(false); void sendMessage(null); }} style={{ background: "#fff", color: "#2d4a2d", padding: "11px 24px", borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: "none", border: "1px solid #e0d8c8" }}>
                 Start Over
