@@ -291,16 +291,54 @@ export default async function AppHome() {
       stale: staleDeals.filter((d) => d.stage === stage).length,
     })).filter((s) => s.count > 0);
 
-    // Action queue — unified urgency feed
+    // Action queue — tiered by urgency
     const overdueDue = followupsDue.filter((d) => d.nextFollowupDate && d.nextFollowupDate < todayStr);
     const dueTodayDeals = followupsDue.filter((d) => d.nextFollowupDate === todayStr);
     const urgentTasks = allTasks.filter((t) => t.due_at && t.due_at <= todayStr && (t.priority === "urgent" || t.priority === "high"));
 
+    // Offers aging past 48 hours with no movement
+    const agingOffers = activeDeals.filter((d) =>
+      (d.stage === "offer_sent" || d.stage === "negotiating") &&
+      d.stageEnteredAt &&
+      new Date(d.stageEnteredAt).getTime() < Date.now() - 48 * 3600_000
+    );
+
+    // KPI derivations
+    const offersOut = activeDeals.filter((d) => d.stage === "offer_sent" || d.stage === "negotiating");
+    const underContractDeals = activeDeals.filter((d) =>
+      (["under_contract", "inspection", "appraisal", "closing"] as string[]).includes(d.stage)
+    );
+
+    const STAGE_LABELS: Record<string, string> = {
+      new: "New Lead",
+      prospecting: "Prospecting",
+      offer_sent: "Offer Out",
+      negotiating: "Negotiating",
+      under_contract: "Under Contract",
+      inspection: "Inspection",
+      appraisal: "Appraisal",
+      closing: "Closing",
+    };
+
+    const queueIsEmpty = overdueDue.length === 0 && agingOffers.length === 0 && dueTodayDeals.length === 0 && urgentTasks.length === 0;
+
     return (
       <main className="crm-page crm-page-wide crm-stack-12">
-        <FormAlertsSection initialAlerts={formAlerts} title="New Activity" />
 
-        {/* Rolling 7-day week strip */}
+        {/* RESPOND NOW — Secretary & Intake Coordinator alerts */}
+        <FormAlertsSection initialAlerts={formAlerts} title="Respond Now" />
+
+        {/* KPI BAR */}
+        {deals.length > 0 && (
+          <section className="crm-kpi-grid crm-dashboard-kpi-grid">
+            <KpiCard label="Active Deals" value={activeDeals.length} tone="default" href="/app/pipeline" compact />
+            <KpiCard label="Offers Out" value={offersOut.length} tone={offersOut.length > 0 ? "warn" : "default"} href="/app/pipeline" compact />
+            <KpiCard label="Under Contract" value={underContractDeals.length} tone={underContractDeals.length > 0 ? "ok" : "default"} href="/app/pipeline" compact />
+            <KpiCard label="Overdue" value={overdueDue.length} tone={overdueDue.length > 0 ? "danger" : "default"} href="/app/pipeline" compact />
+          </section>
+        )}
+
+        {/* WEEK STRIP */}
         <WeekStrip
           startDate={todayStr}
           appointmentDates={appointmentDateStrings}
@@ -312,14 +350,14 @@ export default async function AppHome() {
         {deals.length === 0 ? (
           <section className="crm-card crm-section-card">
             <EmptyState
-              eyebrow="Off-Market workspace"
+              eyebrow="Off-Market Workspace"
               title="Your deal command center is ready."
-              body="No deals yet. Start with the pipeline, share a seller form, or add a contact."
+              body="No deals yet. Open your pipeline, share your intake form with a seller, or add a contact to get started."
               action={
                 <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <Link href="/app/pipeline" className="crm-btn crm-btn-primary">Open pipeline</Link>
-                  <Link href="/app/forms" className="crm-btn crm-btn-secondary">Share forms</Link>
-                  <Link href="/app/contacts?add=true" className="crm-btn crm-btn-secondary">Add contact</Link>
+                  <Link href="/app/pipeline" className="crm-btn crm-btn-primary">Open Acquisitions</Link>
+                  <Link href="/app/intake" className="crm-btn crm-btn-secondary">Intake Coordinator</Link>
+                  <Link href="/app/contacts?add=true" className="crm-btn crm-btn-secondary">Add Contact</Link>
                 </div>
               }
             />
@@ -327,16 +365,109 @@ export default async function AppHome() {
         ) : (
           <section className="crm-today-grid">
 
-            {/* LEFT — Pipeline Pulse */}
+            {/* LEFT — Action Queue */}
             <article className="crm-card crm-section-card crm-stack-10">
               <div className="crm-section-head">
-                <h2 className="crm-section-title">Pipeline Pulse</h2>
-                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open pipeline</Link>
+                <div>
+                  <h2 className="crm-section-title">Action Queue</h2>
+                  <p style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2, marginBottom: 0 }}>From your Chief Orchestrator</p>
+                </div>
+                {paDrafts.length > 0 && (
+                  <Link href="/app/secretary" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>
+                    {paDrafts.length} draft{paDrafts.length > 1 ? "s" : ""} →
+                  </Link>
+                )}
+              </div>
+
+              <div className="crm-stack-6">
+                {queueIsEmpty && (
+                  <div className="crm-card-muted" style={{ padding: 16 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>Queue is clear.</div>
+                    <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>No urgent items right now. Your team is watching.</div>
+                  </div>
+                )}
+
+                {/* TIER 1 — Overdue follow-ups */}
+                {overdueDue.map((deal) => (
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 13, borderLeft: "3px solid #ef4444", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
+                        <StatusBadge label="Overdue" tone="danger" />
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                        {deal.lead?.lead_temp && <StatusBadge label={deal.lead.lead_temp} tone={leadTempTone(deal.lead.lead_temp)} />}
+                        {deal.lead?.intent && <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{deal.lead.intent}</span>}
+                        {deal.lead?.timeline && <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{deal.lead.timeline}</span>}
+                        {deal.lead?.canonical_phone && <span style={{ fontSize: 11, color: "var(--brand)", marginLeft: "auto" }}>{deal.lead.canonical_phone}</span>}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+
+                {/* TIER 2 — Aging offers (48h+ no response) */}
+                {agingOffers.map((deal) => (
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 13, borderLeft: "3px solid #f59e0b", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
+                        <StatusBadge label="Offer aging" tone="warn" />
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>No seller response in {formatTimeAgo(deal.stageEnteredAt)}</span>
+                        {deal.lead?.canonical_phone && <span style={{ fontSize: 11, color: "var(--brand)", marginLeft: "auto" }}>{deal.lead.canonical_phone}</span>}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+
+                {/* TIER 3 — Due today */}
+                {dueTodayDeals.map((deal) => (
+                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 13, borderLeft: "3px solid #3b82f6", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
+                        <StatusBadge label="Due today" tone="default" />
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                        {deal.lead?.lead_temp && <StatusBadge label={deal.lead.lead_temp} tone={leadTempTone(deal.lead.lead_temp)} />}
+                        {deal.lead?.intent && <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{deal.lead.intent}</span>}
+                        {deal.lead?.canonical_phone && <span style={{ fontSize: 11, color: "var(--brand)", marginLeft: "auto" }}>{deal.lead.canonical_phone}</span>}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+
+                {/* TIER 4 — Urgent tasks */}
+                {urgentTasks.map((task) => (
+                  <Link key={task.id} href="/app/priorities" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                    <div className="crm-card-muted" style={{ padding: 13, borderLeft: "3px solid #8b5cf6", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>{task.title}</span>
+                        <StatusBadge label={task.priority === "urgent" ? "Urgent" : "High"} tone={task.priority === "urgent" ? "danger" : "warn"} />
+                      </div>
+                      {task.description && (
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 6 }}>{task.description}</div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </article>
+
+            {/* RIGHT — Pipeline Pulse */}
+            <article className="crm-card crm-section-card crm-stack-10">
+              <div className="crm-section-head">
+                <div>
+                  <h2 className="crm-section-title">Pipeline Pulse</h2>
+                  <p style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2, marginBottom: 0 }}>Where your deals stand right now</p>
+                </div>
+                <Link href="/app/pipeline" className="crm-btn crm-btn-secondary">Open →</Link>
               </div>
               <div className="crm-stack-6">
                 {stageCounts.length === 0 ? (
                   <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>No active deals in pipeline.</div>
-                ) : stageCounts.map(({ stage, label, count, stale }) => (
+                ) : stageCounts.map(({ stage, count, stale }) => (
                   <div key={stage} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
                       <div style={{
@@ -347,7 +478,7 @@ export default async function AppHome() {
                         maxWidth: "60%",
                         flexShrink: 0,
                       }} />
-                      <span style={{ fontSize: 13, color: "var(--ink)", fontWeight: 500 }}>{label}</span>
+                      <span style={{ fontSize: 13, color: "var(--ink)", fontWeight: 500 }}>{STAGE_LABELS[stage] ?? stage}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                       {stale > 0 && (
@@ -366,74 +497,34 @@ export default async function AppHome() {
               </div>
             </article>
 
-            {/* RIGHT — Action Queue */}
-            <article className="crm-card crm-section-card crm-stack-10">
-              <div className="crm-section-head">
-                <h2 className="crm-section-title">Action Queue</h2>
-                {paDrafts.length > 0 && (
-                  <Link href="/app/secretary" className="crm-btn crm-btn-secondary" style={{ fontSize: 13 }}>
-                    {paDrafts.length} Secretary draft{paDrafts.length > 1 ? "s" : ""}
-                  </Link>
-                )}
-              </div>
-              <div className="crm-stack-6">
-                {overdueDue.length === 0 && dueTodayDeals.length === 0 && staleDeals.length === 0 && urgentTasks.length === 0 ? (
-                  <div className="crm-card-muted" style={{ padding: 14, color: "var(--ink-muted)" }}>
-                    Queue is clear. No urgent items right now.
-                  </div>
-                ) : null}
-                {overdueDue.map((deal) => (
-                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                    <div className="crm-card-muted" style={{ padding: 12, borderLeft: "3px solid #ef4444", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
-                        <StatusBadge label="Overdue" tone="danger" />
-                      </div>
-                      {deal.lead?.canonical_phone && (
-                        <div style={{ fontSize: 12, color: "var(--brand)", marginTop: 4 }}>{deal.lead.canonical_phone}</div>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-                {dueTodayDeals.map((deal) => (
-                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                    <div className="crm-card-muted" style={{ padding: 12, borderLeft: "3px solid #f59e0b", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
-                        <StatusBadge label="Due today" tone="warn" />
-                      </div>
-                      {deal.lead?.canonical_phone && (
-                        <div style={{ fontSize: 12, color: "var(--brand)", marginTop: 4 }}>{deal.lead.canonical_phone}</div>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-                {urgentTasks.map((task) => (
-                  <Link key={task.id} href="/app/priorities" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                    <div className="crm-card-muted" style={{ padding: 12, borderLeft: "3px solid #6366f1", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{task.title}</span>
-                        <StatusBadge label={task.priority === "urgent" ? "Urgent" : "High"} tone={task.priority === "urgent" ? "danger" : "warn"} />
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-                {staleDeals.slice(0, 4).map((deal) => (
-                  <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                    <div className="crm-card-muted" style={{ padding: 12, cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
-                        <StatusBadge label="Stale" tone="default" />
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 4 }}>
-                        No movement in {formatTimeAgo(deal.updatedAt)}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </article>
+          </section>
+        )}
 
+        {/* STALE DEALS — separate, lower priority */}
+        {staleDeals.length > 0 && deals.length > 0 && (
+          <section className="crm-card crm-section-card crm-stack-10">
+            <div className="crm-section-head">
+              <div>
+                <h2 className="crm-section-title">Going Cold</h2>
+                <p style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2, marginBottom: 0 }}>Deals with no movement in 7+ days — drop them or re-engage</p>
+              </div>
+              <span className="crm-chip crm-chip-warn">{staleDeals.length} stale</span>
+            </div>
+            <div className="crm-stack-6">
+              {staleDeals.slice(0, 5).map((deal) => (
+                <Link key={deal.id} href="/app/pipeline" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                  <div className="crm-card-muted" style={{ padding: 12, cursor: "pointer", opacity: 0.85 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{deal.propertyAddress || leadDisplayName(deal.lead) || "Deal"}</span>
+                      <span style={{ fontSize: 11, color: "var(--ink-muted)", whiteSpace: "nowrap" }}>{STAGE_LABELS[deal.stage] ?? deal.stage}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                      No movement — {formatTimeAgo(deal.updatedAt)}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 

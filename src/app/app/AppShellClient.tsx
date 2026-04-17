@@ -253,7 +253,7 @@ if (pathname.startsWith("/app/forms")) {
     return {
       title: "Today",
       subtitle: isOffMarketAccount
-        ? "Your weekly ops view — brief, pipeline pulse, and everything that needs attention."
+        ? "Your team's morning brief — hot sellers, aging offers, and every deal that needs you right now."
         : "Your command center. Hot leads, overdue follow-ups, and what needs attention right now.",
     };
   }, [isOffMarketAccount, pathname]);
