@@ -117,11 +117,10 @@ export default function AppShellClient({
     ? [
         { href: "/app", label: "Home", active: pathname === "/app", count: 0 },
         { href: "/app/pipeline", label: "Acquisitions", active: pathname.startsWith("/app/pipeline"), count: 0 },
-        { href: "/app/deals", label: "Deals", active: pathname.startsWith("/app/deals"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
         { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents"), count: inboxUnreadCount },
-        { href: "/app/forms", label: "Forms", active: pathname.startsWith("/app/forms"), count: 0 },
+        { href: "/app/intake", label: "Intake Coordinator", active: pathname.startsWith("/app/intake") || pathname.startsWith("/app/ingestion") || pathname.startsWith("/app/import"), count: 0 },
         { href: "/app/priorities", label: "Tasks", active: pathname.startsWith("/app/priorities"), count: 0 },
         { href: "/app/analytics", label: "Analytics", active: pathname.startsWith("/app/analytics"), count: 0 },
         { href: "/app/secretary", label: "Secretary", active: pathname.startsWith("/app/secretary"), count: alertCount },
