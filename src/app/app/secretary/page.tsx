@@ -860,14 +860,18 @@ function AlertsTab({
   loading,
   onResolve,
   onTempSet,
+  onDismissAll,
 }: {
   alerts: Alert[];
   loading: boolean;
   onResolve: (id: string) => void;
   onTempSet: (leadId: string, temp: string, alertId: string) => Promise<void>;
+  onDismissAll: (scope: "all_open" | "all_resolved" | "all") => Promise<void>;
 }) {
   const [settingTempFor, setSettingTempFor] = useState<string | null>(null);
   const [savingTemp, setSavingTemp] = useState(false);
+  const [showResolved, setShowResolved] = useState(false);
+  const [dismissingAll, setDismissingAll] = useState(false);
 
   const handleSetTemp = async (leadId: string, temp: string, alertId: string) => {
     setSavingTemp(true);
@@ -877,6 +881,11 @@ function AlertsTab({
     } finally {
       setSavingTemp(false);
     }
+  };
+
+  const handleDismissAll = async (scope: "all_open" | "all_resolved" | "all") => {
+    setDismissingAll(true);
+    try { await onDismissAll(scope); } finally { setDismissingAll(false); }
   };
 
   if (loading) return <p style={{ color: "var(--ink-muted)", padding: "16px 0" }}>Loading alerts…</p>;
@@ -892,8 +901,10 @@ function AlertsTab({
     );
   }
 
+  const isFormAlert = (alert: Alert) =>
+    alert.alert_type === "form_submission" || alert.alert_type === "call_inbound";
+
   const renderAlert = (alert: Alert) => {
-    // PA co-pilot drafts get their own rich card
     if (alert.alert_type === "pa_reply_draft" && alert.status === "open") {
       return <PaReplyDraftCard key={alert.id} alert={alert} onDone={onResolve} />;
     }
@@ -936,6 +947,22 @@ function AlertsTab({
             </div>
             <p style={{ margin: 0, fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.5 }}>{alert.message}</p>
 
+            {/* Quick-action links */}
+            {isOpen && (
+              <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                {isFormAlert(alert) && (
+                  <Link href="/app/intake" className="crm-btn crm-btn-secondary" style={{ fontSize: 11, padding: "2px 8px", textDecoration: "none" }}>
+                    View in Intake →
+                  </Link>
+                )}
+                {alert.leads && (
+                  <Link href={`/app/leads/${alert.leads.id}`} className="crm-btn crm-btn-secondary" style={{ fontSize: 11, padding: "2px 8px", textDecoration: "none" }}>
+                    View lead →
+                  </Link>
+                )}
+              </div>
+            )}
+
             {isUnclassified && alert.leads && isOpen && (
               settingTempFor === alert.id ? (
                 <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -954,20 +981,12 @@ function AlertsTab({
                       </button>
                     );
                   })}
-                  <button
-                    className="crm-btn crm-btn-secondary"
-                    style={{ fontSize: 11, padding: "2px 8px" }}
-                    onClick={() => setSettingTempFor(null)}
-                  >
+                  <button className="crm-btn crm-btn-secondary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSettingTempFor(null)}>
                     Cancel
                   </button>
                 </div>
               ) : (
-                <button
-                  className="crm-btn crm-btn-secondary"
-                  style={{ marginTop: 6, fontSize: 11, padding: "2px 8px" }}
-                  onClick={() => setSettingTempFor(alert.id)}
-                >
+                <button className="crm-btn crm-btn-secondary" style={{ marginTop: 6, fontSize: 11, padding: "2px 8px" }} onClick={() => setSettingTempFor(alert.id)}>
                   Set temperature
                 </button>
               )
@@ -992,14 +1011,60 @@ function AlertsTab({
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+          {openAlerts.length} open{resolvedAlerts.length > 0 ? ` · ${resolvedAlerts.length} resolved` : ""}
+        </span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {openAlerts.length > 1 && (
+            <button
+              className="crm-btn crm-btn-secondary"
+              style={{ fontSize: 11, padding: "3px 10px" }}
+              disabled={dismissingAll}
+              onClick={() => void handleDismissAll("all_open")}
+            >
+              {dismissingAll ? "Dismissing…" : "Dismiss all open"}
+            </button>
+          )}
+          {resolvedAlerts.length > 0 && (
+            <>
+              <button
+                className="crm-btn crm-btn-secondary"
+                style={{ fontSize: 11, padding: "3px 10px" }}
+                onClick={() => setShowResolved((v) => !v)}
+              >
+                {showResolved ? "Hide resolved" : `Show resolved (${resolvedAlerts.length})`}
+              </button>
+              {showResolved && (
+                <button
+                  className="crm-btn crm-btn-secondary"
+                  style={{ fontSize: 11, padding: "3px 10px", color: "var(--danger, #dc2626)" }}
+                  disabled={dismissingAll}
+                  onClick={() => void handleDismissAll("all_resolved")}
+                >
+                  Clear resolved
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {openAlerts.length === 0 && (
+        <div className="crm-card crm-section-card" style={{ textAlign: "center", padding: 24, color: "var(--ink-muted)" }}>
+          All caught up — no open alerts.
+        </div>
+      )}
+
       {openAlerts.map(renderAlert)}
-      {resolvedAlerts.length > 0 && openAlerts.length > 0 && (
+
+      {showResolved && resolvedAlerts.length > 0 && (
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 4 }}>
           <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--ink-faint)" }}>Resolved</p>
           {resolvedAlerts.map(renderAlert)}
         </div>
       )}
-      {resolvedAlerts.length > 0 && openAlerts.length === 0 && resolvedAlerts.map(renderAlert)}
     </div>
   );
 }
@@ -1060,6 +1125,24 @@ export default function SecretaryPage() {
       });
       setAlerts((prev) => prev.map((a) => (a.id === alertId ? { ...a, status: "resolved" } : a)));
       setAlertCount((prev) => Math.max(0, prev - 1));
+    } catch { /* ignore */ }
+  };
+
+  const dismissAllAlerts = async (scope: "all_open" | "all_resolved" | "all") => {
+    try {
+      await fetch("/api/secretary/alerts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope }),
+      });
+      setAlerts((prev) =>
+        scope === "all_resolved"
+          ? prev.filter((a) => a.status === "open")
+          : scope === "all_open"
+          ? prev.map((a) => (a.status === "open" ? { ...a, status: "resolved" } : a))
+          : prev.map((a) => ({ ...a, status: "resolved" }))
+      );
+      setAlertCount(0);
     } catch { /* ignore */ }
   };
 
@@ -1165,6 +1248,7 @@ export default function SecretaryPage() {
             loading={loading}
             onResolve={(id) => void resolveAlert(id)}
             onTempSet={setLeadTemp}
+            onDismissAll={(scope) => dismissAllAlerts(scope)}
           />
         )}
         {tab === "broadcast" && <BroadcastTab />}
