@@ -167,7 +167,6 @@ function Step1Form({
   onComplete: (leadId: string, intent: Intent) => void;
 }) {
   const [form, setForm] = useState<Step1>({ full_name: "", phone: "", intent: "" });
-  const [smsConsent, setSmsConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -193,7 +192,7 @@ function Step1Form({
           full_name: form.full_name.trim(),
           phone: form.phone.trim(),
           intent: form.intent || null,
-          consent_to_sms: smsConsent,
+          consent_to_sms: false,
           questionnaire_answers: {
             full_name: form.full_name.trim(),
             phone: form.phone.trim(),
@@ -270,28 +269,10 @@ function Step1Form({
         <button
           type="submit"
           className="crm-btn crm-btn-primary"
-          disabled={saving || !canSubmit || !smsConsent}
+          disabled={saving || !canSubmit}
         >
           {saving ? "One moment..." : "Continue"}
         </button>
-      </div>
-
-      <div className="crm-public-intake-consent">
-        <label className="crm-public-intake-consent-checkbox">
-          <input
-            type="checkbox"
-            checked={smsConsent}
-            onChange={(e) => setSmsConsent(e.target.checked)}
-          />
-          <span>
-            I agree to receive text messages regarding my inquiry, including automated responses.
-          </span>
-        </label>
-        <p className="crm-public-intake-consent-disclosure">
-          By providing your phone number and submitting this form, you consent to receive text
-          messages from the agent. Message frequency varies. Message and data rates may apply.
-          Reply STOP to unsubscribe. Reply HELP for help. Consent is not a condition of purchase.
-        </p>
       </div>
     </form>
   );

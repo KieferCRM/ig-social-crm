@@ -116,8 +116,6 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [smsConsent, setSmsConsent] = useState(false);
-
   // Step 1 fields
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -183,7 +181,7 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
       const res = await fetch("/api/intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, consent_to_sms: smsConsent }),
+        body: JSON.stringify({ ...payload, consent_to_sms: false }),
       });
       const data = (await res.json()) as IntakeResponse;
       if (!res.ok || !data.ok) {
@@ -354,28 +352,11 @@ export default function OffMarketSellerForm({ agentSlug }: { agentSlug: string }
               <button
                 type="submit"
                 className="crm-btn crm-btn-primary"
-                disabled={saving || !step1Valid || !smsConsent}
+                disabled={saving || !step1Valid}
                 style={{ minWidth: 200 }}
               >
                 {saving ? "Submitting..." : "Continue to property details →"}
               </button>
-            </div>
-            <div className="crm-public-intake-consent">
-              <label className="crm-public-intake-consent-checkbox">
-                <input
-                  type="checkbox"
-                  checked={smsConsent}
-                  onChange={(e) => setSmsConsent(e.target.checked)}
-                />
-                <span>
-                  I agree to receive text messages regarding my inquiry, including automated responses.
-                </span>
-              </label>
-              <p className="crm-public-intake-consent-disclosure">
-                By providing your phone number and submitting this form, you consent to receive text
-                messages from the agent. Message frequency varies. Message and data rates may apply.
-                Reply STOP to unsubscribe. Reply HELP for help. Consent is not a condition of purchase.
-              </p>
             </div>
             <PrivacyNote />
           </div>
