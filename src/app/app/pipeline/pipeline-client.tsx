@@ -251,11 +251,18 @@ export default function PipelineClient() {
   const [status, setStatus] = useState("");
   const [agentId, setAgentId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pipelineTab, setPipelineTab] = useState<"acquisitions" | "dispositions" | "full_list">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("pipeline_tab") as "acquisitions" | "dispositions" | "full_list") ?? "acquisitions";
+    }
+    return "acquisitions";
+  });
+
   const [viewMode, setViewMode] = useState<"list" | "kanban">(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("pipeline_view") as "list" | "kanban") ?? "list";
+      return (localStorage.getItem("pipeline_view") as "list" | "kanban") ?? "kanban";
     }
-    return "list";
+    return "kanban";
   });
 
   const draggedDealIdRef = useRef<string | null>(null);
@@ -689,6 +696,11 @@ export default function PipelineClient() {
     }
   }
 
+  function toggleTab(tab: "acquisitions" | "dispositions" | "full_list") {
+    setPipelineTab(tab);
+    localStorage.setItem("pipeline_tab", tab);
+  }
+
   function toggleView(mode: "list" | "kanban") {
     setViewMode(mode);
     localStorage.setItem("pipeline_view", mode);
@@ -953,7 +965,7 @@ export default function PipelineClient() {
                   <StatusBadge label={`${deals.filter((d) => d.stage !== "closed" && d.stage !== "dead").length} active`} tone="ok" />
                   <StatusBadge label={`${deals.filter((d) => d.stage === "under_contract").length} under contract`} tone="stage-contract" />
                   <StatusBadge label={`${deals.filter((d) => d.stage === "closed").length} closed`} tone="stage-closed" />
-                  {filteredDeals.length !== deals.length && (
+                  {filteredDeals.length !== deals.length && pipelineTab !== "full_list" && (
                     <StatusBadge label={`${filteredDeals.length} shown`} tone="default" />
                   )}
                 </div>
@@ -961,40 +973,42 @@ export default function PipelineClient() {
 
               {/* Right: view toggle + primary action */}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ display: "flex", border: "2px solid var(--ink-primary)", borderRadius: 8, overflow: "hidden" }}>
-                  <button
-                    type="button"
-                    onClick={() => toggleView("list")}
-                    style={{
-                      padding: "8px 20px",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      background: viewMode === "list" ? "var(--ink-primary)" : "transparent",
-                      color: viewMode === "list" ? "#fff" : "var(--ink-primary)",
-                      border: "none",
-                      cursor: "pointer",
-                      letterSpacing: "0.01em",
-                    }}
-                  >
-                    ☰ List
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleView("kanban")}
-                    style={{
-                      padding: "8px 20px",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      background: viewMode === "kanban" ? "var(--ink-primary)" : "transparent",
-                      color: viewMode === "kanban" ? "#fff" : "var(--ink-primary)",
-                      border: "none",
-                      cursor: "pointer",
-                      letterSpacing: "0.01em",
-                    }}
-                  >
-                    ⊞ Kanban
-                  </button>
-                </div>
+                {pipelineTab !== "full_list" && (
+                  <div style={{ display: "flex", border: "2px solid var(--ink-primary)", borderRadius: 8, overflow: "hidden" }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleView("list")}
+                      style={{
+                        padding: "8px 20px",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        background: viewMode === "list" ? "var(--ink-primary)" : "transparent",
+                        color: viewMode === "list" ? "#fff" : "var(--ink-primary)",
+                        border: "none",
+                        cursor: "pointer",
+                        letterSpacing: "0.01em",
+                      }}
+                    >
+                      ☰ List
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleView("kanban")}
+                      style={{
+                        padding: "8px 20px",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        background: viewMode === "kanban" ? "var(--ink-primary)" : "transparent",
+                        color: viewMode === "kanban" ? "#fff" : "var(--ink-primary)",
+                        border: "none",
+                        cursor: "pointer",
+                        letterSpacing: "0.01em",
+                      }}
+                    >
+                      ⊞ Kanban
+                    </button>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="crm-btn crm-btn-primary"
@@ -1008,6 +1022,34 @@ export default function PipelineClient() {
                 </button>
               </div>
             </div>
+
+            {/* Tab bar */}
+            <div style={{ display: "flex", gap: 4, marginTop: 12, borderBottom: "1px solid var(--line)", paddingBottom: 0 }}>
+              {([
+                { id: "acquisitions", label: "Acquisitions" },
+                { id: "dispositions", label: "Dispositions" },
+                { id: "full_list", label: "Full List" },
+              ] as { id: "acquisitions" | "dispositions" | "full_list"; label: string }[]).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => toggleTab(id)}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: pipelineTab === id ? 700 : 400,
+                    padding: "8px 16px",
+                    borderRadius: "8px 8px 0 0",
+                    border: "none",
+                    borderBottom: pipelineTab === id ? "2px solid var(--brand)" : "2px solid transparent",
+                    background: "transparent",
+                    color: pipelineTab === id ? "var(--ink)" : "var(--ink-muted)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </section>
 
           {status && (
@@ -1016,8 +1058,114 @@ export default function PipelineClient() {
             </section>
           )}
 
-          {/* Table / Kanban */}
-          {viewMode === "list" ? (
+          {/* ── Dispositions tab ── */}
+          {pipelineTab === "dispositions" && (
+            <section className="crm-card crm-section-card" style={{ padding: "32px 24px", textAlign: "center" }}>
+              <div style={{ fontSize: 28, marginBottom: 12 }}>📦</div>
+              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Dispositions</div>
+              <div style={{ fontSize: 13, color: "var(--ink-muted)", maxWidth: 420, margin: "0 auto", lineHeight: 1.7 }}>
+                Dispo workflow and buyer tracking coming soon. Deals under contract and your buyers list will live here.
+              </div>
+              {deals.filter((d) => d.stage === "under_contract").length > 0 && (
+                <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8, maxWidth: 480, margin: "20px auto 0" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-muted)", marginBottom: 4 }}>
+                    Currently Under Contract
+                  </div>
+                  {deals.filter((d) => d.stage === "under_contract").map((deal) => (
+                    <div
+                      key={deal.id}
+                      onClick={() => openDetail(deal)}
+                      className="crm-card"
+                      style={{ padding: "10px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{deal.property_address || "No address"}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{deal.seller_name || "—"}</div>
+                      </div>
+                      {deal.offer_price != null && (
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{priceDisplay(deal.offer_price)}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ── Full List tab ── */}
+          {pipelineTab === "full_list" && (
+            <section className="crm-card">
+              {deals.length === 0 ? (
+                <div style={{ padding: "24px 20px" }}>
+                  <EmptyState title="No deals yet" body="Add your first off-market deal using the button above." />
+                </div>
+              ) : (
+                <div className="crm-table-wrap">
+                  <table className="crm-data-table">
+                    <thead>
+                      <tr>
+                        <th>Property Address</th>
+                        <th>Seller</th>
+                        <th>Offer Price</th>
+                        <th>Source</th>
+                        <th>Stage</th>
+                        <th>Time in Stage</th>
+                        <th>Next Follow-up</th>
+                        <th>Tags</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deals.map((deal) => {
+                        const overdue = isOverdue(deal.next_followup_date);
+                        const stale = isStaleForStage(deal.stage, deal.stage_entered_at, deal.updated_at);
+                        const isOfferStage = deal.stage === "offer_sent" || deal.stage === "negotiating";
+                        const timeLabel = isOfferStage
+                          ? `${Math.floor(hoursInStage(deal.stage_entered_at, deal.updated_at))}h`
+                          : `${daysInStage(deal.stage_entered_at, deal.updated_at)}d`;
+                        return (
+                          <tr key={deal.id} onClick={() => openDetail(deal)} style={{ cursor: "pointer" }}>
+                            <td style={{ fontWeight: 600 }}>{deal.property_address || "—"}</td>
+                            <td>
+                              <div>{deal.seller_name || "—"}</div>
+                              {deal.seller_phone && <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>{deal.seller_phone}</div>}
+                            </td>
+                            <td>{priceDisplay(deal.offer_price ?? deal.price)}</td>
+                            <td>
+                              {deal.seller_source ? <span className="crm-chip" style={{ fontSize: 11 }}>{sourceChannelLabel(deal.seller_source)}</span> : "—"}
+                            </td>
+                            <td><StatusBadge label={pipelineStageLabel(deal.stage)} tone={pipelineStageTone(deal.stage)} /></td>
+                            <td style={{ color: stale ? "#dc2626" : "var(--ink-muted)", fontWeight: stale ? 600 : undefined }}>
+                              {timeLabel}{stale && <span style={{ marginLeft: 4 }}>⚠</span>}
+                            </td>
+                            <td style={{ color: overdue ? "#dc2626" : undefined, fontWeight: overdue ? 600 : undefined }}>
+                              {overdue && <span style={{ marginRight: 4 }}>⚠</span>}
+                              {dateDisplay(deal.next_followup_date)}
+                            </td>
+                            <td>
+                              {deal.tags.length > 0 ? (
+                                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                  {deal.tags.slice(0, 2).map((tag) => (
+                                    <span key={tag} className="crm-chip" style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {deal.tags.length > 2 && <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>+{deal.tags.length - 2}</span>}
+                                </div>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ── Acquisitions tab: Table / Kanban ── */}
+          {pipelineTab === "acquisitions" && viewMode === "list" ? (
             <section className="crm-card">
               {filteredDeals.length === 0 ? (
                 <div style={{ padding: "24px 20px" }}>
@@ -1117,7 +1265,7 @@ export default function PipelineClient() {
                 </div>
               )}
             </section>
-          ) : (
+          ) : pipelineTab === "acquisitions" ? (
             /* ── Kanban board ── */
             <div
               style={{
@@ -1235,7 +1383,7 @@ export default function PipelineClient() {
                 );
               })}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
