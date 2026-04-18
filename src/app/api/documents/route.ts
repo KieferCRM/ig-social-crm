@@ -127,6 +127,7 @@ export async function POST(request: Request) {
     size_bytes: file.size,
     uploaded_at: new Date().toISOString(),
     uploaded_by: auth.context.user.id,
+    extraction_status: "pending",
   };
 
   const nextSettings = withWorkspaceDocument(currentRow?.settings || null, document);
@@ -153,7 +154,7 @@ export async function PATCH(request: Request) {
   const auth = await loadAccessContext(supabase);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  let body: { id?: string; status?: string; file_type?: string; tags?: string[] } = {};
+  let body: { id?: string; status?: string; file_type?: string; tags?: string[]; lead_id?: string; deal_id?: string; extraction_status?: string } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -181,6 +182,9 @@ export async function PATCH(request: Request) {
     ...(body.status !== undefined && { status: body.status }),
     ...(body.file_type !== undefined && { file_type: body.file_type }),
     ...(body.tags !== undefined && { tags: body.tags }),
+    ...(body.lead_id !== undefined && { lead_id: body.lead_id }),
+    ...(body.deal_id !== undefined && { deal_id: body.deal_id }),
+    ...(body.extraction_status !== undefined && { extraction_status: body.extraction_status as WorkspaceDocument["extraction_status"] }),
   };
 
   const nextSettings = withWorkspaceDocument(currentRow?.settings || null, updated);

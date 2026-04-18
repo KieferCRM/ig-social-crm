@@ -22,6 +22,22 @@ type InboxMessage = {
   read: boolean;
 };
 
+type DocumentExtractionParty = { role: string; name: string };
+
+type DocumentExtraction = {
+  doc_type: string;
+  parties: DocumentExtractionParty[];
+  property_address: string;
+  purchase_price: string;
+  assignment_fee: string;
+  closing_date: string;
+  effective_date: string;
+  matched_lead_ids: string[];
+  matched_deal_id: string;
+  confidence: "high" | "medium" | "low";
+  notes: string;
+};
+
 type WorkspaceDocument = {
   id: string;
   file_name: string;
@@ -36,6 +52,8 @@ type WorkspaceDocument = {
   uploaded_at: string;
   uploaded_by: string;
   signed_url?: string | null;
+  extraction_status?: "pending" | "needs_review" | "matched" | "skipped" | null;
+  extraction?: DocumentExtraction | null;
 };
 
 type DealOption = { id: string; label: string };
@@ -142,6 +160,11 @@ export default function InboxClient({
   const [editDocFileType, setEditDocFileType] = useState("");
   const [editDocTags, setEditDocTags] = useState("");
   const [editDocSaving, setEditDocSaving] = useState(false);
+  const [extractingDocIds, setExtractingDocIds] = useState<Set<string>>(new Set());
+  const [reviewingDocId, setReviewingDocId] = useState<string | null>(null);
+  const [reviewLeadId, setReviewLeadId] = useState("");
+  const [reviewDealId, setReviewDealId] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
 
   // ── Email load + realtime ───────────────────────────────────────────────────
   useEffect(() => {
@@ -240,6 +263,24 @@ export default function InboxClient({
   }
 
   // ── Document actions ────────────────────────────────────────────────────────
+  async function triggerExtraction(docId: string) {
+    setExtractingDocIds((prev) => new Set(prev).add(docId));
+    try {
+      const res = await fetch("/api/documents/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ document_id: docId }),
+      });
+      const data = await res.json() as { ok?: boolean; extraction_status?: string; document?: WorkspaceDocument; error?: string };
+      if (res.ok && data.document) {
+        setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, ...data.document } : d));
+        if (data.extraction_status === "needs_review") setReviewingDocId(docId);
+      }
+    } finally {
+      setExtractingDocIds((prev) => { const next = new Set(prev); next.delete(docId); return next; });
+    }
+  }
+
   async function uploadDocument() {
     if (!docFile) { setDocMessage("Choose a file first."); return; }
     setDocSaving(true);
@@ -253,7 +294,7 @@ export default function InboxClient({
       formData.set("status", docStatus);
       formData.set("tags", docTags);
       const res = await fetch("/api/documents", { method: "POST", body: formData });
-      const data = await res.json() as { ok?: boolean; error?: string };
+      const data = await res.json() as { ok?: boolean; document?: WorkspaceDocument; error?: string };
       if (!res.ok || !data.ok) { setDocMessage(data.error ?? "Could not upload."); return; }
       setDocFile(null);
       setDocDealId("");
@@ -261,13 +302,48 @@ export default function InboxClient({
       setDocFileType("agreement");
       setDocStatus("draft");
       setDocTags("");
-      setDocMessage("Document uploaded.");
+      setDocMessage("Uploaded — analyzing document...");
       await loadDocuments();
+      if (data.document?.id) void triggerExtraction(data.document.id);
     } catch {
       setDocMessage("Could not upload document.");
     } finally {
       setDocSaving(false);
     }
+  }
+
+  async function saveReview(docId: string) {
+    setReviewSaving(true);
+    try {
+      const res = await fetch("/api/documents", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: docId,
+          lead_id: reviewLeadId || undefined,
+          deal_id: reviewDealId || undefined,
+          extraction_status: "matched",
+        }),
+      });
+      const data = await res.json() as { ok?: boolean; document?: WorkspaceDocument; error?: string };
+      if (!res.ok || !data.ok) { setDocMessage(data.error ?? "Could not save."); return; }
+      setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, lead_id: reviewLeadId || d.lead_id, deal_id: reviewDealId || d.deal_id, extraction_status: "matched" } : d));
+      setReviewingDocId(null);
+      setReviewLeadId("");
+      setReviewDealId("");
+    } finally {
+      setReviewSaving(false);
+    }
+  }
+
+  async function skipReview(docId: string) {
+    await fetch("/api/documents", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: docId, extraction_status: "skipped" }),
+    });
+    setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, extraction_status: "skipped" } : d));
+    setReviewingDocId(null);
   }
 
   async function deleteDocument(id: string) {
@@ -892,9 +968,23 @@ export default function InboxClient({
                 const statusMeta = DOC_STATUS_META[doc.status] ?? DOC_STATUS_META.draft!;
                 const dealLabel = deals.find((d) => d.id === doc.deal_id)?.label;
                 const leadLabel = leads.find((l) => l.id === doc.lead_id)?.label;
+                const isExtracting = extractingDocIds.has(doc.id);
+                const isReviewing = reviewingDocId === doc.id;
+                const ex = doc.extraction;
+
+                const extractionBadge = isExtracting
+                  ? { label: "Analyzing...", bg: "#dbeafe", color: "#1d4ed8" }
+                  : doc.extraction_status === "needs_review"
+                  ? { label: "Needs Review", bg: "#fef9c3", color: "#92400e" }
+                  : doc.extraction_status === "matched"
+                  ? { label: "AI Matched", bg: "#dcfce7", color: "#15803d" }
+                  : doc.extraction_status === "pending"
+                  ? { label: "Pending", bg: "#f3f4f6", color: "#6b7280" }
+                  : null;
 
                 return (
                   <article key={doc.id} className="crm-card-muted crm-stack-8" style={{ padding: 16 }}>
+                    {/* Header row */}
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
                       <div className="crm-stack-4">
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -902,6 +992,11 @@ export default function InboxClient({
                           <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 4, padding: "2px 7px", background: statusMeta.bg, color: statusMeta.color }}>
                             {statusMeta.label.toUpperCase()}
                           </span>
+                          {extractionBadge && (
+                            <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 4, padding: "2px 7px", background: extractionBadge.bg, color: extractionBadge.color }}>
+                              {extractionBadge.label}
+                            </span>
+                          )}
                         </div>
                         <div style={{ color: "var(--ink-muted)", fontSize: 13 }}>
                           {doc.file_type} · {formatBytes(doc.size_bytes)} · {formatDate(doc.uploaded_at)}
@@ -909,17 +1004,96 @@ export default function InboxClient({
                       </div>
                       <div className="crm-inline-actions" style={{ gap: 8 }}>
                         {doc.signed_url && <a href={doc.signed_url} target="_blank" rel="noreferrer" className="crm-btn crm-btn-secondary">Open</a>}
-                        {editingDocId !== doc.id && <button type="button" className="crm-btn crm-btn-secondary" onClick={() => { setEditingDocId(doc.id); setEditDocStatus(doc.status); setEditDocFileType(doc.file_type); setEditDocTags(doc.tags.join(", ")); }}>Edit</button>}
+                        {doc.extraction_status === "needs_review" && !isReviewing && (
+                          <button type="button" className="crm-btn crm-btn-primary" onClick={() => { setReviewingDocId(doc.id); setReviewLeadId(doc.lead_id); setReviewDealId(doc.deal_id); }}>
+                            Review
+                          </button>
+                        )}
+                        {editingDocId !== doc.id && !isReviewing && (
+                          <button type="button" className="crm-btn crm-btn-secondary" onClick={() => { setEditingDocId(doc.id); setEditDocStatus(doc.status); setEditDocFileType(doc.file_type); setEditDocTags(doc.tags.join(", ")); }}>Edit</button>
+                        )}
                         <button type="button" className="crm-btn crm-btn-secondary" onClick={() => void deleteDocument(doc.id)}>Remove</button>
                       </div>
                     </div>
 
+                    {/* Linked deal/contact/tags */}
                     <div style={{ display: "flex", gap: 16, fontSize: 13, color: "var(--ink-muted)", flexWrap: "wrap" }}>
                       {dealLabel && <span>Deal: <strong style={{ color: "var(--ink-body)" }}>{dealLabel}</strong></span>}
                       {leadLabel && <span>Contact: <strong style={{ color: "var(--ink-body)" }}>{leadLabel}</strong></span>}
                       {doc.tags.length > 0 && <span>Tags: <strong style={{ color: "var(--ink-body)" }}>{doc.tags.join(", ")}</strong></span>}
                     </div>
 
+                    {/* Extracted data panel */}
+                    {ex && (doc.extraction_status === "matched" || doc.extraction_status === "needs_review") && (
+                      <div style={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", fontSize: 13 }} className="crm-stack-6">
+                        <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-muted)", marginBottom: 6 }}>
+                          Extracted by Document Administrator
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "6px 16px" }}>
+                          {ex.doc_type && <span><span style={{ color: "var(--ink-muted)" }}>Type:</span> {ex.doc_type.replace(/_/g, " ")}</span>}
+                          {ex.property_address && <span><span style={{ color: "var(--ink-muted)" }}>Address:</span> {ex.property_address}</span>}
+                          {ex.purchase_price && <span><span style={{ color: "var(--ink-muted)" }}>Price:</span> {ex.purchase_price}</span>}
+                          {ex.assignment_fee && <span><span style={{ color: "var(--ink-muted)" }}>Assignment fee:</span> {ex.assignment_fee}</span>}
+                          {ex.closing_date && <span><span style={{ color: "var(--ink-muted)" }}>Closing:</span> {ex.closing_date}</span>}
+                          {ex.effective_date && <span><span style={{ color: "var(--ink-muted)" }}>Effective:</span> {ex.effective_date}</span>}
+                        </div>
+                        {ex.parties.length > 0 && (
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                            {ex.parties.map((p, i) => (
+                              <span key={i} style={{ fontSize: 12, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px" }}>
+                                <span style={{ color: "var(--ink-muted)", textTransform: "capitalize" }}>{p.role}:</span> {p.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {ex.notes && (
+                          <div style={{ fontSize: 12, color: "#92400e", background: "#fef9c3", borderRadius: 6, padding: "4px 8px", marginTop: 2 }}>
+                            {ex.notes}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Needs-review assign panel */}
+                    {isReviewing && (
+                      <div className="crm-stack-8" style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 4 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+                          Connect this document to a contact and deal
+                        </div>
+                        <div className="crm-grid-cards-2" style={{ gap: 10 }}>
+                          <label className="crm-filter-field">
+                            <span>Contact</span>
+                            <select value={reviewLeadId} onChange={(e) => setReviewLeadId(e.target.value)}>
+                              <option value="">No contact</option>
+                              {leads.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                            </select>
+                          </label>
+                          <label className="crm-filter-field">
+                            <span>Deal</span>
+                            <select value={reviewDealId} onChange={(e) => setReviewDealId(e.target.value)}>
+                              <option value="">No deal</option>
+                              {deals.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <button type="button" className="crm-btn crm-btn-primary" onClick={() => void saveReview(doc.id)} disabled={reviewSaving}>
+                            {reviewSaving ? "Saving..." : "Save"}
+                          </button>
+                          <button type="button" className="crm-btn crm-btn-secondary" onClick={() => void skipReview(doc.id)}>
+                            Skip
+                          </button>
+                          <button type="button" className="crm-btn crm-btn-secondary" onClick={() => setReviewingDocId(null)}>
+                            Cancel
+                          </button>
+                          <a href="/app/contacts" style={{ fontSize: 12, color: "var(--brand)", marginLeft: 8 }}>
+                            Create new contact →
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Edit panel */}
                     {editingDocId === doc.id && (
                       <div className="crm-stack-8" style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 4 }}>
                         <div className="crm-grid-cards-3" style={{ gap: 10 }}>

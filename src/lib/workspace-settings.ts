@@ -22,6 +22,25 @@ export type SocialScript = {
   category: SocialScriptCategory;
 };
 
+export type DocumentExtractionParty = {
+  role: string;
+  name: string;
+};
+
+export type DocumentExtraction = {
+  doc_type: string;
+  parties: DocumentExtractionParty[];
+  property_address: string;
+  purchase_price: string;
+  assignment_fee: string;
+  closing_date: string;
+  effective_date: string;
+  matched_lead_ids: string[];
+  matched_deal_id: string;
+  confidence: "high" | "medium" | "low";
+  notes: string;
+};
+
 export type WorkspaceDocument = {
   id: string;
   file_name: string;
@@ -35,6 +54,8 @@ export type WorkspaceDocument = {
   size_bytes: number;
   uploaded_at: string;
   uploaded_by: string;
+  extraction_status?: "pending" | "needs_review" | "matched" | "skipped" | null;
+  extraction?: DocumentExtraction | null;
 };
 
 export type ProfileTemplate = "wholesaler" | "agent";
@@ -326,13 +347,50 @@ function normalizeStringArray(value: unknown): string[] {
 function normalizeDocuments(value: unknown): WorkspaceDocument[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((item) => {
+    .map((item): WorkspaceDocument | null => {
       const record = asRecord(item);
       if (!record) return null;
       const id = readString(record.id);
       const fileName = readString(record.file_name);
       const storagePath = readString(record.storage_path);
       if (!id || !fileName || !storagePath) return null;
+      const rawExtractionStatus = readString(record.extraction_status);
+      const extractionStatus: WorkspaceDocument["extraction_status"] =
+        rawExtractionStatus === "pending" ||
+        rawExtractionStatus === "needs_review" ||
+        rawExtractionStatus === "matched" ||
+        rawExtractionStatus === "skipped"
+          ? rawExtractionStatus
+          : null;
+
+      const rawExtraction = asRecord(record.extraction);
+      const extraction: DocumentExtraction | null = rawExtraction
+        ? {
+            doc_type: readString(rawExtraction.doc_type),
+            parties: Array.isArray(rawExtraction.parties)
+              ? (rawExtraction.parties as unknown[])
+                  .map((p) => {
+                    const pr = asRecord(p);
+                    if (!pr) return null;
+                    return { role: readString(pr.role), name: readString(pr.name) };
+                  })
+                  .filter((p): p is DocumentExtractionParty => Boolean(p && p.name))
+              : [],
+            property_address: readString(rawExtraction.property_address),
+            purchase_price: readString(rawExtraction.purchase_price),
+            assignment_fee: readString(rawExtraction.assignment_fee),
+            closing_date: readString(rawExtraction.closing_date),
+            effective_date: readString(rawExtraction.effective_date),
+            matched_lead_ids: normalizeStringArray(rawExtraction.matched_lead_ids),
+            matched_deal_id: readString(rawExtraction.matched_deal_id),
+            confidence:
+              rawExtraction.confidence === "high" || rawExtraction.confidence === "low"
+                ? rawExtraction.confidence
+                : "medium",
+            notes: readString(rawExtraction.notes),
+          }
+        : null;
+
       return {
         id,
         file_name: fileName,
@@ -349,10 +407,12 @@ function normalizeDocuments(value: unknown): WorkspaceDocument[] {
             : 0,
         uploaded_at: readString(record.uploaded_at),
         uploaded_by: readString(record.uploaded_by),
+        extraction_status: extractionStatus,
+        extraction,
       };
     })
-    .filter((item): item is WorkspaceDocument => Boolean(item))
-    .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
+    .filter((item): item is WorkspaceDocument => item !== null)
+    .sort((a, b) => a.uploaded_at && b.uploaded_at ? b.uploaded_at.localeCompare(a.uploaded_at) : 0);
 }
 
 function normalizeStats(value: unknown): ProfileStat[] {
