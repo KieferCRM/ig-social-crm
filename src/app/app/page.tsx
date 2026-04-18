@@ -355,7 +355,7 @@ export default async function AppHome() {
               body="No deals yet. Open your pipeline, share your intake form with a seller, or add a contact to get started."
               action={
                 <div className="crm-inline-actions" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <Link href="/app/pipeline" className="crm-btn crm-btn-primary">Open Acquisitions</Link>
+                  <Link href="/app/pipeline" className="crm-btn crm-btn-primary">Open Pipeline</Link>
                   <Link href="/app/intake" className="crm-btn crm-btn-secondary">Intake Coordinator</Link>
                   <Link href="/app/contacts?add=true" className="crm-btn crm-btn-secondary">Add Contact</Link>
                 </div>

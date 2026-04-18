@@ -116,7 +116,7 @@ export default function AppShellClient({
   const navItems = isOffMarketAccount
     ? [
         { href: "/app", label: "Home", active: pathname === "/app", count: 0 },
-        { href: "/app/pipeline", label: "Acquisitions", active: pathname.startsWith("/app/pipeline"), count: 0 },
+        { href: "/app/pipeline", label: "Pipeline", active: pathname.startsWith("/app/pipeline"), count: 0 },
         { href: "/app/contacts", label: "Contacts", active: pathname.startsWith("/app/contacts"), count: 0 },
         { href: "/app/calendar", label: "Calendar", active: pathname.startsWith("/app/calendar"), count: 0 },
         { href: "/app/inbox", label: "Inbox", active: pathname.startsWith("/app/inbox") || pathname.startsWith("/app/documents"), count: inboxUnreadCount },
@@ -156,7 +156,7 @@ export default function AppShellClient({
   const pageMeta = useMemo(() => {
     if (pathname.startsWith("/app/pipeline")) {
       return {
-        title: "Acquisitions",
+        title: "Pipeline",
         subtitle:
           "Track every off-market deal from prospecting to close. Filter by stage or tag to focus on what needs attention.",
       };
