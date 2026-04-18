@@ -267,12 +267,6 @@ export default function PipelineClient() {
     return "acquisitions";
   });
 
-  const [viewMode, setViewMode] = useState<"list" | "kanban">(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("pipeline_view") as "list" | "kanban") ?? "kanban";
-    }
-    return "kanban";
-  });
 
   const draggedDealIdRef = useRef<string | null>(null);
 
@@ -710,12 +704,7 @@ export default function PipelineClient() {
     localStorage.setItem("pipeline_tab", tab);
   }
 
-  function toggleView(mode: "list" | "kanban") {
-    setViewMode(mode);
-    localStorage.setItem("pipeline_view", mode);
-  }
-
-  // ── Loading / auth guard ──────────────────────────────────────────────────────
+// ── Loading / auth guard ──────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -980,44 +969,8 @@ export default function PipelineClient() {
                 </div>
               </div>
 
-              {/* Right: view toggle + primary action */}
+              {/* Right: primary action */}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {pipelineTab !== "full_list" && (
-                  <div style={{ display: "flex", border: "2px solid var(--ink-primary)", borderRadius: 8, overflow: "hidden" }}>
-                    <button
-                      type="button"
-                      onClick={() => toggleView("list")}
-                      style={{
-                        padding: "8px 20px",
-                        fontSize: 14,
-                        fontWeight: 600,
-                        background: viewMode === "list" ? "var(--ink-primary)" : "transparent",
-                        color: viewMode === "list" ? "#fff" : "var(--ink-primary)",
-                        border: "none",
-                        cursor: "pointer",
-                        letterSpacing: "0.01em",
-                      }}
-                    >
-                      ☰ List
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleView("kanban")}
-                      style={{
-                        padding: "8px 20px",
-                        fontSize: 14,
-                        fontWeight: 600,
-                        background: viewMode === "kanban" ? "var(--ink-primary)" : "transparent",
-                        color: viewMode === "kanban" ? "#fff" : "var(--ink-primary)",
-                        border: "none",
-                        cursor: "pointer",
-                        letterSpacing: "0.01em",
-                      }}
-                    >
-                      ⊞ Kanban
-                    </button>
-                  </div>
-                )}
                 <button
                   type="button"
                   className="crm-btn crm-btn-primary"
@@ -1068,61 +1021,7 @@ export default function PipelineClient() {
           )}
 
           {/* ── Dispositions tab ── */}
-          {pipelineTab === "dispositions" && (viewMode === "list" ? (
-            <section className="crm-card">
-              {(() => {
-                const dispoDeals = filteredDeals.filter((d) => DISPO_STAGES.includes(d.stage as OffMarketStage));
-                if (dispoDeals.length === 0) return (
-                  <div style={{ padding: "24px 20px" }}>
-                    <EmptyState title="No dispo deals yet" body="Move a deal to Under Contract to start the disposition workflow." />
-                  </div>
-                );
-                return (
-                  <div className="crm-table-wrap">
-                    <table className="crm-data-table">
-                      <thead>
-                        <tr>
-                          <th>Property Address</th>
-                          <th>Seller</th>
-                          <th>A-B Price</th>
-                          <th>B-C Price</th>
-                          <th>Fee</th>
-                          <th>Stage</th>
-                          <th>Days in Stage</th>
-                          <th>Close Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dispoDeals.map((deal) => {
-                          const stale = isStaleForDispoStage(deal.stage, deal.stage_entered_at, deal.updated_at);
-                          const days = daysInStage(deal.stage_entered_at, deal.updated_at);
-                          const ab = parsePositiveDecimal(String(deal.offer_price ?? ""));
-                          const bc = parsePositiveDecimal(String(deal.assignment_price ?? ""));
-                          const fee = ab !== null && bc !== null ? bc - ab : null;
-                          return (
-                            <tr key={deal.id} onClick={() => openDetail(deal)} style={{ cursor: "pointer" }}>
-                              <td style={{ fontWeight: 600 }}>{deal.property_address || "—"}</td>
-                              <td>{deal.seller_name || "—"}</td>
-                              <td>{priceDisplay(deal.offer_price)}</td>
-                              <td>{priceDisplay(deal.assignment_price)}</td>
-                              <td style={{ color: fee !== null && fee >= 0 ? "#15803d" : "#dc2626", fontWeight: 600 }}>
-                                {fee !== null ? `${fee >= 0 ? "+" : ""}${formatCurrency(fee)}` : "—"}
-                              </td>
-                              <td><StatusBadge label={pipelineStageLabel(deal.stage)} tone={pipelineStageTone(deal.stage)} /></td>
-                              <td style={{ color: stale ? "#dc2626" : "var(--ink-muted)", fontWeight: stale ? 600 : undefined }}>
-                                {days}d{stale && " ⚠"}
-                              </td>
-                              <td>{dateDisplay(deal.expected_close_date)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })()}
-            </section>
-          ) : (
+          {pipelineTab === "dispositions" && (
             <div style={{ display: "flex", gap: 12, overflowX: "auto", alignItems: "flex-start", paddingBottom: 8 }}>
               {DISPO_STAGES.map((stage) => {
                 const stageDeals = filteredDeals.filter((d) => d.stage === stage);
@@ -1209,7 +1108,7 @@ export default function PipelineClient() {
                 );
               })}
             </div>
-          ))}
+          )}
 
           {/* ── Full List tab ── */}
           {pipelineTab === "full_list" && (
@@ -1283,118 +1182,9 @@ export default function PipelineClient() {
             </section>
           )}
 
-          {/* ── Acquisitions tab: Table / Kanban ── */}
-          {pipelineTab === "acquisitions" && viewMode === "list" ? (
-            <section className="crm-card">
-              {filteredDeals.length === 0 ? (
-                <div style={{ padding: "24px 20px" }}>
-                  <EmptyState
-                    title={deals.length === 0 ? "No deals yet" : "No deals match these filters"}
-                    body={
-                      deals.length === 0
-                        ? "Add your first off-market deal using the button above."
-                        : "Clear a filter or select a different stage to see more deals."
-                    }
-                  />
-                </div>
-              ) : (
-                <div className="crm-table-wrap">
-                  <table className="crm-data-table">
-                    <thead>
-                      <tr>
-                        <th>Property Address</th>
-                        <th>Seller</th>
-                        <th>Offer Price</th>
-                        <th>Source</th>
-                        <th>Stage</th>
-                        <th>Time in Stage</th>
-                        <th>Next Follow-up</th>
-                        <th>Tags</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredDeals.map((deal) => {
-                        const overdue = isOverdue(deal.next_followup_date);
-                        const stale = isStaleForStage(deal.stage, deal.stage_entered_at, deal.updated_at);
-                        const isOfferStage = deal.stage === "offer_sent" || deal.stage === "negotiating";
-                        const timeLabel = isOfferStage
-                          ? `${Math.floor(hoursInStage(deal.stage_entered_at, deal.updated_at))}h`
-                          : `${daysInStage(deal.stage_entered_at, deal.updated_at)}d`;
-                        return (
-                          <tr
-                            key={deal.id}
-                            onClick={() => openDetail(deal)}
-                            style={{ cursor: "pointer" }}
-                          >
-                            <td style={{ fontWeight: 600 }}>
-                              {deal.property_address || "—"}
-                            </td>
-                            <td>
-                              <div>{deal.seller_name || "—"}</div>
-                              {deal.seller_phone && (
-                                <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>{deal.seller_phone}</div>
-                              )}
-                            </td>
-                            <td>{priceDisplay(deal.offer_price ?? deal.price)}</td>
-                            <td>
-                              {deal.seller_source ? (
-                                <span className="crm-chip" style={{ fontSize: 11 }}>
-                                  {sourceChannelLabel(deal.seller_source)}
-                                </span>
-                              ) : "—"}
-                            </td>
-                            <td>
-                              <StatusBadge
-                                label={pipelineStageLabel(deal.stage)}
-                                tone={pipelineStageTone(deal.stage)}
-                              />
-                            </td>
-                            <td style={{ color: stale ? "#dc2626" : "var(--ink-muted)", fontWeight: stale ? 600 : undefined }}>
-                              {timeLabel}
-                              {stale && <span style={{ marginLeft: 4 }}>⚠</span>}
-                            </td>
-                            <td style={{ color: overdue ? "#dc2626" : undefined, fontWeight: overdue ? 600 : undefined }}>
-                              {overdue && <span style={{ marginRight: 4 }}>⚠</span>}
-                              {dateDisplay(deal.next_followup_date)}
-                            </td>
-                            <td>
-                              {deal.tags.length > 0 ? (
-                                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                                  {deal.tags.slice(0, 2).map((tag) => (
-                                    <span key={tag} className="crm-chip" style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {deal.tags.length > 2 && (
-                                    <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>
-                                      +{deal.tags.length - 2}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          ) : pipelineTab === "acquisitions" ? (
-            /* ── Kanban board ── */
-            <div
-              style={{
-                display: "flex",
-                gap: 12,
-                overflowX: "auto",
-                alignItems: "flex-start",
-                paddingBottom: 8,
-              }}
-            >
+          {/* ── Acquisitions tab: Kanban ── */}
+          {pipelineTab === "acquisitions" && (
+            <div style={{ display: "flex", gap: 12, overflowX: "auto", alignItems: "flex-start", paddingBottom: 8 }}>
               {stageConfig.filter((s) => ACQISITION_STAGES.includes(s.value)).map(({ value: stage, label }) => {
                 const stageDeals = filteredDeals.filter((d) => d.stage === stage);
                 return (
@@ -1408,26 +1198,10 @@ export default function PipelineClient() {
                       if (id) void handleDrop(stage, id);
                     }}
                   >
-                    {/* Column header */}
-                    <div
-                      className="crm-card"
-                      style={{
-                        padding: "8px 12px",
-                        marginBottom: 8,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
-                      <span style={{ fontWeight: 600, fontSize: 13 }}>
-                        {label}
-                      </span>
-                      <span className="crm-chip" style={{ fontSize: 11 }}>
-                        {stageDeals.length}
-                      </span>
+                    <div className="crm-card" style={{ padding: "8px 12px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{label}</span>
+                      <span className="crm-chip" style={{ fontSize: 11 }}>{stageDeals.length}</span>
                     </div>
-
-                    {/* Cards */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 60 }}>
                       {stageDeals.map((deal) => {
                         const stale = isStaleForStage(deal.stage, deal.stage_entered_at, deal.updated_at);
@@ -1445,38 +1219,16 @@ export default function PipelineClient() {
                             }}
                             onClick={() => openDetail(deal)}
                             className="crm-card"
-                            style={{
-                              padding: "10px 12px",
-                              cursor: "pointer",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 6,
-                              userSelect: "none",
-                              borderLeft: stale ? "3px solid #dc2626" : undefined,
-                            }}
+                            style={{ padding: "10px 12px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 6, userSelect: "none", borderLeft: stale ? "3px solid #dc2626" : undefined }}
                           >
-                            <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>
-                              {deal.property_address || "No address"}
-                            </div>
-                            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
-                              {deal.seller_name || "—"}
-                            </div>
-                            {deal.seller_phone && (
-                              <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>
-                                {deal.seller_phone}
-                              </div>
-                            )}
+                            <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>{deal.property_address || "No address"}</div>
+                            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{deal.seller_name || "—"}</div>
+                            {deal.seller_phone && <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>{deal.seller_phone}</div>}
                             {(deal.offer_price ?? deal.price) != null && (
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
-                                {priceDisplay(deal.offer_price ?? deal.price)}
-                              </div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{priceDisplay(deal.offer_price ?? deal.price)}</div>
                             )}
                             {deal.seller_source && (
-                              <div>
-                                <span className="crm-chip" style={{ fontSize: 10 }}>
-                                  {sourceChannelLabel(deal.seller_source)}
-                                </span>
-                              </div>
+                              <div><span className="crm-chip" style={{ fontSize: 10 }}>{sourceChannelLabel(deal.seller_source)}</span></div>
                             )}
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: stale ? "#dc2626" : "var(--ink-muted)", fontWeight: stale ? 600 : undefined }}>
                               <span>{timeLabel} in stage{stale ? " ⚠" : ""}</span>
@@ -1502,7 +1254,7 @@ export default function PipelineClient() {
                 );
               })}
             </div>
-          ) : null}
+          )}
         </div>
       </div>
 
