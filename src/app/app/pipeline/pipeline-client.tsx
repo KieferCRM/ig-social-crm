@@ -7,6 +7,8 @@ import StatusBadge from "@/components/ui/status-badge";
 import { parsePositiveDecimal, formatCurrency, asInputNumber, asInputDate } from "@/lib/deal-metrics";
 import {
   PIPELINE_TAGS,
+  ACQISITION_STAGES,
+  DISPO_STAGES,
   normalizeOffMarketStage,
   pipelineStageLabel,
   pipelineStageTone,
@@ -122,6 +124,13 @@ function isStaleForStage(stage: string, stageEnteredAt: string | null, updatedAt
     return hoursInStage(stageEnteredAt, updatedAt) > 48;
   }
   return daysInStage(stageEnteredAt, updatedAt) > 14;
+}
+
+function isStaleForDispoStage(stage: string, stageEnteredAt: string | null, updatedAt: string | null): boolean {
+  const days = daysInStage(stageEnteredAt, updatedAt);
+  if (stage === "dispo_active") return days > 5;
+  if (stage === "under_contract" || stage === "buyer_under_contract") return days > 14;
+  return false;
 }
 
 function priceDisplay(value: number | null): string {
@@ -1059,38 +1068,148 @@ export default function PipelineClient() {
           )}
 
           {/* ── Dispositions tab ── */}
-          {pipelineTab === "dispositions" && (
-            <section className="crm-card crm-section-card" style={{ padding: "32px 24px", textAlign: "center" }}>
-              <div style={{ fontSize: 28, marginBottom: 12 }}>📦</div>
-              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Dispositions</div>
-              <div style={{ fontSize: 13, color: "var(--ink-muted)", maxWidth: 420, margin: "0 auto", lineHeight: 1.7 }}>
-                Dispo workflow and buyer tracking coming soon. Deals under contract and your buyers list will live here.
-              </div>
-              {deals.filter((d) => d.stage === "under_contract").length > 0 && (
-                <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8, maxWidth: 480, margin: "20px auto 0" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-muted)", marginBottom: 4 }}>
-                    Currently Under Contract
+          {pipelineTab === "dispositions" && (viewMode === "list" ? (
+            <section className="crm-card">
+              {(() => {
+                const dispoDeals = filteredDeals.filter((d) => DISPO_STAGES.includes(d.stage as OffMarketStage));
+                if (dispoDeals.length === 0) return (
+                  <div style={{ padding: "24px 20px" }}>
+                    <EmptyState title="No dispo deals yet" body="Move a deal to Under Contract to start the disposition workflow." />
                   </div>
-                  {deals.filter((d) => d.stage === "under_contract").map((deal) => (
-                    <div
-                      key={deal.id}
-                      onClick={() => openDetail(deal)}
-                      className="crm-card"
-                      style={{ padding: "10px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{deal.property_address || "No address"}</div>
-                        <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>{deal.seller_name || "—"}</div>
-                      </div>
-                      {deal.offer_price != null && (
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{priceDisplay(deal.offer_price)}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                );
+                return (
+                  <div className="crm-table-wrap">
+                    <table className="crm-data-table">
+                      <thead>
+                        <tr>
+                          <th>Property Address</th>
+                          <th>Seller</th>
+                          <th>A-B Price</th>
+                          <th>B-C Price</th>
+                          <th>Fee</th>
+                          <th>Stage</th>
+                          <th>Days in Stage</th>
+                          <th>Close Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dispoDeals.map((deal) => {
+                          const stale = isStaleForDispoStage(deal.stage, deal.stage_entered_at, deal.updated_at);
+                          const days = daysInStage(deal.stage_entered_at, deal.updated_at);
+                          const ab = parsePositiveDecimal(String(deal.offer_price ?? ""));
+                          const bc = parsePositiveDecimal(String(deal.assignment_price ?? ""));
+                          const fee = ab !== null && bc !== null ? bc - ab : null;
+                          return (
+                            <tr key={deal.id} onClick={() => openDetail(deal)} style={{ cursor: "pointer" }}>
+                              <td style={{ fontWeight: 600 }}>{deal.property_address || "—"}</td>
+                              <td>{deal.seller_name || "—"}</td>
+                              <td>{priceDisplay(deal.offer_price)}</td>
+                              <td>{priceDisplay(deal.assignment_price)}</td>
+                              <td style={{ color: fee !== null && fee >= 0 ? "#15803d" : "#dc2626", fontWeight: 600 }}>
+                                {fee !== null ? `${fee >= 0 ? "+" : ""}${formatCurrency(fee)}` : "—"}
+                              </td>
+                              <td><StatusBadge label={pipelineStageLabel(deal.stage)} tone={pipelineStageTone(deal.stage)} /></td>
+                              <td style={{ color: stale ? "#dc2626" : "var(--ink-muted)", fontWeight: stale ? 600 : undefined }}>
+                                {days}d{stale && " ⚠"}
+                              </td>
+                              <td>{dateDisplay(deal.expected_close_date)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </section>
-          )}
+          ) : (
+            <div style={{ display: "flex", gap: 12, overflowX: "auto", alignItems: "flex-start", paddingBottom: 8 }}>
+              {DISPO_STAGES.map((stage) => {
+                const stageDeals = filteredDeals.filter((d) => d.stage === stage);
+                const label = pipelineStageLabel(stage);
+                return (
+                  <div
+                    key={stage}
+                    style={{ minWidth: 230, flex: "0 0 230px" }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const id = e.dataTransfer.getData("text/plain");
+                      if (id) void handleDrop(stage, id);
+                    }}
+                  >
+                    <div className="crm-card" style={{ padding: "8px 12px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{label}</span>
+                      <span className="crm-chip" style={{ fontSize: 11 }}>{stageDeals.length}</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 60 }}>
+                      {stageDeals.map((deal) => {
+                        const stale = isStaleForDispoStage(deal.stage, deal.stage_entered_at, deal.updated_at);
+                        const days = daysInStage(deal.stage_entered_at, deal.updated_at);
+                        const ab = parsePositiveDecimal(String(deal.offer_price ?? ""));
+                        const bc = parsePositiveDecimal(String(deal.assignment_price ?? ""));
+                        const fee = ab !== null && bc !== null ? bc - ab : null;
+                        return (
+                          <div
+                            key={deal.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", deal.id);
+                              draggedDealIdRef.current = deal.id;
+                            }}
+                            onClick={() => openDetail(deal)}
+                            className="crm-card"
+                            style={{
+                              padding: "10px 12px",
+                              cursor: "pointer",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                              userSelect: "none",
+                              borderLeft: stale ? "3px solid #dc2626" : undefined,
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>
+                              {deal.property_address || "No address"}
+                            </div>
+                            <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+                              {deal.seller_name || "—"}
+                            </div>
+                            <div style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                              {deal.offer_price != null && (
+                                <span style={{ color: "var(--ink-muted)" }}>A-B: <strong>{priceDisplay(deal.offer_price)}</strong></span>
+                              )}
+                              {deal.assignment_price != null && (
+                                <span style={{ color: "var(--ink-muted)" }}>B-C: <strong>{priceDisplay(deal.assignment_price)}</strong></span>
+                              )}
+                            </div>
+                            {fee !== null && (
+                              <div style={{ fontSize: 12, fontWeight: 700, color: fee >= 0 ? "#15803d" : "#dc2626" }}>
+                                Fee: {fee >= 0 ? "+" : ""}{formatCurrency(fee)}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 11, color: stale ? "#dc2626" : "var(--ink-muted)", fontWeight: stale ? 600 : undefined }}>
+                              {days}d in stage{stale ? " ⚠" : ""}
+                            </div>
+                            {deal.tags.length > 0 && (
+                              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                                {deal.tags.map((tag) => (
+                                  <span key={tag} className="crm-chip" style={{ fontSize: 10, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: tagColor(tag, agentTags), flexShrink: 0, display: "inline-block" }} />
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
 
           {/* ── Full List tab ── */}
           {pipelineTab === "full_list" && (
@@ -1276,7 +1395,7 @@ export default function PipelineClient() {
                 paddingBottom: 8,
               }}
             >
-              {stageConfig.map(({ value: stage, label }) => {
+              {stageConfig.filter((s) => ACQISITION_STAGES.includes(s.value)).map(({ value: stage, label }) => {
                 const stageDeals = filteredDeals.filter((d) => d.stage === stage);
                 return (
                   <div

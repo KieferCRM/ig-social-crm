@@ -15,11 +15,31 @@ export const OFF_MARKET_STAGES = [
   "negotiating",
   "offer_sent",
   "under_contract",
+  "dispo_active",
+  "buyer_under_contract",
+  "assigned",
   "closed",
+  "fell_through",
   "dead",
 ] as const;
 
 export type OffMarketStage = (typeof OFF_MARKET_STAGES)[number];
+
+export const ACQISITION_STAGES: OffMarketStage[] = [
+  "prospecting",
+  "negotiating",
+  "offer_sent",
+  "under_contract",
+];
+
+export const DISPO_STAGES: OffMarketStage[] = [
+  "under_contract",
+  "dispo_active",
+  "buyer_under_contract",
+  "assigned",
+  "closed",
+  "fell_through",
+];
 
 export const PIPELINE_TAGS = [
   "Motivated Seller",
@@ -35,7 +55,11 @@ const STAGE_LABELS: Record<OffMarketStage, string> = {
   offer_sent: "Offer Out",
   negotiating: "Negotiating",
   under_contract: "Under Contract",
+  dispo_active: "Dispo Active",
+  buyer_under_contract: "Buyer Under Contract",
+  assigned: "Assigned",
   closed: "Closed",
+  fell_through: "Fell Through",
   dead: "Dead",
 };
 
@@ -44,7 +68,11 @@ const STAGE_TONES: Record<OffMarketStage, StatusBadgeTone> = {
   offer_sent: "stage-qualified",
   negotiating: "stage-active",
   under_contract: "stage-contract",
+  dispo_active: "stage-active",
+  buyer_under_contract: "stage-contract",
+  assigned: "stage-qualified",
   closed: "stage-closed",
+  fell_through: "stage-lost",
   dead: "stage-lost",
 };
 
